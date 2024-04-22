@@ -1,0 +1,33 @@
+// credit: https://github.com/BrunoB81HK/ros2-workspace-devcontainer-template
+{
+  "name": "Weed Control Unit ROS 2 Workspace",
+  "build": {
+      "dockerfile": "Dockerfile"
+  },
+  "customizations": {
+      "vscode": {
+          "extensions": [
+              "ms-python.python",
+              "charliermarsh.ruff",
+              "ms-vscode.cpptools-extension-pack",
+              "ms-iot.vscode-ros",
+              "smilerobotics.urdf",
+              "ms-azuretools.vscode-docker"
+          ],
+          "settings": {
+              "files.associations": {
+                  "*.rviz": "yaml",
+                  "*.srdf": "xml",
+                  "*.urdf": "xml",
+                  "*.xacro": "xml"
+              }
+          }
+      }
+  },
+  "workspaceFolder": "/home/rosdev/ros2_ws",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/home/rosdev/ros2_ws/src,type=bind",
+  "mounts": [],
+  "runArgs": [
+      "--net=host"
+  ]
+}
