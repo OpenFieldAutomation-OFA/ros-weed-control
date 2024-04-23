@@ -18,20 +18,18 @@ WORKDIR /home/$USERNAME/ros2_ws
 # Copy source code
 COPY --chown=$UID:$GID . src
 
+# Install Orbbec apt packages
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+    libgflags-dev \
+    nlohmann-json3-dev \
+    libgoogle-glog-dev \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install rosdep dependencies
 RUN apt-get update \
     && rosdep install -y --from-paths src --ignore-src \
     && rm -rf /var/lib/apt/lists/*
-
-# PRODUCTION STAGE ------------------------------------------------
-FROM base AS prod
-
-USER $USERNAME
-
-RUN . /opt/ros/${ROS_DISTRO}/setup.sh \
-    && colcon build
-
-# TODO: entrypoint script for launching main program
 
 # DEVELOPMENT STAGE -----------------------------------------------
 FROM base AS dev
@@ -41,8 +39,8 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
     sudo \
     neovim \
-    ros-$ROS_DISTRO-turtlesim \
-    && rm -rf /var/lib/apt/lists/*
+    ros-$ROS_DISTRO-turtlesim
+    # && rm -rf /var/lib/apt/lists/*
 
 # Add sudo privileges to user
 RUN echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
@@ -53,3 +51,12 @@ USER $USERNAME
 # Add ROS setup file to bashrc
 RUN echo "source /opt/ros/$ROS_DISTRO/setup.bash" >> ~/.bashrc
 
+# PRODUCTION STAGE ------------------------------------------------
+FROM base AS prod
+
+USER $USERNAME
+
+RUN . /opt/ros/${ROS_DISTRO}/setup.sh \
+    && colcon build
+
+# TODO: entrypoint script for launching main program
