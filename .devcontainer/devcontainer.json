@@ -2,7 +2,9 @@
 {
   "name": "Weed Control Unit ROS 2 Workspace",
   "build": {
-      "dockerfile": "Dockerfile"
+      "dockerfile": "../Dockerfile",
+      "context": "..",
+      "target": "dev"
   },
   "customizations": {
       "vscode": {
@@ -24,10 +26,11 @@
           }
       }
   },
-  "workspaceFolder": "/home/rosdev/ros2_ws",
-  "workspaceMount": "source=${localWorkspaceFolder},target=/home/rosdev/ros2_ws/src,type=bind",
+  "workspaceFolder": "/home/ros/ros2_ws",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/home/ros/ros2_ws/src,type=bind",
   "mounts": [],
   "runArgs": [
-      "--net=host"
+      "--net=host",
+      "-e", "DISPLAY=${env:DISPLAY}"
   ]
 }
