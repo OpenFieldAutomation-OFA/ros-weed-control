@@ -4,9 +4,9 @@ This repo contains all ROS 2 packages that were developed for the OFA Weed Contr
 <!-- TODO: detailed explanation, some images -->
 
 ## Docker Setup (Recommended)
-We use Docker to simplify deployment and development of our application. The `Dockerfile` has a `prod` and `dev` stage.
+We use Docker to simplify deployment and development of our application.
 
-To use Docker you first have to install it on your host machine. Then clone this repository and go into the top-level folder.
+First, install Docker and Docker Compose using the [official install guide](https://docs.docker.com/engine/install/ubuntu/). Then clone this repository and go into the top-level folder.
 ```bash
 git clone https://github.com/janmacro/ofa-weed-control-ros.git
 cd ofa-weed-control-ros
@@ -15,8 +15,8 @@ cd ofa-weed-control-ros
 ### Deployment
 To deploy the application you only need to build and run the `prod` docker container.
 ```bash
-docker build --target=prod -t ofa_container .
-docker run ofa_container COMMAND
+docker build --target=prod -t weed_control .
+docker run weed_control COMMAND
 ```
 <!-- TODO: explain different commands -->
 
