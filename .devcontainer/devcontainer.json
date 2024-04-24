@@ -26,8 +26,8 @@
           }
       }
   },
-  "workspaceFolder": "/opt/overlay",
-  "workspaceMount": "source=${localWorkspaceFolder},target=/opt/overlay/src,type=bind",
+  "workspaceFolder": "/home/ros/overlay",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/home/ros/overlay/src,type=bind",
   "mounts": [],
   "runArgs": [
       "--net=host",
