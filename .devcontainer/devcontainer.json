@@ -28,9 +28,10 @@
   },
   "workspaceFolder": "/home/ros/overlay",
   "workspaceMount": "source=${localWorkspaceFolder},target=/home/ros/overlay/src,type=bind",
-  "mounts": [],
+  "mounts": ["source=/dev/bus/usb,target=/dev/bus/usb,type=bind"],
   "runArgs": [
       "--net=host",
-      "-e", "DISPLAY=${env:DISPLAY}"
+      "-e", "DISPLAY=${env:DISPLAY}",
+      "--device-cgroup-rule", "c 189:* rmw"
   ]
 }

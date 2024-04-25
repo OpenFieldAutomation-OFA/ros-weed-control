@@ -3,13 +3,18 @@ This repo contains all ROS 2 packages that were developed for the OFA Weed Contr
 
 <!-- TODO: detailed explanation, some images -->
 
-## Docker Setup (Recommended)
+## Docker Setup
 We use Docker to simplify deployment and development of our application.
 
-First, install Docker and Docker Compose using the [official install guide](https://docs.docker.com/engine/install/ubuntu/). Then clone this repository and go into the top-level folder.
+First, install Docker using the [official install guide](https://docs.docker.com/engine/install/ubuntu/). Then clone this repository and go into the top-level folder.
 ```bash
 git clone https://github.com/janmacro/ofa-weed-control-ros.git
 cd ofa-weed-control-ros
+```
+
+You also need to install the udev rules for the camera on the host OS.
+```bash
+sudo ./setup
 ```
 
 ### Deployment
@@ -18,7 +23,9 @@ To deploy the application you only need to build and run the `prod` docker conta
 docker build --target=prod -t weed_control .
 docker run weed_control COMMAND
 ```
-<!-- TODO: explain different commands -->
+<!-- TODO: explain different commands, e. g.
+docker run --net=host -e "DISPLAY=$DISPLAY" weed_control ros2 launch ofa_visualization display1.launch.py
+-->
 
 ### Development
 For development we use [Dev Containers](https://code.visualstudio.com/docs/devcontainers/containers).
@@ -28,12 +35,4 @@ To get started just open the `ofa-weed-control-ros` folder in VS Code and run **
 After that you can run all the same commands as specified above.
 
 ## Local Setup
-If you do not want to use Docker and you have ROS 2 installed locally, you can directly clone this repo into your `src` folder. You can use the following commands to setup a new workspace.
-```bash
-mkdir -p ros2_ws/src
-cd ros2_ws
-git clone https://github.com/janmacro/ofa-weed-control-ros.git
-```
-Then you need to clone the external dependencies with `vcstool`.
-
-<!-- TODO: complete local setup (equivalent to Dockerfile) -->
+TODO

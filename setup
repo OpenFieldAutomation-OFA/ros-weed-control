@@ -1,0 +1,6 @@
+#!/bin/bash
+
+# Install udev rules
+wget -q https://raw.githubusercontent.com/orbbec/OrbbecSDK_ROS2/master/orbbec_camera/scripts/99-obsensor-libusb.rules
+wget -qO - https://raw.githubusercontent.com/orbbec/OrbbecSDK_ROS2/master/orbbec_camera/scripts/install_udev_rules.sh | bash
+rm 99-obsensor-libusb.rules

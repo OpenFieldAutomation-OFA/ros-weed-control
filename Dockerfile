@@ -86,4 +86,3 @@ RUN echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
 # Add ROS setup file to bashrc
 USER $USERNAME
 RUN echo "source /home/ros/underlay/install/setup.bash" >> ~/.bashrc
-
