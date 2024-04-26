@@ -76,6 +76,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends \
     sudo \
     neovim \
+    usbutils \
     ros-$ROS_DISTRO-turtlesim
     # && rm -rf /var/lib/apt/lists/*
 
