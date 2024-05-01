@@ -21,6 +21,14 @@ RUN groupadd --gid $GID $USERNAME \
 USER $USERNAME
 WORKDIR /home/ros/underlay/src
 
+# Setup colcon mixin and metadata
+RUN colcon mixin add default \
+      https://raw.githubusercontent.com/colcon/colcon-mixin-repository/master/index.yaml && \
+    colcon mixin update && \
+    colcon metadata add default \
+      https://raw.githubusercontent.com/colcon/colcon-metadata-repository/master/index.yaml && \
+    colcon metadata update
+
 # Clone external dependencies
 COPY --chown=$UID:$GID dependencies.repos .
 RUN vcs import  < dependencies.repos
@@ -77,13 +85,16 @@ RUN apt-get update \
     sudo \
     neovim \
     usbutils \
-    ros-$ROS_DISTRO-turtlesim
+    ros-$ROS_DISTRO-turtlesim \
+    ros-$ROS_DISTRO-ros2-control \
+    ros-$ROS_DISTRO-ros2-controllers \
+    ros-${ROS_DISTRO}-moveit
     # && rm -rf /var/lib/apt/lists/*
 
 # Add sudo privileges to user
 RUN echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
     && chmod 0440 /etc/sudoers.d/$USERNAME
 
-# Add ROS setup file to bashrc
+# Source underlay in bashrc
 USER $USERNAME
 RUN echo "source /home/ros/underlay/install/setup.bash" >> ~/.bashrc
