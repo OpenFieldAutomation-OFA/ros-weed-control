@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<!-- Weed Control Unit Robot Arm -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="weed_arm">
+  
+  <!-- Enable setting arguments from the launch file -->
+  <xacro:arg name="prefix" default="" />
+  <xacro:arg name="use_mock_hardware" default="false" />
+
+  <!-- Import robot macro -->
+   <xacro:include filename="robot_description.urdf.xacro" />
+
+  <!-- Import materials and inertia macros -->
+  <xacro:include filename="inertia.urdf.xacro" />
+  <xacro:include filename="materials.urdf.xacro" />
+
+  <!-- Import ros2_control description -->
+  <xacro:include filename="ros2_control/2dof_arm.ros2_control.xacro" />
+  <!-- <xacro:include filename="ros2_control/linear_axis.ros2_control.xacro" /> -->
+
+  <!-- Used for fixing robot -->
+  <link name="world"/>
+
+  <xacro:weed_robot parent="world" prefix="$(arg prefix)" />
+
+  <xacro:arm_ros2_control
+    name="2dof_arm" prefix="$(arg prefix)" use_mock_hardware="$(arg use_mock_hardware)"/>
+  <!-- <xacro:linear_axis_ros2_control name="linear_axis" prefix="$(arg prefix)" /> -->
+
+</robot>
