@@ -24,12 +24,12 @@ endforeach()
 add_library(
   cubemars_ros2_control
   SHARED
-  src/cubemars_hardware_interface.cpp
+  src/cubemars_system.cpp
 )
 target_compile_features(cubemars_ros2_control PUBLIC cxx_std_17)
 target_include_directories(cubemars_ros2_control PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include/${PROJECT_NAME}>)
+  $<INSTALL_INTERFACE:include/cubemars_ros2_control>)
 ament_target_dependencies(
   cubemars_ros2_control PUBLIC
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
@@ -45,7 +45,7 @@ pluginlib_export_plugin_description_file(hardware_interface cubemars_ros2_contro
 
 # INSTALL
 install(
-  DIRECTORY src/include/
+  DIRECTORY include/
   DESTINATION include/cubemars_ros2_control
 )
 install(TARGETS cubemars_ros2_control

@@ -1,5 +1,5 @@
 # CubeMars AK Parameters
-This folder contains the parameters for the CubeMars AK70-10 motors. We use the default parameters and only adapted the encoder offset and the PID parameters.
+This folder contains the parameters for the CubeMars AK70-10 motors. We use the default parameters and only changed the encoder offset and the PID parameters.
 
 In order to load the parameters you have to execute the following steps:
 1. Open CubeMarstool_v1.32.exe
@@ -8,5 +8,5 @@ In order to load the parameters you have to execute the following steps:
 4. Click "Import Settings" and choose the McParams and AppParams file
 5. Click  "Write Parameters"
 
-Changing parameters can be done directly in the CubeMars UI or by editing the McParams file and then following the above procedure.
+Changing parameters can be done directly in the CubeMars UI or by editing the McParams/AppParams file and then following the above procedure.
 

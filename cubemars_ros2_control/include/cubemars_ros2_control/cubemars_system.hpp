@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef CUBEMARS_ROS2_CONTROL__RRBOT_HPP_
-#define CUBEMARS_ROS2_CONTROL__RRBOT_HPP_
+#ifndef CUBEMARS_ROS2_CONTROL__HADRWARE_INTERFACE_HPP_
+#define CUBEMARS_ROS2_CONTROL__HADRWARE_INTERFACE_HPP_
 
 #include <memory>
 #include <string>
@@ -26,11 +26,12 @@
 #include "rclcpp/macros.hpp"
 #include "rclcpp_lifecycle/node_interfaces/lifecycle_node_interface.hpp"
 #include "rclcpp_lifecycle/state.hpp"
+
 #include "cubemars_ros2_control/visibility_control.h"
 
 namespace cubemars_ros2_control
 {
-class RRBotSystemPositionOnlyHardware : public hardware_interface::SystemInterface
+class HARDWARE_INTERFACE_PUBLIC CubeMarsSystemHardware : public hardware_interface::SystemInterface
 {
 public:
   RCLCPP_SHARED_PTR_DEFINITIONS(RRBotSystemPositionOnlyHardware);
@@ -41,6 +42,10 @@ public:
 
   CUBEMARS_ROS2_CONTROL_PUBLIC
   hardware_interface::CallbackReturn on_configure(
+    const rclcpp_lifecycle::State & previous_state) override;
+
+  CUBEMARS_ROS2_CONTROL_PUBLIC
+  hardware_interface::CallbackReturn on_cleanup(
     const rclcpp_lifecycle::State & previous_state) override;
 
   CUBEMARS_ROS2_CONTROL_PUBLIC
@@ -64,18 +69,29 @@ public:
   CUBEMARS_ROS2_CONTROL_PUBLIC
   hardware_interface::return_type write(
     const rclcpp::Time & time, const rclcpp::Duration & period) override;
+  
+  CUBEMARS_ROS2_CONTROL_PUBLIC
+  hardware_interface::return_type perform_command_mode_switch(
+    const std::vector<std::string>& start_interfaces,
+    const std::vector<std::string>& stop_interfaces
+  ) override;
 
 private:
-  // Parameters for the RRBot simulation
-  double hw_start_sec_;
-  double hw_stop_sec_;
-  double hw_slowdown_;
+  /// The size of this vector is (standard_interfaces_.size() x nr_joints)
+  std::vector<double> joint_position_command_;
+  std::vector<double> joint_velocities_command_;
+  std::vector<double> joint_position_;
+  std::vector<double> joint_velocities_;
 
-  // Store the command for the simulated robot
-  std::vector<double> hw_commands_;
-  std::vector<double> hw_states_;
+  void on_can_msg(const can_frame& frame);
+
+  // EpollEventLoop event_loop_;
+  std::vector<Axis> axes_;
+  std::string can_intf_name_;
+  // SocketCanIntf can_intf_;
+  rclcpp::Time timestamp_;
 };
 
 }  // namespace cubemars_ros2_control
 
-#endif  // CUBEMARS_ROS2_CONTROL__RRBOT_HPP_
+#endif  // CUBEMARS_ROS2_CONTROL__HADRWARE_INTERFACE_HPP_

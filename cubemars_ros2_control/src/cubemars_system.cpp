@@ -1,120 +1,37 @@
 // credit: https://github.com/odriverobotics/ros_odrive
+
+#include "cubemars_ros2_control/cubemars_system.hpp"
+
+#include <linux/can.h>
+
 #include "hardware_interface/system_interface.hpp"
 #include "hardware_interface/types/hardware_interface_type_values.hpp"
 #include "rclcpp/rclcpp.hpp"
 
-namespace cubemars_ros2_control {
+namespace cubemars_ros2_control
+{
+hardware_interface::CallbackReturn CubeMarsSystemHardware::on_init(
+  const hardware_interface::HardwareInfo & info)
+{
+  if (
+    hardware_interface::SystemInterface::on_init(info) !=
+    hardware_interface::CallbackReturn::SUCCESS)
+  {
+    return hardware_interface::CallbackReturn::ERROR;
+  }
 
-class Axis;
+  can_intf_name_ = info_.hardware_parameters["can"];
 
-class CubeMarsHardwareInterface final : public hardware_interface::SystemInterface {
-public:
-    using return_type = hardware_interface::return_type;
-    using State = rclcpp_lifecycle::State;
 
-    CallbackReturn on_init(const hardware_interface::HardwareInfo& info) override;
-    CallbackReturn on_configure(const State& previous_state) override;
-    CallbackReturn on_cleanup(const State& previous_state) override;
-    CallbackReturn on_activate(const State& previous_state) override;
-    CallbackReturn on_deactivate(const State& previous_state) override;
+//   for (const hardware_interface::ComponentInfo & joint : info_.joints)
+//   {
+//      TODO: checks
+//   }
 
-    std::vector<hardware_interface::StateInterface> export_state_interfaces() override;
-    std::vector<hardware_interface::CommandInterface> export_command_interfaces() override;
-
-    return_type perform_command_mode_switch(
-        const std::vector<std::string>& start_interfaces,
-        const std::vector<std::string>& stop_interfaces
-    ) override;
-
-    return_type read(const rclcpp::Time&, const rclcpp::Duration&) override;
-    return_type write(const rclcpp::Time&, const rclcpp::Duration&) override;
-
-private:
-    void on_can_msg(const can_frame& frame);
-
-    EpollEventLoop event_loop_;
-    std::vector<Axis> axes_;
-    std::string can_intf_name_;
-    SocketCanIntf can_intf_;
-    rclcpp::Time timestamp_;
-};
-
-struct Axis {
-    Axis(SocketCanIntf* can_intf, uint32_t node_id) : can_intf_(can_intf), node_id_(node_id) {}
-
-    void on_can_msg(const rclcpp::Time& timestamp, const can_frame& frame);
-
-    void on_can_msg();
-
-    SocketCanIntf* can_intf_;
-    uint32_t node_id_;
-
-    // Commands (ros2_control => ODrives)
-    double pos_setpoint_ = 0.0f; // [rad]
-    double vel_setpoint_ = 0.0f; // [rad/s]
-    double torque_setpoint_ = 0.0f; // [Nm]
-
-    // State (ODrives => ros2_control)
-    // rclcpp::Time encoder_estimates_timestamp_;
-    // uint32_t axis_error_ = 0;
-    // uint8_t axis_state_ = 0;
-    // uint8_t procedure_result_ = 0;
-    // uint8_t trajectory_done_flag_ = 0;
-    double pos_estimate_ = NAN; // [rad]
-    double vel_estimate_ = NAN; // [rad/s]
-    // double iq_setpoint_ = NAN;
-    // double iq_measured_ = NAN;
-    double torque_target_ = NAN; // [Nm]
-    double torque_estimate_ = NAN; // [Nm]
-    // uint32_t active_errors_ = 0;
-    // uint32_t disarm_reason_ = 0;
-    // double fet_temperature_ = NAN;
-    // double motor_temperature_ = NAN;
-    // double bus_voltage_ = NAN;
-    // double bus_current_ = NAN;
-
-    // Indicates which controller inputs are enabled. This is configured by the
-    // controller that sits on top of this hardware interface. Multiple inputs
-    // can be enabled at the same time, in this case the non-primary inputs are
-    // used as feedforward terms.
-    // This implicitly defines the ODrive's control mode.
-    bool pos_input_enabled_ = false;
-    bool vel_input_enabled_ = false;
-    bool torque_input_enabled_ = false;
-
-    template <typename T>
-    void send(const T& msg) {
-        struct can_frame frame;
-        frame.can_id = node_id_ << 5 | msg.cmd_id;
-        frame.can_dlc = msg.msg_length;
-        msg.encode_buf(frame.data);
-
-        can_intf_->send_can_frame(frame);
-    }
-};
-
-} // namespace odrive_ros2_control
-
-using namespace odrive_ros2_control;
-
-using hardware_interface::CallbackReturn;
-using hardware_interface::return_type;
-
-CallbackReturn ODriveHardwareInterface::on_init(const hardware_interface::HardwareInfo& info) {
-    if (hardware_interface::SystemInterface::on_init(info) != CallbackReturn::SUCCESS) {
-        return CallbackReturn::ERROR;
-    }
-
-    can_intf_name_ = info_.hardware_parameters["can"];
-
-    for (auto& joint : info_.joints) {
-        axes_.emplace_back(&can_intf_, std::stoi(joint.parameters.at("node_id")));
-    }
-
-    return CallbackReturn::SUCCESS;
+  return CallbackReturn::SUCCESS;
 }
 
-CallbackReturn ODriveHardwareInterface::on_configure(const State&) {
+hardware_interface::CallbackReturn CubeMarsSystemHardware::on_configure(const rclcpp_lifecycle::State&) {
     if (!can_intf_.init(can_intf_name_, &event_loop_, std::bind(&ODriveHardwareInterface::on_can_msg, this, _1))) {
         RCLCPP_ERROR(rclcpp::get_logger("ODriveHardwareInterface"), "Failed to initialize SocketCAN on %s", can_intf_name_.c_str());
         return CallbackReturn::ERROR;
@@ -190,7 +107,7 @@ std::vector<hardware_interface::CommandInterface> ODriveHardwareInterface::expor
             info_.joints[i].name,
             hardware_interface::HW_IF_POSITION,
             &axes_[i].pos_setpoint_
-        ));
+        )); 
     }
 
     return command_interfaces;
@@ -338,6 +255,8 @@ void Axis::on_can_msg(const rclcpp::Time&, const can_frame& frame) {
     }
 }
 
+}  // namespace cubemars_ros2_control
+
 #include "pluginlib/class_list_macros.hpp"
 PLUGINLIB_EXPORT_CLASS(
-    cubemars_ros2_control::CubeMarsHardwareInterface, hardware_interface::SystemInterface)
+    cubemars_ros2_control::CubeMarsSystemHardware, hardware_interface::SystemInterface)

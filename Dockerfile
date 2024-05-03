@@ -85,6 +85,7 @@ RUN apt-get update \
     sudo \
     neovim \
     usbutils \
+    net-tools \
     ros-$ROS_DISTRO-turtlesim \
     ros-$ROS_DISTRO-ros2-control \
     ros-$ROS_DISTRO-ros2-controllers \
