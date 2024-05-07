@@ -3,7 +3,7 @@
          type="cubemars_hardware::CubeMarsSystemHardware"
          base_class_type="hardware_interface::SystemInterface">
     <description>
-      CubeMars plugin for ros2_control.
+      The ros2_control CubeMars plugin using a system hardware interface-type.
     </description>
   </class>
 </library>
