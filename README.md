@@ -6,11 +6,9 @@ This repo contains all ROS 2 packages that were developed for the OFA Weed Contr
 ## Hardware
 <!-- TODO: describe hardware and wiring -->
 
-## Docker
-We use Docker to simplify deployment and development of our application.
-
-### Host Setup
-Even though Docker handles most of our setup, certain things still have to be configured on the host OS directly.
+## Setup
+### Host
+Even though Docker handles most of our setup (explained below), certain things still have to be configured on the host OS directly.
 
 The following steps describe the setup on a reComputer Industrial J40 flashed with JetPack 5.1.1. If you use different hardware you will have to figure out how to reproduce the setup yourself.
 
@@ -58,8 +56,10 @@ The following steps describe the setup on a reComputer Industrial J40 flashed wi
     git clone https://github.com/janmacro/ofa-weed-control-ros.git
     ```
 
+### Docker
+We use Docker to simplify deployment and development of our application.
 
-### Deployment
+#### Deployment
 To deploy the application you only need to build and run the `prod` docker container.
 ```bash
 cd ofa-weed-control-ros
@@ -67,15 +67,17 @@ docker build --target=prod -t weed_control .
 docker run weed_control COMMAND
 ```
 <!-- TODO: explain different commands, e. g.
-docker run --net=host -e "DISPLAY=$DISPLAY" weed_control ros2 launch ofa_visualization display1.launch.py
+docker run --net=host -e "DISPLAY=$DISPLAY" weed_control ros2 launch ofa_description display1.launch.py
 -->
 
-### Development
+#### Development
 For development we use [Dev Containers](https://code.visualstudio.com/docs/devcontainers/containers).
 
 To get started just open the `ofa-weed-control-ros` folder in VS Code and run **Dev Containers: Rebuild and Reopen in Container**. This will automatically build and run the container with `--target=dev` (specified in the `.devcontainer/devcontainer.json` file). Then open two new terminals, one for running `colcon build` and one for sourcing the workspace (using two terminals avoids [install artifacts](https://colcon.readthedocs.io/en/released/user/what-is-a-workspace.html#install-artifacts)).
 
 After that you can run all the same commands as specified above.
 
-## Non-Docker
+### Non-Docker
+If you do not want to use Docker you can also install the application on the host.
+
 TODO

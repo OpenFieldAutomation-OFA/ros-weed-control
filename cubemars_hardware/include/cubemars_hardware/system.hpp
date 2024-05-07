@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef CUBEMARS_ROS2_CONTROL__HADRWARE_INTERFACE_HPP_
-#define CUBEMARS_ROS2_CONTROL__HADRWARE_INTERFACE_HPP_
+#ifndef CUBEMARS_HARDWARE__SYSTEM_HPP_
+#define CUBEMARS_HARDWARE__SYSTEM_HPP_
 
 #include <memory>
 #include <string>
@@ -27,50 +27,51 @@
 #include "rclcpp_lifecycle/node_interfaces/lifecycle_node_interface.hpp"
 #include "rclcpp_lifecycle/state.hpp"
 
-#include "cubemars_ros2_control/visibility_control.h"
+#include "cubemars_hardware/visibility_control.h"
+#include "cubemars_hardware/can_interface.hpp"
 
-namespace cubemars_ros2_control
+namespace cubemars_hardware
 {
-class HARDWARE_INTERFACE_PUBLIC CubeMarsSystemHardware : public hardware_interface::SystemInterface
+class CubeMarsSystemHardware : public hardware_interface::SystemInterface
 {
 public:
-  RCLCPP_SHARED_PTR_DEFINITIONS(RRBotSystemPositionOnlyHardware);
+  RCLCPP_SHARED_PTR_DEFINITIONS(CubeMarsSystemHardware);
 
-  CUBEMARS_ROS2_CONTROL_PUBLIC
+  CUBEMARS_HARDWARE_PUBLIC
   hardware_interface::CallbackReturn on_init(
     const hardware_interface::HardwareInfo & info) override;
 
-  CUBEMARS_ROS2_CONTROL_PUBLIC
+  CUBEMARS_HARDWARE_PUBLIC
   hardware_interface::CallbackReturn on_configure(
     const rclcpp_lifecycle::State & previous_state) override;
 
-  CUBEMARS_ROS2_CONTROL_PUBLIC
+  CUBEMARS_HARDWARE_PUBLIC
   hardware_interface::CallbackReturn on_cleanup(
     const rclcpp_lifecycle::State & previous_state) override;
 
-  CUBEMARS_ROS2_CONTROL_PUBLIC
+  CUBEMARS_HARDWARE_PUBLIC
   std::vector<hardware_interface::StateInterface> export_state_interfaces() override;
 
-  CUBEMARS_ROS2_CONTROL_PUBLIC
+  CUBEMARS_HARDWARE_PUBLIC
   std::vector<hardware_interface::CommandInterface> export_command_interfaces() override;
 
-  CUBEMARS_ROS2_CONTROL_PUBLIC
+  CUBEMARS_HARDWARE_PUBLIC
   hardware_interface::CallbackReturn on_activate(
     const rclcpp_lifecycle::State & previous_state) override;
 
-  CUBEMARS_ROS2_CONTROL_PUBLIC
+  CUBEMARS_HARDWARE_PUBLIC
   hardware_interface::CallbackReturn on_deactivate(
     const rclcpp_lifecycle::State & previous_state) override;
 
-  CUBEMARS_ROS2_CONTROL_PUBLIC
+  CUBEMARS_HARDWARE_PUBLIC
   hardware_interface::return_type read(
     const rclcpp::Time & time, const rclcpp::Duration & period) override;
 
-  CUBEMARS_ROS2_CONTROL_PUBLIC
+  CUBEMARS_HARDWARE_PUBLIC
   hardware_interface::return_type write(
     const rclcpp::Time & time, const rclcpp::Duration & period) override;
   
-  CUBEMARS_ROS2_CONTROL_PUBLIC
+  CUBEMARS_HARDWARE_PUBLIC
   hardware_interface::return_type perform_command_mode_switch(
     const std::vector<std::string>& start_interfaces,
     const std::vector<std::string>& stop_interfaces
@@ -83,15 +84,12 @@ private:
   std::vector<double> joint_position_;
   std::vector<double> joint_velocities_;
 
-  void on_can_msg(const can_frame& frame);
-
-  // EpollEventLoop event_loop_;
-  std::vector<Axis> axes_;
-  std::string can_intf_name_;
-  // SocketCanIntf can_intf_;
+  
+  CanInterfaceSocketCAN can_interface_;
+  std::string can_port_;
   rclcpp::Time timestamp_;
 };
 
-}  // namespace cubemars_ros2_control
+}  // namespace cubemars_hardware
 
-#endif  // CUBEMARS_ROS2_CONTROL__HADRWARE_INTERFACE_HPP_
+#endif  // CUBEMARS_HARDWARE__SYSTEM_HPP_

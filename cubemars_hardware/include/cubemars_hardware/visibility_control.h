@@ -19,38 +19,38 @@
  * library cannot have, but the consuming code must have inorder to link.
  */
 
-#ifndef CUBEMARS_ROS2_CONTROL__VISIBILITY_CONTROL_H_
-#define CUBEMARS_ROS2_CONTROL__VISIBILITY_CONTROL_H_
+#ifndef CUBEMARS_HARDWARE__VISIBILITY_CONTROL_H_
+#define CUBEMARS_HARDWARE__VISIBILITY_CONTROL_H_
 
 // This logic was borrowed (then namespaced) from the examples on the gcc wiki:
 //     https://gcc.gnu.org/wiki/Visibility
 
 #if defined _WIN32 || defined __CYGWIN__
 #ifdef __GNUC__
-#define CUBEMARS_ROS2_CONTROL_EXPORT __attribute__((dllexport))
-#define CUBEMARS_ROS2_CONTROL_IMPORT __attribute__((dllimport))
+#define CUBEMARS_HARDWARE_EXPORT __attribute__((dllexport))
+#define CUBEMARS_HARDWARE_IMPORT __attribute__((dllimport))
 #else
-#define CUBEMARS_ROS2_CONTROL_EXPORT __declspec(dllexport)
-#define CUBEMARS_ROS2_CONTROL_IMPORT __declspec(dllimport)
+#define CUBEMARS_HARDWARE_EXPORT __declspec(dllexport)
+#define CUBEMARS_HARDWARE_IMPORT __declspec(dllimport)
 #endif
-#ifdef CUBEMARS_ROS2_CONTROL_BUILDING_DLL
-#define CUBEMARS_ROS2_CONTROL_PUBLIC CUBEMARS_ROS2_CONTROL_EXPORT
+#ifdef CUBEMARS_HARDWARE_BUILDING_DLL
+#define CUBEMARS_HARDWARE_PUBLIC CUBEMARS_HARDWARE_EXPORT
 #else
-#define CUBEMARS_ROS2_CONTROL_PUBLIC CUBEMARS_ROS2_CONTROL_IMPORT
+#define CUBEMARS_HARDWARE_PUBLIC CUBEMARS_HARDWARE_IMPORT
 #endif
-#define CUBEMARS_ROS2_CONTROL_PUBLIC_TYPE CUBEMARS_ROS2_CONTROL_PUBLIC
-#define CUBEMARS_ROS2_CONTROL_LOCAL
+#define CUBEMARS_HARDWARE_PUBLIC_TYPE CUBEMARS_HARDWARE_PUBLIC
+#define CUBEMARS_HARDWARE_LOCAL
 #else
-#define CUBEMARS_ROS2_CONTROL_EXPORT __attribute__((visibility("default")))
-#define CUBEMARS_ROS2_CONTROL_IMPORT
+#define CUBEMARS_HARDWARE_EXPORT __attribute__((visibility("default")))
+#define CUBEMARS_HARDWARE_IMPORT
 #if __GNUC__ >= 4
-#define CUBEMARS_ROS2_CONTROL_PUBLIC __attribute__((visibility("default")))
-#define CUBEMARS_ROS2_CONTROL_LOCAL __attribute__((visibility("hidden")))
+#define CUBEMARS_HARDWARE_PUBLIC __attribute__((visibility("default")))
+#define CUBEMARS_HARDWARE_LOCAL __attribute__((visibility("hidden")))
 #else
-#define CUBEMARS_ROS2_CONTROL_PUBLIC
-#define CUBEMARS_ROS2_CONTROL_LOCAL
+#define CUBEMARS_HARDWARE_PUBLIC
+#define CUBEMARS_HARDWARE_LOCAL
 #endif
-#define CUBEMARS_ROS2_CONTROL_PUBLIC_TYPE
+#define CUBEMARS_HARDWARE_PUBLIC_TYPE
 #endif
 
-#endif  // CUBEMARS_ROS2_CONTROL__VISIBILITY_CONTROL_H_
+#endif  // CUBEMARS_HARDWARE__VISIBILITY_CONTROL_H_

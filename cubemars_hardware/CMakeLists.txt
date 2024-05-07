@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(cubemars_ros2_control LANGUAGES CXX)
+project(cubemars_hardware LANGUAGES CXX)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "(GNU|Clang)")
   add_compile_options(-Wall -Wextra)
@@ -22,34 +22,34 @@ endforeach()
 
 ## COMPILE
 add_library(
-  cubemars_ros2_control
+  cubemars_hardware
   SHARED
-  src/cubemars_system.cpp
+  src/system.cpp
 )
-target_compile_features(cubemars_ros2_control PUBLIC cxx_std_17)
-target_include_directories(cubemars_ros2_control PUBLIC
+target_compile_features(cubemars_hardware PUBLIC cxx_std_17)
+target_include_directories(cubemars_hardware PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include/cubemars_ros2_control>)
+  $<INSTALL_INTERFACE:include/cubemars_hardware>)
 ament_target_dependencies(
-  cubemars_ros2_control PUBLIC
+  cubemars_hardware PUBLIC
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
 
 
 # Causes the visibility macros to use dllexport rather than dllimport,
 # which is appropriate when building the dll but not consuming it.
-target_compile_definitions(${PROJECT_NAME} PRIVATE "CUBEMARS_ROS2_CONTROL_BUILDING_DLL")
+target_compile_definitions(${PROJECT_NAME} PRIVATE "cubemars_hardware_BUILDING_DLL")
 
 # Export hardware plugins
-pluginlib_export_plugin_description_file(hardware_interface cubemars_ros2_control.xml)
+pluginlib_export_plugin_description_file(hardware_interface cubemars_hardware.xml)
 
 # INSTALL
 install(
   DIRECTORY include/
-  DESTINATION include/cubemars_ros2_control
+  DESTINATION include/cubemars_hardware
 )
-install(TARGETS cubemars_ros2_control
-  EXPORT export_cubemars_ros2_control
+install(TARGETS cubemars_hardware
+  EXPORT export_cubemars_hardware
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
@@ -68,6 +68,6 @@ if(BUILD_TESTING)
 endif()
 
 ## EXPORTS
-ament_export_targets(export_cubemars_ros2_control HAS_LIBRARY_TARGET)
+ament_export_targets(export_cubemars_hardware HAS_LIBRARY_TARGET)
 ament_export_dependencies(${THIS_PACKAGE_INCLUDE_DEPENDS})
 ament_package()

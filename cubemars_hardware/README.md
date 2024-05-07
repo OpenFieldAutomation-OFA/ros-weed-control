@@ -1,6 +1,6 @@
-# cubemars_ros2_control
+# cubemars_hardware
 
-This package contains a hardware interface to control the CubeMars AK series motors with [ros2_control](https://control.ros.org/master/index.html). It was tested on the AK70-10.
+This package contains the [ros2_control](https://control.ros.org/master/index.html) hardware interface to control the CubeMars AK series motors with a  `SystemInterface`. It was tested on the AK70-10.
 
 It implements the following hardware interfaces:
 ...

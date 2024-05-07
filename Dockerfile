@@ -89,7 +89,8 @@ RUN apt-get update \
     ros-$ROS_DISTRO-turtlesim \
     ros-$ROS_DISTRO-ros2-control \
     ros-$ROS_DISTRO-ros2-controllers \
-    ros-${ROS_DISTRO}-moveit
+    ros-$ROS_DISTRO-moveit
+    # ros-$ROS_DISTRO-ros-gz
     # && rm -rf /var/lib/apt/lists/*
 
 # Add sudo privileges to user
