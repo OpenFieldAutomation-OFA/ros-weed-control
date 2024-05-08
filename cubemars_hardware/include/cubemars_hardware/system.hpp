@@ -27,7 +27,7 @@
 #include "rclcpp_lifecycle/node_interfaces/lifecycle_node_interface.hpp"
 #include "rclcpp_lifecycle/state.hpp"
 #include "cubemars_hardware/visibility_control.h"
-#include "cubemars_hardware/can_interface.hpp"
+#include "cubemars_hardware/socket_can.hpp"
 
 namespace cubemars_hardware
 {
@@ -76,7 +76,7 @@ private:
   std::vector<double> hw_commands_;
   std::vector<double> hw_states_;
 
-  CanInterfaceSocketCAN can_interface_;
+  SocketCanInterface can_interface_;
   std::string can_port_;
 };
 

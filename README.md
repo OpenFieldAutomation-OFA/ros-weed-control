@@ -45,7 +45,7 @@ The following steps describe the setup on a reComputer Industrial J40 flashed wi
     echo 'SUBSYSTEMS=="usb", ATTRS{idVendor}=="2bc5", ATTRS{idProduct}=="066b", MODE:="0666",  OWNER:="root", GROUP:="video", SYMLINK+="Femto Bolt"' | sudo tee /etc/udev/rules.d/99-obsensor-libusb.rules
     sudo udevadm control --reload-rules && sudo udevadm trigger
     ```
-5. Enable the CAN interface on startup.
+5. Enable the CAN interface on boot.
     ```bash
     sudo rm /etc/modprobe.d/denylist-mttcan.conf
     sudo systemctl enable systemd-networkd

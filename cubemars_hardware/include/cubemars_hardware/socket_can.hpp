@@ -8,7 +8,7 @@ namespace cubemars_hardware
 /**
  * @brief CAN access via SocketCAN (Linux)
  */
-class CanInterfaceSocketCAN
+class SocketCanInterface
 {
 public:
   /**
