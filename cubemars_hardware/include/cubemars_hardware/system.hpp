@@ -26,7 +26,6 @@
 #include "rclcpp/macros.hpp"
 #include "rclcpp_lifecycle/node_interfaces/lifecycle_node_interface.hpp"
 #include "rclcpp_lifecycle/state.hpp"
-
 #include "cubemars_hardware/visibility_control.h"
 #include "cubemars_hardware/can_interface.hpp"
 
@@ -43,10 +42,6 @@ public:
 
   CUBEMARS_HARDWARE_PUBLIC
   hardware_interface::CallbackReturn on_configure(
-    const rclcpp_lifecycle::State & previous_state) override;
-
-  CUBEMARS_HARDWARE_PUBLIC
-  hardware_interface::CallbackReturn on_cleanup(
     const rclcpp_lifecycle::State & previous_state) override;
 
   CUBEMARS_HARDWARE_PUBLIC
@@ -70,24 +65,19 @@ public:
   CUBEMARS_HARDWARE_PUBLIC
   hardware_interface::return_type write(
     const rclcpp::Time & time, const rclcpp::Duration & period) override;
-  
-  CUBEMARS_HARDWARE_PUBLIC
-  hardware_interface::return_type perform_command_mode_switch(
-    const std::vector<std::string>& start_interfaces,
-    const std::vector<std::string>& stop_interfaces
-  ) override;
 
 private:
-  /// The size of this vector is (standard_interfaces_.size() x nr_joints)
-  std::vector<double> joint_position_command_;
-  std::vector<double> joint_velocities_command_;
-  std::vector<double> joint_position_;
-  std::vector<double> joint_velocities_;
+  // Parameters for the RRBot simulation
+  double hw_start_sec_;
+  double hw_stop_sec_;
+  double hw_slowdown_;
 
-  
+  // Store the command for the simulated robot
+  std::vector<double> hw_commands_;
+  std::vector<double> hw_states_;
+
   CanInterfaceSocketCAN can_interface_;
   std::string can_port_;
-  rclcpp::Time timestamp_;
 };
 
 }  // namespace cubemars_hardware

@@ -45,11 +45,12 @@ The following steps describe the setup on a reComputer Industrial J40 flashed wi
     echo 'SUBSYSTEMS=="usb", ATTRS{idVendor}=="2bc5", ATTRS{idProduct}=="066b", MODE:="0666",  OWNER:="root", GROUP:="video", SYMLINK+="Femto Bolt"' | sudo tee /etc/udev/rules.d/99-obsensor-libusb.rules
     sudo udevadm control --reload-rules && sudo udevadm trigger
     ```
-5. Enable the [CAN interface](https://wiki.seeedstudio.com/reComputer_Industrial_J40_J30_Hardware_Interfaces_Usage/#can).
+5. Enable the CAN interface on startup.
     ```bash
-    sudo modprobe mttcan
-    sudo ip link set can0 type can bitrate 1000000
-    sudo ip link set can0 up
+    sudo rm /etc/modprobe.d/denylist-mttcan.conf
+    sudo systemctl enable systemd-networkd
+    echo -e '[Match]\nName=can0\n[CAN]\nBitRate=1M' | sudo tee /etc/systemd/network/80-can.network
+    sudo reboot
     ```
 10. Finally, clone this repo.
     ```bash

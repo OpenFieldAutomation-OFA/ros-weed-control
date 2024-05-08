@@ -25,6 +25,7 @@ add_library(
   cubemars_hardware
   SHARED
   src/system.cpp
+  src/can_interface.cpp
 )
 target_compile_features(cubemars_hardware PUBLIC cxx_std_17)
 target_include_directories(cubemars_hardware PUBLIC

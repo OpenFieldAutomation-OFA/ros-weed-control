@@ -12,7 +12,8 @@ namespace cubemars_hardware
 {
 bool CanInterfaceSocketCAN::connect(std::string can_port)
 {
-  if ((socket_ = socket(PF_CAN, SOCK_RAW, CAN_RAW)) < 0) {
+  socket_ = socket(PF_CAN, SOCK_RAW, CAN_RAW);
+  if (socket_ < 0) {
     RCLCPP_ERROR(rclcpp::get_logger("CubeMarsSystemHardware"), "Could not create socket");
     return false;
   }
@@ -42,5 +43,7 @@ bool CanInterfaceSocketCAN::connect(std::string can_port)
     RCLCPP_ERROR(rclcpp::get_logger("CubeMarsSystemHardware"), "Could not test CAN socket");
     return false;
   }
+
+  return true;
 }
 }
