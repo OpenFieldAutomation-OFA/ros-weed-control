@@ -1,12 +1,13 @@
-#ifndef CUBEMARS_HARDWARE__CAN_SOCKET_HPP_
-#define CUBEMARS_HARDWARE__CAN_SOCKET_HPP_
+#ifndef CUBEMARS_HARDWARE__SOCKET_CAN_HPP_
+#define CUBEMARS_HARDWARE__SOCKET_CAN_HPP_
 
 #include <string>
 
 namespace cubemars_hardware
 {
+
 /**
- * @brief CAN access via SocketCAN (Linux)
+ * @brief SocketCAN interface for extended frame format
  */
 class SocketCanInterface
 {
@@ -17,21 +18,29 @@ public:
    */
   bool connect(std::string can_port = "can0");
 
+  /**
+   * @brief Write message to CAN bus
+   * @param id CAN extended identifier
+   * @param data Data to be transmitted
+   * @param len Number of bytes of data (0-8)
+   * @return true on success
+   */
+  bool write_message(uint32_t id, const uint8_t data[], uint8_t len);
+
+  /**
+   * @brief Read message from CAN bus
+   * @param id CAN extended identifier
+   * @param data Data to be received
+   * @param len Received number of bytes of data (0-8)
+   * @return true on success
+   */
+  bool read_message(uint32_t & id, uint8_t data[8], uint8_t & len);
+
 private:
   /**
    * @brief SocketCAN socket number
    */
-  int socket_ = -1;
-
-  /**
-   * @brief true if connected, set by read_thread()
-   */
-  bool is_socket_connected_ = false;
-
-  /**
-   * @brief set to true to stop the read thread and disconnect
-   */
-  bool is_disconnect_requested_ = false;
+  int socket_;
 
   /**
    * @brief Last error code from sending a message
@@ -45,4 +54,4 @@ private:
 };
 }
 
-#endif  // CUBEMARS_HARDWARE__CAN_SOCKET_HPP_
+#endif  // CUBEMARS_HARDWARE__SOCKET_CAN_HPP_

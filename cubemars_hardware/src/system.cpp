@@ -31,19 +31,14 @@ hardware_interface::CallbackReturn CubeMarsSystemHardware::on_init(
 hardware_interface::CallbackReturn CubeMarsSystemHardware::on_configure(
   const rclcpp_lifecycle::State & /*previous_state*/)
 {
-  // const hardware_interface::CallbackReturn result = can_interface_.connect(can_port_)
-  //                                                     ? hardware_interface::CallbackReturn::SUCCESS
-  //                                                     : hardware_interface::CallbackReturn::FAILURE;
+  const hardware_interface::CallbackReturn result = can_interface_.connect(can_port_)
+                                                      ? hardware_interface::CallbackReturn::SUCCESS
+                                                      : hardware_interface::CallbackReturn::FAILURE;
 
-  RCLCPP_INFO(rclcpp::get_logger("CubeMarsSystemHardware"), "test");
-  bool test = can_interface_.connect(can_port_);
 
-  RCLCPP_INFO(rclcpp::get_logger("CubeMarsSystemHardware"), "return: %d", test);
   RCLCPP_INFO(rclcpp::get_logger("CubeMarsSystemHardware"), "Communication active");
-  std::this_thread::sleep_for(std::chrono::seconds(2));
-  RCLCPP_INFO(rclcpp::get_logger("CubeMarsSystemHardware"), "Continue");
 
-  return hardware_interface::CallbackReturn::SUCCESS;
+  return result;
 }
 
 std::vector<hardware_interface::StateInterface>
