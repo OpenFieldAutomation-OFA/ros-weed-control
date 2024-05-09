@@ -1,5 +1,6 @@
-#ifndef CUBEMARS_HARDWARE__SOCKET_CAN_HPP_
-#define CUBEMARS_HARDWARE__SOCKET_CAN_HPP_
+// credit: https://github.com/CommonplaceRobotics/iRC_ROS
+#ifndef CUBEMARS_HARDWARE__CAN_SOCKET_HPP_
+#define CUBEMARS_HARDWARE__CAN_SOCKET_HPP_
 
 #include <string>
 
@@ -17,6 +18,12 @@ public:
    * @return true on success
    */
   bool connect(std::string can_port = "can0");
+
+  /**
+   * @brief Disconnect from CAN bus
+   * @return true on success
+   */
+  bool disconnect();
 
   /**
    * @brief Write message to CAN bus
@@ -54,4 +61,4 @@ private:
 };
 }
 
-#endif  // CUBEMARS_HARDWARE__SOCKET_CAN_HPP_
+#endif  // CUBEMARS_HARDWARE__CAN_SOCKET_HPP_

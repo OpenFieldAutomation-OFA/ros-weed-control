@@ -41,6 +41,19 @@ hardware_interface::CallbackReturn CubeMarsSystemHardware::on_configure(
   return result;
 }
 
+hardware_interface::CallbackReturn CubeMarsSystemHardware::on_cleanup(
+  const rclcpp_lifecycle::State & /*previous_state*/)
+{
+  const hardware_interface::CallbackReturn result = can_interface_.disconnect()
+                                                      ? hardware_interface::CallbackReturn::SUCCESS
+                                                      : hardware_interface::CallbackReturn::FAILURE;
+
+
+  RCLCPP_INFO(rclcpp::get_logger("CubeMarsSystemHardware"), "Communication closed");
+
+  return result;
+}
+
 std::vector<hardware_interface::StateInterface>
 CubeMarsSystemHardware::export_state_interfaces()
 {

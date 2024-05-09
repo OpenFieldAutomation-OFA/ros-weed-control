@@ -1,4 +1,4 @@
-#include "cubemars_hardware/socket_can.hpp"
+#include "cubemars_hardware/can_socket.hpp"
 
 #include <linux/can.h>
 #include <net/if.h>
@@ -41,14 +41,27 @@ bool SocketCanInterface::connect(std::string can_port)
     return false;
   }
 
-  uint32_t id;
-  uint8_t data[8];
-  uint8_t len;
-  read_message(id, data, len);
-  RCLCPP_INFO(rclcpp::get_logger("CubeMarsSystemHardware"), "0x%03X [%d] ",id, len);
-  for (int i = 0; i < len; i++)
-    RCLCPP_INFO(rclcpp::get_logger("CubeMarsSystemHardware"), "%02X ",data[i]);
+  return true;
+
+  // uint32_t id;
+  // uint8_t data[8];
+  // uint8_t len;
+  // read_message(id, data, len);
+  // RCLCPP_INFO(rclcpp::get_logger("CubeMarsSystemHardware"), "0x%03X [%d] ",id, len);
+  // for (int i = 0; i < len; i++)
+  //   RCLCPP_INFO(rclcpp::get_logger("CubeMarsSystemHardware"), "%02X ",data[i]);
 }
+
+bool SocketCanInterface::disconnect()
+{
+  std::this_thread::sleep_for(std::chrono::microseconds(500));
+  if (close(socket_) < 0) {
+    RCLCPP_ERROR(rclcpp::get_logger("CubeMarsSystemHardware"), "Could not close CAN socket");
+    return false;
+  }
+  return true;
+}
+
 
 bool SocketCanInterface::read_message(uint32_t & id, uint8_t data[], uint8_t & len)
 {

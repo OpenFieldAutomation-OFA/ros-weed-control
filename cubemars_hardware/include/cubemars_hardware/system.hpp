@@ -27,7 +27,7 @@
 #include "rclcpp_lifecycle/node_interfaces/lifecycle_node_interface.hpp"
 #include "rclcpp_lifecycle/state.hpp"
 #include "cubemars_hardware/visibility_control.h"
-#include "cubemars_hardware/socket_can.hpp"
+#include "cubemars_hardware/can_socket.hpp"
 
 namespace cubemars_hardware
 {
@@ -42,6 +42,10 @@ public:
 
   CUBEMARS_HARDWARE_PUBLIC
   hardware_interface::CallbackReturn on_configure(
+    const rclcpp_lifecycle::State & previous_state) override;
+
+  CUBEMARS_HARDWARE_PUBLIC
+  hardware_interface::CallbackReturn on_cleanup(
     const rclcpp_lifecycle::State & previous_state) override;
 
   CUBEMARS_HARDWARE_PUBLIC
