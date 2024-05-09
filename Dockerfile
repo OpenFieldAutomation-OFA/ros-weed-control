@@ -18,24 +18,14 @@ RUN groupadd --gid $GID $USERNAME \
     && useradd -s /bin/bash --uid $UID --gid $GID -m $USERNAME
 
 # Create underlay workspace
-USER $USERNAME
 WORKDIR /home/ros/underlay/src
 
-# Setup colcon mixin and metadata
-RUN colcon mixin add default \
-      https://raw.githubusercontent.com/colcon/colcon-mixin-repository/master/index.yaml && \
-    colcon mixin update && \
-    colcon metadata add default \
-      https://raw.githubusercontent.com/colcon/colcon-metadata-repository/master/index.yaml && \
-    colcon metadata update
-
 # Clone external dependencies
-COPY --chown=$UID:$GID dependencies.repos .
+COPY dependencies.repos .
 RUN vcs import  < dependencies.repos
 
 # Build underlay workspace
 WORKDIR /home/ros/underlay
-USER root
 RUN . /opt/ros/${ROS_DISTRO}/setup.sh \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -47,22 +37,21 @@ RUN . /opt/ros/${ROS_DISTRO}/setup.sh \
     && rm -rf /var/lib/apt/lists/*
 
 # Create overlay workspace
-USER $USERNAME
+RUN su $USERNAME -c "mkdir /home/ros/overlay"
 WORKDIR /home/ros/overlay
-
-# Copy source code
-COPY --chown=$UID:$GID . src
-
-# Install rosdep dependencies
-USER root
-RUN apt-get update \
-    && rosdep install -y --from-paths src --ignore-src \
-    && rm -rf /var/lib/apt/lists/*
 
 ####################
 # Production Image #
 ####################
 FROM base AS prod
+
+# Copy source code
+COPY --chown=$UID:$GID . src
+
+# Install rosdep dependencies
+RUN apt-get update \
+    && rosdep install -y --from-paths src --ignore-src \
+    && rm -rf /var/lib/apt/lists/*
 
 # Change entrypoint
 RUN sed --in-place \
@@ -79,17 +68,20 @@ RUN . /home/ros/underlay/install/setup.sh \
 #####################
 FROM base AS dev
 
-# Install apt packages
+# Install apt packages and ros dependencies manually
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
     sudo \
     neovim \
+    less \
     usbutils \
     net-tools \
+    ros-$ROS_DISTRO-urdf-launch \
     ros-$ROS_DISTRO-turtlesim \
     ros-$ROS_DISTRO-ros2-control \
     ros-$ROS_DISTRO-ros2-controllers \
-    ros-$ROS_DISTRO-moveit
+    ros-$ROS_DISTRO-moveit \
+    ros-$ROS_DISTRO-moveit-visual-tools
     # ros-$ROS_DISTRO-ros-gz
     # && rm -rf /var/lib/apt/lists/*
 
@@ -100,3 +92,11 @@ RUN echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
 # Source underlay in bashrc
 USER $USERNAME
 RUN echo "source /home/ros/underlay/install/setup.bash" >> ~/.bashrc
+
+# Setup colcon mixin and metadata
+RUN colcon mixin add default \
+      https://raw.githubusercontent.com/colcon/colcon-mixin-repository/master/index.yaml && \
+    colcon mixin update && \
+    colcon metadata add default \
+      https://raw.githubusercontent.com/colcon/colcon-metadata-repository/master/index.yaml && \
+    colcon metadata update
