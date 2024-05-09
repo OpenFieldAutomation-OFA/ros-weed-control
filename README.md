@@ -12,6 +12,12 @@ Even though Docker handles most of our setup (explained below), certain things s
 
 The following steps describe the setup on a reComputer Industrial J40 flashed with JetPack 5.1.1. If you use different hardware you will have to figure out how to reproduce the setup yourself.
 
+<!--
+TODO: try flashing jetson with rt_preempt
+- https://docs.nvidia.com/jetson/archives/r35.3.1/DeveloperGuide/text/SD/Kernel/KernelCustomization.html
+- https://wiki.seeedstudio.com/reComputer_Industrial_Getting_Started/#flash-jetpack
+-->
+
 1. [Maximize Performance](https://wiki.seeedstudio.com/reComputer_Industrial_J40_J30_Hardware_Interfaces_Usage/#max-performance-on-recomputer-industrial) of the Jetson.
     ```bash
     sudo nvpmodel -m 0
@@ -45,7 +51,7 @@ The following steps describe the setup on a reComputer Industrial J40 flashed wi
     echo 'SUBSYSTEMS=="usb", ATTRS{idVendor}=="2bc5", ATTRS{idProduct}=="066b", MODE:="0666",  OWNER:="root", GROUP:="video", SYMLINK+="Femto Bolt"' | sudo tee /etc/udev/rules.d/99-obsensor-libusb.rules
     sudo udevadm control --reload-rules && sudo udevadm trigger
     ```
-5. Enable the CAN interface on boot.
+5. Enable the SocketCAN interface on boot.
     ```bash
     sudo rm /etc/modprobe.d/denylist-mttcan.conf
     sudo systemctl enable systemd-networkd
