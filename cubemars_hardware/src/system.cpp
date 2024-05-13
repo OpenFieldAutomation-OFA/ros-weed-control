@@ -76,7 +76,7 @@ std::vector<hardware_interface::StateInterface>
 CubeMarsSystemHardware::export_state_interfaces()
 {
   std::vector<hardware_interface::StateInterface> state_interfaces;
-  for (uint i = 0; i < info_.joints.size(); i++)
+  for (std::size_t i = 0; i < info_.joints.size(); i++)
   {
     state_interfaces.emplace_back(hardware_interface::StateInterface(
       info_.joints[i].name, hardware_interface::HW_IF_POSITION, &hw_states_positions_[i]));
@@ -185,8 +185,6 @@ hardware_interface::CallbackReturn CubeMarsSystemHardware::on_deactivate(
 hardware_interface::return_type CubeMarsSystemHardware::read(
   const rclcpp::Time & /*time*/, const rclcpp::Duration & /*period*/)
 {
-  RCLCPP_INFO(rclcpp::get_logger("CubeMarsSystemHardware"), "Reading...");
-
   bool all_ids[can_ids_.size()] = { false };
   uint32_t read_id;
   uint8_t read_data[8];
@@ -234,7 +232,8 @@ hardware_interface::return_type CubeMarsSystemHardware::read(
     }
   }
 
-  for (size_t i = 0; i != can_ids_.size(); i++)
+  // Check if all CAN IDs have received a message
+  for (size_t i = 0; i < can_ids_.size(); i++)
   {
     if (!all_ids[i])
     {
@@ -254,14 +253,44 @@ hardware_interface::return_type CubeMarsSystemHardware::read(
     }
   }
 
-  RCLCPP_INFO(rclcpp::get_logger("CubeMarsSystemHardware"), "Joints successfully read!");
-
   return hardware_interface::return_type::OK;
 }
 
 hardware_interface::return_type CubeMarsSystemHardware::write(
   const rclcpp::Time & /*time*/, const rclcpp::Duration & /*period*/)
 {
+  for (std::size_t i = 0; i < can_ids_.size(); i++)
+  {
+    hw_commands_positions_[i] = hw_states_positions_[i] + 0.01;
+    hw_commands_velocities_[i] = 1.0;
+
+    int32_t speed = hw_commands_velocities_[i] * erpm_conversion_[i];
+    uint8_t data[4];
+    RCLCPP_INFO(
+      rclcpp::get_logger("RRBotSystemMultiInterfaceHardware"),
+      "speed: %d", speed);
+
+    data[0] = speed >> 24;
+    data[1] = speed >> 16;
+    data[2] = speed >> 8;
+    data[3] = speed;
+    RCLCPP_INFO(
+      rclcpp::get_logger("RRBotSystemMultiInterfaceHardware"),
+      "data 3: %d", data[3]);
+
+    // uint32_t test = can_ids_[i] | SPEED_LOOP << 8;
+    // RCLCPP_INFO(
+    //   rclcpp::get_logger("RRBotSystemMultiInterfaceHardware"),
+    //   "can test id: %X", test);
+
+    can_.write_message(can_ids_[i] | SPEED_LOOP << 8, data, 4);
+    // Simulate sending commands to the hardware
+    RCLCPP_INFO(
+      rclcpp::get_logger("RRBotSystemMultiInterfaceHardware"),
+      "Got the commands pos: %.5f, vel: %.5f, acc: %.5f for joint %lu",
+      hw_commands_positions_[i], hw_commands_velocities_[i], hw_commands_accelerations_[i], i);
+  }
+  // END: This part here is for exemplary purposes - Please do not copy to your production code
 
   return hardware_interface::return_type::OK;
 }

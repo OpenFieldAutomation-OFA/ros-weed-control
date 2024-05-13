@@ -28,10 +28,6 @@ RUN vcs import  < dependencies.repos
 WORKDIR /home/ros/underlay
 RUN . /opt/ros/${ROS_DISTRO}/setup.sh \
     && apt-get update \
-    && apt-get install -y --no-install-recommends \
-    libgflags-dev \
-    nlohmann-json3-dev \
-    libgoogle-glog-dev \
     && rosdep install -y --from-paths src --ignore-src \
     && colcon build \
     && rm -rf /var/lib/apt/lists/*

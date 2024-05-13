@@ -39,7 +39,7 @@ bool CanSocket::connect(std::string can_itf, const std::vector<canid_t> & can_id
   // Filter CAN IDs
   can_mask_ = can_mask;
   struct can_filter rfilter[can_ids.size()];
-  for (size_t i = 0; i != can_ids.size(); i++)
+  for (std::size_t i = 0; i < can_ids.size(); i++)
   {
     rfilter[i].can_id = can_ids[i];
     rfilter[i].can_mask = can_mask_;
