@@ -69,6 +69,7 @@ private:
   std::vector<double> hw_states_positions_;
   std::vector<double> hw_states_velocities_;
   std::vector<double> hw_states_efforts_;
+  std::vector<double> hw_states_temperatures_;
 
   std::vector<double> erpm_conversion_;
   std::vector<double> torque_constants_;

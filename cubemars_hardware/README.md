@@ -11,4 +11,4 @@ The package assumes that the motor is setup in Servo Mode. Although the MIT Mode
 
 To adjust the parameters you have to connect the motor with the R-link and use the "Upper Computer" program. All the information can be found on their [Technical Support and Download page](https://www.cubemars.com/article.php?id=261). Example parameters can be found in [`cubemars_params`](../.params/).
 
-Make sure that you enable "Send status over CAN" (called `send_can_status` in AppParams). Also, the upload frequency of the actuators should be at least as fast as the update rate of the controller manager. If no CAN message is received during one update loop you will get an error from the `CubeMarsSystemHardware::read` function.
+Make sure that you enable "Send status over CAN" (called `send_can_status` in AppParams). Also, the upload frequency of the actuators should be at least as fast as the update rate of the controller manager. If no CAN message is received during one update loop you will get a warning in the `read` function.

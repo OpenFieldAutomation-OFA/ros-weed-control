@@ -3,6 +3,8 @@
 #define CUBEMARS_HARDWARE__CAN_HPP_
 
 #include <string>
+#include <vector>
+#include <linux/can.h>
 
 namespace cubemars_hardware
 {
@@ -15,9 +17,12 @@ class CanSocket
 public:
   /**
    * @brief Connect to CAN bus
+   * @param can_itf CAN interface name
+   * @param can_ids CAN IDs of interest
+   * @param can_mask CAN IDs mask
    * @return true on success
    */
-  bool connect(std::string can_port = "can0");
+  bool connect(std::string can_itf, const std::vector<canid_t> & can_ids, canid_t can_mask);
 
   /**
    * @brief Disconnect from CAN bus
@@ -59,14 +64,9 @@ private:
   int socket_;
 
   /**
-   * @brief Last error code from sending a message
+   * @brief CAN IDs mask
    */
-  int last_send_error_ = 0;
-
-  /**
-   * @brief Count of last error code
-   */
-  int last_send_error_count_ = 0;
+  uint32_t can_mask_;
 };
 }
 

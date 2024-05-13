@@ -23,6 +23,7 @@ hardware_interface::CallbackReturn CubeMarsSystemHardware::on_init(
   hw_states_positions_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
   hw_states_velocities_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
   hw_states_efforts_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
+  hw_states_temperatures_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
   hw_commands_positions_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
   hw_commands_velocities_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
   hw_commands_accelerations_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
@@ -48,7 +49,7 @@ hardware_interface::CallbackReturn CubeMarsSystemHardware::on_init(
 hardware_interface::CallbackReturn CubeMarsSystemHardware::on_configure(
   const rclcpp_lifecycle::State & /*previous_state*/)
 {
-  const hardware_interface::CallbackReturn result = can_.connect(can_itf_)
+  const hardware_interface::CallbackReturn result = can_.connect(can_itf_, can_ids_, 0xFFU)
                                                       ? hardware_interface::CallbackReturn::SUCCESS
                                                       : hardware_interface::CallbackReturn::FAILURE;
 
@@ -83,6 +84,8 @@ CubeMarsSystemHardware::export_state_interfaces()
       info_.joints[i].name, hardware_interface::HW_IF_VELOCITY, &hw_states_velocities_[i]));
     state_interfaces.emplace_back(hardware_interface::StateInterface(
       info_.joints[i].name, hardware_interface::HW_IF_EFFORT, &hw_states_efforts_[i]));
+    state_interfaces.emplace_back(hardware_interface::StateInterface(
+      info_.joints[i].name, "temperature", &hw_states_temperatures_[i]));
   }
 
   return state_interfaces;
@@ -182,85 +185,74 @@ hardware_interface::CallbackReturn CubeMarsSystemHardware::on_deactivate(
 hardware_interface::return_type CubeMarsSystemHardware::read(
   const rclcpp::Time & /*time*/, const rclcpp::Duration & /*period*/)
 {
-  // BEGIN: This part here is for exemplary purposes - Please do not copy to your production code
-  // RCLCPP_INFO(rclcpp::get_logger("CubeMarsSystemHardware"), "Reading...");
+  RCLCPP_INFO(rclcpp::get_logger("CubeMarsSystemHardware"), "Reading...");
 
-  // create map for all can_ids
-  std::unordered_map<uint32_t, bool> ids_read;
-  for (uint32_t & can_id : can_ids_)
-  {
-    ids_read.insert({can_id, false});
-  }
-
+  bool all_ids[can_ids_.size()] = { false };
   uint32_t read_id;
   uint8_t read_data[8];
   uint8_t read_len;
 
-  int16_t pos_int;
-  int16_t spd_int;
-  int16_t cur_int;
-
-  int i = 0;
-
-  while (can_.read_nonblocking(read_id, read_data, read_len)) {
-    read_id = read_id & 0xFF;
-    ids_read.at(read_id) = true;
-    
-    pos_int = read_data[0] << 8 | read_data[1];
-    spd_int = read_data[2] << 8 | read_data[3];
-    cur_int = read_data[4] << 8 | read_data[5];
-
-    hw_states_positions_[i] = pos_int * 0.1 * M_PI / 180;
-    hw_states_velocities_[i] = spd_int * 10 / erpm_conversion_[i];
-    hw_states_efforts_[i] = cur_int * 0.01 * torque_constants_[i];
-
-    RCLCPP_INFO(rclcpp::get_logger("CubeMarsSystemHardware"), "pos: %f, spd: %f, eff: %f",
-      hw_states_positions_[i], hw_states_velocities_[i], hw_states_efforts_[i]);
-
-  }
-  RCLCPP_INFO(rclcpp::get_logger("CubeMarsSystemHardware"), "Loop done");
-
-  for (auto const & [id, val] : ids_read)
+  // read all buffered CAN messages
+  while (can_.read_nonblocking(read_id, read_data, read_len))
   {
-    if (!val) {
-      RCLCPP_ERROR(rclcpp::get_logger("CubeMarsSystemHardware"), "No CAN message received from CAN ID: %u. "
-        "Lower the update rate of the controller manager or increase the update frequency of the actuator.", id);
-      return hardware_interface::return_type::ERROR;
+    if (read_data[7] != 0)
+    {
+      switch(read_data[7])
+      {
+        case 1:
+          RCLCPP_ERROR(rclcpp::get_logger("CubeMarsSystemHardware"), "Motor over-temperature fault.");
+          break;
+        case 2:
+          RCLCPP_ERROR(rclcpp::get_logger("CubeMarsSystemHardware"), "Over-current fault.");
+          break;
+        case 3:
+          RCLCPP_ERROR(rclcpp::get_logger("CubeMarsSystemHardware"), "Over-voltage fault.");
+          break;
+        case 4:
+          RCLCPP_ERROR(rclcpp::get_logger("CubeMarsSystemHardware"), "Under-voltage fault.");
+          break;
+        case 5:
+          RCLCPP_ERROR(rclcpp::get_logger("CubeMarsSystemHardware"), "Encoder fault.");
+          break;
+        case 6:
+          RCLCPP_ERROR(rclcpp::get_logger("CubeMarsSystemHardware"), "MOSFET over-temperature fault.");
+          break;
+        case 7:
+          RCLCPP_ERROR(rclcpp::get_logger("CubeMarsSystemHardware"), "Motor stall.");
+          break;
+        return hardware_interface::return_type::ERROR;
+      }
+    }
+    auto it = std::find(can_ids_.begin(), can_ids_.end(), read_id);
+    if (it != can_ids_.end())
+    {
+      int i = std::distance(can_ids_.begin(), it);
+      all_ids[i] = true;
+      hw_states_positions_[i] = int16_t (read_data[0] << 8 | read_data[1]);
+      hw_states_velocities_[i] = int16_t (read_data[2] << 8 | read_data[3]);
+      hw_states_efforts_[i] = int16_t (read_data[4] << 8 | read_data[5]);
     }
   }
 
-  // for (uint i = 0; i < info_.joints.size(); i++)
-  // {
-  //   can_.read_message(read_id, read_data, read_len);
-  //   RCLCPP_INFO(rclcpp::get_logger("CubeMarsSystemHardware"), "0x%03X [%d] ", read_id, read_len);
-  //   read_id = read_id & 0xFF;
-  //   // if (ids_done[read_id])
-  //   // {
-  //   //   RCLCPP_ERROR(rclcpp::get_logger("CubeMarsSystemHardware"),
-  //   //   "Read same CAN identifier twice in one loop iteration. Make sure all actuators use "
-  //   //   "the same upload rate.");
-  //   //   return hardware_interface::return_type::ERROR;
-  //   // }
-  //   ids_done[read_id] = true;
-
-  //   int16_t pos_int = read_data[0] << 8 | read_data[1];
-  //   int16_t spd_int = read_data[2] << 8 | read_data[3];
-  //   int16_t cur_int = read_data[4] << 8 | read_data[5];
-
-  //   hw_states_positions_[i] = pos_int * 0.1 * M_PI / 180;
-  //   hw_states_velocities_[i] = spd_int * 10 / erpm_conversion_[i];
-  //   hw_states_efforts_[i] = cur_int * 0.01 * torque_constants_[i];
-
-  //   RCLCPP_INFO(rclcpp::get_logger("CubeMarsSystemHardware"), "pos: %f, spd: %f, cur: %f",
-  //     hw_states_positions_[i], hw_states_velocities_[i], hw_states_efforts_[i]);
-
-  //   // &motor_pos= (float)( pos_int * 0.1f); // Motor Position
-  //   // &motor_spd= (float)( spd_int * 10.0f);// Motor Speed
-  //   // &motor_cur= (float) ( cur_int * 0.01f);// Motor Current
-  //   // &motor_temp= (rx_message)->Data[6] ;// Motor Temperature
-  //   // &motor_error= (rx_message)->Data[7] ;// Motor Error Code
-    
-  // }
+  for (size_t i = 0; i != can_ids_.size(); i++)
+  {
+    if (!all_ids[i])
+    {
+      RCLCPP_WARN(rclcpp::get_logger("CubeMarsSystemHardware"), "No CAN message received from CAN ID: %u. "
+        "Lower the update rate of the controller manager or increase the update frequency of the actuator.", can_ids_[i]);
+      // return hardware_interface::return_type::ERROR;
+    }
+    else
+    {
+      // Unit conversions
+      hw_states_positions_[i] = hw_states_positions_[i] * 0.1 * M_PI / 180;
+      hw_states_velocities_[i] = hw_states_velocities_[i] * 10 / erpm_conversion_[i];
+      hw_states_efforts_[i] = hw_states_efforts_[i] * 0.01 * torque_constants_[i];
+      hw_states_temperatures_[i] = read_data[6];
+      RCLCPP_INFO(rclcpp::get_logger("CubeMarsSystemHardware"), "pos: %f, spd: %f, eff: %f, temp: %f",
+        hw_states_positions_[i], hw_states_velocities_[i], hw_states_efforts_[i], hw_states_temperatures_[i]);
+    }
+  }
 
   RCLCPP_INFO(rclcpp::get_logger("CubeMarsSystemHardware"), "Joints successfully read!");
 
