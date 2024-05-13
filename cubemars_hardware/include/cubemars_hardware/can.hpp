@@ -1,6 +1,6 @@
 // credit: https://github.com/CommonplaceRobotics/iRC_ROS
-#ifndef CUBEMARS_HARDWARE__CAN_SOCKET_HPP_
-#define CUBEMARS_HARDWARE__CAN_SOCKET_HPP_
+#ifndef CUBEMARS_HARDWARE__CAN_HPP_
+#define CUBEMARS_HARDWARE__CAN_HPP_
 
 #include <string>
 
@@ -10,7 +10,7 @@ namespace cubemars_hardware
 /**
  * @brief SocketCAN interface for extended frame format
  */
-class SocketCanInterface
+class CanSocket
 {
 public:
   /**
@@ -43,6 +43,15 @@ public:
    */
   bool read_message(uint32_t & id, uint8_t data[8], uint8_t & len);
 
+  /**
+   * @brief Read message from CAN bus buffer without blocking
+   * @param id CAN extended identifier
+   * @param data Data to be received
+   * @param len Received number of bytes of data (0-8)
+   * @return true on success
+   */
+  bool read_nonblocking(uint32_t & id, uint8_t data[], uint8_t & len);
+
 private:
   /**
    * @brief SocketCAN socket number
@@ -61,4 +70,4 @@ private:
 };
 }
 
-#endif  // CUBEMARS_HARDWARE__CAN_SOCKET_HPP_
+#endif  // CUBEMARS_HARDWARE__CAN_HPP_

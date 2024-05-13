@@ -1,17 +1,3 @@
-// Copyright 2020 ros2_control Development Team
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 #ifndef CUBEMARS_HARDWARE__SYSTEM_HPP_
 #define CUBEMARS_HARDWARE__SYSTEM_HPP_
 
@@ -27,7 +13,7 @@
 #include "rclcpp_lifecycle/node_interfaces/lifecycle_node_interface.hpp"
 #include "rclcpp_lifecycle/state.hpp"
 #include "cubemars_hardware/visibility_control.h"
-#include "cubemars_hardware/can_socket.hpp"
+#include "cubemars_hardware/can.hpp"
 
 namespace cubemars_hardware
 {
@@ -55,6 +41,11 @@ public:
   std::vector<hardware_interface::CommandInterface> export_command_interfaces() override;
 
   CUBEMARS_HARDWARE_PUBLIC
+  hardware_interface::return_type prepare_command_mode_switch(
+    const std::vector<std::string> & start_interfaces,
+    const std::vector<std::string> & stop_interfaces) override;
+
+  CUBEMARS_HARDWARE_PUBLIC
   hardware_interface::CallbackReturn on_activate(
     const rclcpp_lifecycle::State & previous_state) override;
 
@@ -71,17 +62,34 @@ public:
     const rclcpp::Time & time, const rclcpp::Duration & period) override;
 
 private:
-  // Parameters for the RRBot simulation
-  double hw_start_sec_;
-  double hw_stop_sec_;
-  double hw_slowdown_;
+  std::vector<double> hw_commands_positions_;
+  std::vector<double> hw_commands_velocities_;
+  std::vector<double> hw_commands_accelerations_;
+  std::vector<double> hw_commands_efforts_;
+  std::vector<double> hw_states_positions_;
+  std::vector<double> hw_states_velocities_;
+  std::vector<double> hw_states_efforts_;
 
-  // Store the command for the simulated robot
-  std::vector<double> hw_commands_;
-  std::vector<double> hw_states_;
+  std::vector<double> erpm_conversion_;
+  std::vector<double> torque_constants_;
 
-  SocketCanInterface can_interface_;
-  std::string can_port_;
+  CanSocket can_;
+  std::string can_itf_;
+  std::vector<uint32_t> can_ids_;
+
+  enum control_mode_t : uint8_t
+  {
+    DUTY_CYCLE = 0,
+    CURRENT_LOOP = 1,
+    CURRENT_BRAKE = 2,
+    SPEED_LOOP = 3,
+    POSITION_LOOP = 4,
+    SET_ORIGIN = 5,
+    POSITION_SPEED_LOOP = 6
+  };
+
+  // Active control mode for each actuator
+  std::vector<control_mode_t> control_mode_;
 };
 
 }  // namespace cubemars_hardware

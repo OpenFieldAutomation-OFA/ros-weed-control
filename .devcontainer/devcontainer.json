@@ -12,7 +12,7 @@
               "ms-python.python",
               "charliermarsh.ruff",
               "ms-vscode.cpptools-extension-pack",
-              "smilerobotics.urdf",
+              "ms-iot.vscode-ros",
               "ms-azuretools.vscode-docker"
           ],
           "settings": {

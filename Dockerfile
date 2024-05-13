@@ -76,6 +76,7 @@ RUN apt-get update \
     less \
     usbutils \
     net-tools \
+    can-utils \
     ros-$ROS_DISTRO-urdf-launch \
     ros-$ROS_DISTRO-turtlesim \
     ros-$ROS_DISTRO-ros2-control \

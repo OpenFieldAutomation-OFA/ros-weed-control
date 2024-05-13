@@ -1,4 +1,4 @@
-#include "cubemars_hardware/can_socket.hpp"
+#include "cubemars_hardware/can.hpp"
 
 #include <linux/can.h>
 #include <net/if.h>
@@ -10,20 +10,21 @@
 
 namespace cubemars_hardware
 {
-bool SocketCanInterface::connect(std::string can_port)
+bool CanSocket::connect(std::string can_itf)
 {
+  // Open socket
   socket_ = socket(PF_CAN, SOCK_RAW, CAN_RAW);
   if (socket_ < 0) {
     RCLCPP_ERROR(rclcpp::get_logger("CubeMarsSystemHardware"), "Could not create socket");
     return false;
   }
 
-  // Register CAN socket number
+  // Get CAN interface index
   struct ifreq ifr;
-  strcpy(ifr.ifr_name, can_port.c_str());
+  strcpy(ifr.ifr_name, can_itf.c_str());
   ioctl(socket_, SIOCGIFINDEX, &ifr);
 
-  // Bind CAN socket
+  // Bind CAN interface
   struct sockaddr_can addr;
   memset(&addr, 0, sizeof(addr));
   addr.can_family = AF_CAN;
@@ -52,7 +53,7 @@ bool SocketCanInterface::connect(std::string can_port)
   //   RCLCPP_INFO(rclcpp::get_logger("CubeMarsSystemHardware"), "%02X ",data[i]);
 }
 
-bool SocketCanInterface::disconnect()
+bool CanSocket::disconnect()
 {
   std::this_thread::sleep_for(std::chrono::microseconds(500));
   if (close(socket_) < 0) {
@@ -63,7 +64,7 @@ bool SocketCanInterface::disconnect()
 }
 
 
-bool SocketCanInterface::read_message(uint32_t & id, uint8_t data[], uint8_t & len)
+bool CanSocket::read_message(uint32_t & id, uint8_t data[], uint8_t & len)
 {
   struct can_frame frame;
   if (read(socket_, &frame, sizeof(struct can_frame)) < 0) {
@@ -77,7 +78,26 @@ bool SocketCanInterface::read_message(uint32_t & id, uint8_t data[], uint8_t & l
   return true;
 }
 
-bool SocketCanInterface::write_message(uint32_t id, const uint8_t data[], uint8_t len)
+bool CanSocket::read_nonblocking(uint32_t & id, uint8_t data[], uint8_t & len)
+{
+  struct can_frame frame;
+  if (recv(socket_, &frame, sizeof(struct can_frame), MSG_DONTWAIT) < 0) {
+    if (errno == EAGAIN) {
+      // no message in buffer
+    } else {
+      RCLCPP_ERROR(rclcpp::get_logger("CubeMarsSystemHardware"), "Could not read CAN socket");
+    }
+    return false;
+  }
+
+  memcpy(data, frame.data, frame.len);
+  id = frame.can_id;
+  len = frame.len;
+
+  return true;
+}
+
+bool CanSocket::write_message(uint32_t id, const uint8_t data[], uint8_t len)
 {
   struct can_frame frame;
   frame.can_id = id | CAN_EFF_FLAG;
