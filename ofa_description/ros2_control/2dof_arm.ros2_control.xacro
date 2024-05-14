@@ -11,13 +11,13 @@
       <joint name="${prefix}joint2">
         <param name="can_id">90</param>
         <param name="pole_pairs">21</param>
-        <param name="reduction_ratio">10</param>
+        <param name="gear_ratio">10</param>
         <param name="kt">0.123</param>
       </joint>
       <joint name="${prefix}joint3">
         <param name="can_id">91</param>
         <param name="pole_pairs">21</param>
-        <param name="reduction_ratio">10</param>
+        <param name="gear_ratio">10</param>
         <param name="kt">0.123</param>
       </joint>
     </ros2_control>
