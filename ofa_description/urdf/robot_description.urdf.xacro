@@ -73,7 +73,7 @@
 		<parent link="${prefix}link1" />
 		<child link="${prefix}link2" />
 		<axis xyz="1 0 0" />
-		<limit lower="${-pi/2}" upper="${pi/2}" velocity="100" effort="100" />
+		<limit lower="${-pi}" upper="${pi}" velocity="5" effort="10" />
 	</joint>
 
 	<xacro:property name="arm_length" value="0.25" />
@@ -108,6 +108,7 @@
 		<parent link="${prefix}link2" />
 		<child link="${prefix}link3" />
 		<axis xyz="1 0 0" />
+		<limit lower="${-pi}" upper="${pi}" velocity="5" effort="10" />
 	</joint>
 
 	<link name="${prefix}link3">

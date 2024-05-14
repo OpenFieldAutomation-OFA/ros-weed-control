@@ -1,3 +1,4 @@
+// credit: https://github.com/ros-controls/ros2_control_demos
 #ifndef CUBEMARS_HARDWARE__SYSTEM_HPP_
 #define CUBEMARS_HARDWARE__SYSTEM_HPP_
 
@@ -46,6 +47,11 @@ public:
     const std::vector<std::string> & stop_interfaces) override;
 
   CUBEMARS_HARDWARE_PUBLIC
+  hardware_interface::return_type perform_command_mode_switch(
+    const std::vector<std::string> & start_interfaces,
+    const std::vector<std::string> & stop_interfaces) override;
+
+  CUBEMARS_HARDWARE_PUBLIC
   hardware_interface::CallbackReturn on_activate(
     const rclcpp_lifecycle::State & previous_state) override;
 
@@ -80,16 +86,18 @@ private:
 
   enum control_mode_t : uint8_t
   {
-    DUTY_CYCLE = 0,
     CURRENT_LOOP = 1,
-    CURRENT_BRAKE = 2,
     SPEED_LOOP = 3,
     POSITION_LOOP = 4,
-    SET_ORIGIN = 5,
-    POSITION_SPEED_LOOP = 6
+    POSITION_SPEED_LOOP = 6,
+    UNDEFINED = 99
   };
 
-  // Active control mode for each actuator
+  // command mode switch variables
+  std::vector<bool> stop_modes_;
+  std::vector<control_mode_t> start_modes_;
+
+  // active control mode for each actuator
   std::vector<control_mode_t> control_mode_;
 };
 

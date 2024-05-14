@@ -27,20 +27,14 @@ hardware_interface::CallbackReturn CubeMarsSystemHardware::on_init(
   hw_commands_positions_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
   hw_commands_velocities_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
   hw_commands_accelerations_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
-  control_mode_.resize(info_.joints.size(), control_mode_t::POSITION_LOOP);
+  control_mode_.resize(info_.joints.size(), control_mode_t::UNDEFINED);
 
   for (const hardware_interface::ComponentInfo & joint : info_.joints)
   {
     can_ids_.emplace_back(std::stoul(joint.parameters.at("can_id")));
-    // int poles = std::stoi(joint.parameters.at("pole_pairs"));
-    // int ratio = std::stoi(joint.parameters.at("reduction_ratio"));
-    // double conversion = poles * ratio * 60 / (2 * M_PI);
-    
-    // RCLCPP_INFO(rclcpp::get_logger("CubeMarsSystemHardware"), "vars: %d, %d, %f", poles, ratio, conversion);
-
+    torque_constants_.emplace_back(std::stod(joint.parameters.at("kt")));
     erpm_conversion_.emplace_back(std::stoi(joint.parameters.at("pole_pairs")) * 
       std::stoi(joint.parameters.at("reduction_ratio")) * 60 / (2 * M_PI));
-    torque_constants_.emplace_back(std::stod(joint.parameters.at("kt")));
   }
 
   return hardware_interface::CallbackReturn::SUCCESS;
@@ -114,20 +108,103 @@ hardware_interface::return_type CubeMarsSystemHardware::prepare_command_mode_swi
   const std::vector<std::string> & start_interfaces,
   const std::vector<std::string> & stop_interfaces)
 {
-  // Prepare for new command modes
-  std::vector<control_mode_t> new_modes = {};
-  for (std::string key : start_interfaces)
-  {
-    RCLCPP_INFO(rclcpp::get_logger("CubeMarsSystemHardware"), "start_interfaces: %s", key.c_str());
-  }
+  stop_modes_.clear();
+  start_modes_.clear();
 
-  for (std::string key : stop_interfaces)
+  // Define allowed combination of command interfaces
+  std::unordered_set<std::string> eff {"effort"};
+  std::unordered_set<std::string> vel {"velocity"};
+  std::unordered_set<std::string> pos {"position"};
+  std::unordered_set<std::string> pos_spd {"position", "velocity", "acceleration"};
+  
+  std::unordered_set<std::string> joint_interfaces;
+  for (std::size_t i = 0; i < info_.joints.size(); i++)
   {
-    RCLCPP_INFO(rclcpp::get_logger("CubeMarsSystemHardware"), "stop_interfaces: %s", key.c_str());
+    // find stop modes
+    stop_modes_.push_back(false);
+    for (std::string key : stop_interfaces)
+    {
+      RCLCPP_INFO(rclcpp::get_logger("CubeMarsSystemHardware"), "stop interface: %s", key.c_str());
+      if (key.find(info_.joints[i].name))
+      {
+        stop_modes_[i] = true;
+        break;
+      }
+    }
+
+    // find start modes
+    joint_interfaces.clear();
+    for (std::string key : start_interfaces)
+    {
+      RCLCPP_INFO(rclcpp::get_logger("CubeMarsSystemHardware"), "start interface: %s", key.c_str());
+      if (key.find(info_.joints[i].name) != std::string::npos)
+      {
+        joint_interfaces.insert(key.substr(key.find("/") + 1));
+      }
+    }
+    if (joint_interfaces == eff)
+    {
+      start_modes_.push_back(CURRENT_LOOP);
+    }
+    else if (joint_interfaces == vel)
+    {
+      start_modes_.push_back(SPEED_LOOP);
+    }
+    else if (joint_interfaces == pos)
+    {
+      start_modes_.push_back(POSITION_LOOP);
+    }
+    else if (joint_interfaces == pos_spd)
+    {
+      start_modes_.push_back(POSITION_SPEED_LOOP);
+    }
+    else if (joint_interfaces.empty())
+    {
+      // don't change control mode
+      start_modes_.push_back(control_mode_[i]);
+    }
+    else
+    {
+      return hardware_interface::return_type::ERROR;
+    }
   }
 
   return hardware_interface::return_type::OK;
 }
+
+hardware_interface::return_type CubeMarsSystemHardware::perform_command_mode_switch(
+  const std::vector<std::string> & /*start_interfaces*/,
+  const std::vector<std::string> & /*stop_interfaces*/)
+{
+  for (std::size_t i = 0; i < info_.joints.size(); i++)
+  {
+    if (stop_modes_[i])
+    {
+      switch (control_mode_[i])
+      {
+        case CURRENT_LOOP:
+          hw_commands_efforts_[i] = std::numeric_limits<double>::quiet_NaN();
+          break;
+        case SPEED_LOOP:
+          hw_commands_velocities_[i] = std::numeric_limits<double>::quiet_NaN();
+          break;
+        case POSITION_LOOP:
+          hw_commands_positions_[i] = std::numeric_limits<double>::quiet_NaN();
+          break;
+        case POSITION_SPEED_LOOP:
+          hw_commands_positions_[i] = std::numeric_limits<double>::quiet_NaN();
+          hw_commands_velocities_[i] = std::numeric_limits<double>::quiet_NaN();
+          hw_commands_accelerations_[i] = std::numeric_limits<double>::quiet_NaN();
+          break;
+        case UNDEFINED:
+          return hardware_interface::return_type::ERROR;
+      }
+    }
+    control_mode_[i] = start_modes_[i];
+  }
+  return hardware_interface::return_type::OK;
+}
+
 
 hardware_interface::CallbackReturn CubeMarsSystemHardware::on_activate(
   const rclcpp_lifecycle::State & /*previous_state*/)
@@ -263,30 +340,58 @@ hardware_interface::return_type CubeMarsSystemHardware::write(
   {
     hw_commands_positions_[i] = hw_states_positions_[i] + 0.01;
     hw_commands_velocities_[i] = 1.0;
-
-    int32_t speed = hw_commands_velocities_[i] * erpm_conversion_[i];
     uint8_t data[4];
-    RCLCPP_INFO(
-      rclcpp::get_logger("RRBotSystemMultiInterfaceHardware"),
-      "speed: %d", speed);
 
-    data[0] = speed >> 24;
-    data[1] = speed >> 16;
-    data[2] = speed >> 8;
-    data[3] = speed;
-    RCLCPP_INFO(
-      rclcpp::get_logger("RRBotSystemMultiInterfaceHardware"),
-      "data 3: %d", data[3]);
+    switch (control_mode_[i])
+    {
+      case UNDEFINED:
+        RCLCPP_INFO(
+          rclcpp::get_logger("CubeMarsSystemHardware"),
+          "Nothing is using the hardware interface!");
+        return hardware_interface::return_type::OK;
+      case CURRENT_LOOP:
+        break;
+      case SPEED_LOOP:
+      {
+        int32_t speed = hw_commands_velocities_[i] * erpm_conversion_[i];
+        RCLCPP_INFO(
+          rclcpp::get_logger("CubeMarsSystemHardware"),
+          "speed: %d", speed);
 
-    // uint32_t test = can_ids_[i] | SPEED_LOOP << 8;
-    // RCLCPP_INFO(
-    //   rclcpp::get_logger("RRBotSystemMultiInterfaceHardware"),
-    //   "can test id: %X", test);
+        data[0] = speed >> 24;
+        data[1] = speed >> 16;
+        data[2] = speed >> 8;
+        data[3] = speed;
+        RCLCPP_INFO(
+          rclcpp::get_logger("CubeMarsSystemHardware"),
+          "data 3: %d", data[3]);
+        can_.write_message(can_ids_[i] | SPEED_LOOP << 8, data, 4);
+        break;
+      }
+      case POSITION_LOOP:
+      {
+        int32_t position = hw_commands_velocities_[i] * erpm_conversion_[i];
+        RCLCPP_INFO(
+          rclcpp::get_logger("CubeMarsSystemHardware"),
+          "speed: %d", position);
 
-    can_.write_message(can_ids_[i] | SPEED_LOOP << 8, data, 4);
+        data[0] = position >> 24;
+        data[1] = position >> 16;
+        data[2] = position >> 8;
+        data[3] = position;
+        RCLCPP_INFO(
+          rclcpp::get_logger("CubeMarsSystemHardware"),
+          "data 3: %d", data[3]);
+        can_.write_message(can_ids_[i] | SPEED_LOOP << 8, data, 4);
+        break;
+      }
+      case POSITION_SPEED_LOOP:
+        break;
+    }
+
     // Simulate sending commands to the hardware
     RCLCPP_INFO(
-      rclcpp::get_logger("RRBotSystemMultiInterfaceHardware"),
+      rclcpp::get_logger("CubeMarsSystemHardware"),
       "Got the commands pos: %.5f, vel: %.5f, acc: %.5f for joint %lu",
       hw_commands_positions_[i], hw_commands_velocities_[i], hw_commands_accelerations_[i], i);
   }

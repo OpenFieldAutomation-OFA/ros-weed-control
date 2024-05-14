@@ -78,7 +78,8 @@ RUN apt-get update \
     ros-$ROS_DISTRO-ros2-control \
     ros-$ROS_DISTRO-ros2-controllers \
     ros-$ROS_DISTRO-moveit \
-    ros-$ROS_DISTRO-moveit-visual-tools
+    ros-$ROS_DISTRO-moveit-visual-tools \
+    ros-$ROS_DISTRO-rqt-joint-trajectory-controller
     # ros-$ROS_DISTRO-ros-gz
     # && rm -rf /var/lib/apt/lists/*
 

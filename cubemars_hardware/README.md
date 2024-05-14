@@ -2,8 +2,25 @@
 
 This package contains the [ros2_control](https://control.ros.org/master/index.html) hardware interface to control the CubeMars AK series motors with a  `SystemInterface`. It was tested on the AK70-10.
 
-It implements the following hardware interfaces:
-...
+The following hardware interfaces are published:
+- command interfaces:
+  - acceleration
+  - effort
+  - position
+  - velocity
+- state interfaces:
+  - effort
+  - position
+  - temperature
+  - velocity
+
+This list can also be seen by running `ros2 control list_hardware_interfaces` after having started the controller manager.
+
+The controller has to claim one of the following combinations of command interfaces:
+- `effort` (Current Loop Mode)
+- `speed` (Speed Loop Mode)
+- `position` (Position Loop Mode)
+- `position`, `speed` and `acceleration` (Position-Speed Loop Mode)
 
 
 ## Setup

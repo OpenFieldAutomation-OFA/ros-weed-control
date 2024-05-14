@@ -1,4 +1,3 @@
-// credit: https://github.com/CommonplaceRobotics/iRC_ROS
 #ifndef CUBEMARS_HARDWARE__CAN_HPP_
 #define CUBEMARS_HARDWARE__CAN_HPP_
 
@@ -40,16 +39,7 @@ public:
   bool write_message(uint32_t id, const uint8_t data[], uint8_t len);
 
   /**
-   * @brief Read message from CAN bus
-   * @param id CAN extended identifier
-   * @param data Data to be received
-   * @param len Received number of bytes of data (0-8)
-   * @return true on success
-   */
-  bool read_message(uint32_t & id, uint8_t data[8], uint8_t & len);
-
-  /**
-   * @brief Read message from CAN bus buffer without blocking
+   * @brief Read message from CAN bus without blocking
    * @param id CAN extended identifier
    * @param data Data to be received
    * @param len Received number of bytes of data (0-8)

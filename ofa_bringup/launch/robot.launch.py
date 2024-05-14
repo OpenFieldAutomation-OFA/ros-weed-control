@@ -36,17 +36,9 @@ def generate_launch_description():
         have to be updated.",
         )
     )
-    declared_arguments.append(
-        DeclareLaunchArgument(
-            "use_mock_hardware",
-            default_value="false",
-            description="Start robot with mock hardware mirroring command to its states.",
-        )
-    )
 
     # Initialize Arguments
     prefix = LaunchConfiguration("prefix")
-    use_mock_hardware = LaunchConfiguration("use_mock_hardware")
 
     # Get URDF via xacro
     robot_description_content = Command(
@@ -63,9 +55,6 @@ def generate_launch_description():
             " ",
             "prefix:=",
             prefix,
-            " ",
-            "use_mock_hardware:=",
-            use_mock_hardware,
         ]
     )
     robot_description = {"robot_description": 
