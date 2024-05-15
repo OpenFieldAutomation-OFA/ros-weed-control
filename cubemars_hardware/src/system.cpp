@@ -229,26 +229,12 @@ hardware_interface::return_type CubeMarsSystemHardware::perform_command_mode_swi
 hardware_interface::CallbackReturn CubeMarsSystemHardware::on_activate(
   const rclcpp_lifecycle::State & /*previous_state*/)
 {
-  // "enable" motors (set speed to 0)
-  for (std::size_t i = 0; i < info_.joints.size(); i++)
-  {
-    control_mode_[i] = SPEED_LOOP;
-    hw_commands_velocities_[i] = 0;
-  }
-  
-
   return hardware_interface::CallbackReturn::SUCCESS;
 }
 
 hardware_interface::CallbackReturn CubeMarsSystemHardware::on_deactivate(
   const rclcpp_lifecycle::State & /*previous_state*/)
 {
-  // "disable" motors (set current to 0)
-  for (std::size_t i = 0; i < info_.joints.size(); i++)
-  {
-    control_mode_[i] = CURRENT_LOOP;
-    hw_commands_efforts_[i] = 0;
-  }
   return hardware_interface::CallbackReturn::SUCCESS;
 }
 
