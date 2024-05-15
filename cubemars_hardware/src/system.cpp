@@ -314,8 +314,10 @@ hardware_interface::return_type CubeMarsSystemHardware::read(
       hw_states_velocities_[i] = hw_states_velocities_[i] * 10 / erpm_conversions_[i];
       hw_states_efforts_[i] = hw_states_efforts_[i] * 0.01 * torque_constants_[i];
       hw_states_temperatures_[i] = read_data[6];
-      RCLCPP_INFO(rclcpp::get_logger("CubeMarsSystemHardware"), "pos: %f, spd: %f, eff: %f, temp: %f",
-        hw_states_positions_[i], hw_states_velocities_[i], hw_states_efforts_[i], hw_states_temperatures_[i]);
+      RCLCPP_INFO(
+        rclcpp::get_logger("CubeMarsSystemHardware"),
+        "read states joint %lu: pos %f, spd %f, eff %f, temp %f",
+        i, hw_states_positions_[i], hw_states_velocities_[i], hw_states_efforts_[i], hw_states_temperatures_[i]);
     }
   }
 
@@ -351,7 +353,7 @@ hardware_interface::return_type CubeMarsSystemHardware::write(
           }
           RCLCPP_INFO(
             rclcpp::get_logger("CubeMarsSystemHardware"),
-            "current command: %d", current);
+            "current command for joint %lu: %d", i, current);
 
           uint8_t data[4];
           data[0] = current >> 24;
@@ -380,7 +382,7 @@ hardware_interface::return_type CubeMarsSystemHardware::write(
           }
           RCLCPP_INFO(
             rclcpp::get_logger("CubeMarsSystemHardware"),
-            "speed command: %d", speed);
+            "speed command for joint %lu: %d", i, speed);
 
           uint8_t data[4];
           data[0] = speed >> 24;
@@ -392,6 +394,7 @@ hardware_interface::return_type CubeMarsSystemHardware::write(
           {
             return hardware_interface::return_type::ERROR;
           }
+          hw_commands_velocities_[i] = std::numeric_limits<double>::quiet_NaN();
         }
         break;
       }
@@ -409,7 +412,7 @@ hardware_interface::return_type CubeMarsSystemHardware::write(
           }
           RCLCPP_INFO(
             rclcpp::get_logger("CubeMarsSystemHardware"),
-            "position command: %d", position);
+            "position command for joint %lu: %d", i, position);
 
           uint8_t data[4];
           data[0] = position >> 24;
@@ -456,8 +459,8 @@ hardware_interface::return_type CubeMarsSystemHardware::write(
           }
           RCLCPP_INFO(
             rclcpp::get_logger("CubeMarsSystemHardware"),
-            "position, speed, acceleration command: %d, %d, %d",
-            position, speed, acceleration);
+            "command for joint %lu: pos %d, speed %d, acc %d",
+            i, position, speed, acceleration);
 
           uint8_t data[8];
           data[0] = position >> 24;
@@ -477,12 +480,6 @@ hardware_interface::return_type CubeMarsSystemHardware::write(
         break;
       }
     }
-
-    RCLCPP_INFO(
-      rclcpp::get_logger("CubeMarsSystemHardware"),
-      "Got the commands pos: %.5f, vel: %.5f, acc: %.5f, eff: %.5f for joint %lu",
-      hw_commands_positions_[i], hw_commands_velocities_[i],
-      hw_commands_accelerations_[i], hw_commands_efforts_.at(i), i);
   }
 
   return hardware_interface::return_type::OK;
