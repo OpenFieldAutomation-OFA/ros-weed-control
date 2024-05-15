@@ -105,6 +105,7 @@ bool CanSocket::write_message(uint32_t id, const uint8_t data[], uint8_t len)
   struct can_frame frame;
   frame.can_id = id | CAN_EFF_FLAG;
   frame.len = len;
+  memcpy(frame.data, data, len);
   // RCLCPP_INFO(rclcpp::get_logger("CubeMarsSystemHardware"), "can_id: %x", frame.can_id);  memcpy(frame.data, data, len);
   if (write(socket_, &frame, sizeof(struct can_frame)) != sizeof(struct can_frame))
   {
