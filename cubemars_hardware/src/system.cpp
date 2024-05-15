@@ -18,7 +18,14 @@ hardware_interface::CallbackReturn CubeMarsSystemHardware::on_init(
     return hardware_interface::CallbackReturn::ERROR;
   }
 
-  can_itf_ = info_.hardware_parameters["can_interface"];
+  if (info_.hardware_parameters.count("can_interface") != 0) {
+    can_itf_ = info_.hardware_parameters.at("can_interface");
+  } else {
+    RCLCPP_FATAL(
+      rclcpp::get_logger("CubeMarsSystemHardware"),
+      "No can_interface specified in URDF");
+    return hardware_interface::CallbackReturn::ERROR;
+  }
 
   hw_states_positions_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
   hw_states_velocities_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
@@ -32,10 +39,23 @@ hardware_interface::CallbackReturn CubeMarsSystemHardware::on_init(
 
   for (const hardware_interface::ComponentInfo & joint : info_.joints)
   {
+    if (joint.parameters.count("can_id") != 0 &&
+      joint.parameters.count("kt") != 0 &&
+      joint.parameters.count("pole_pairs") != 0 &&
+      joint.parameters.count("gear_ratio") != 0)
+    {
     can_ids_.emplace_back(std::stoul(joint.parameters.at("can_id")));
     torque_constants_.emplace_back(std::stod(joint.parameters.at("kt")));
-    erpm_conversion_.emplace_back(std::stoi(joint.parameters.at("pole_pairs")) * 
+    erpm_conversions_.emplace_back(std::stoi(joint.parameters.at("pole_pairs")) * 
       std::stoi(joint.parameters.at("gear_ratio")) * 60 / (2 * M_PI));
+    }
+    else
+    {
+      RCLCPP_FATAL(
+        rclcpp::get_logger("CubeMarsSystemHardware"),
+        "Missing parameters in URDF for %s", joint.name.c_str());
+      return hardware_interface::CallbackReturn::ERROR;
+    }
   }
 
   return hardware_interface::CallbackReturn::SUCCESS;
@@ -209,14 +229,26 @@ hardware_interface::return_type CubeMarsSystemHardware::perform_command_mode_swi
 hardware_interface::CallbackReturn CubeMarsSystemHardware::on_activate(
   const rclcpp_lifecycle::State & /*previous_state*/)
 {
-  // motors are always enabled
+  // "enable" motors (set speed to 0)
+  for (std::size_t i = 0; i < info_.joints.size(); i++)
+  {
+    control_mode_[i] = SPEED_LOOP;
+    hw_commands_velocities_[i] = 0;
+  }
+  
+
   return hardware_interface::CallbackReturn::SUCCESS;
 }
 
 hardware_interface::CallbackReturn CubeMarsSystemHardware::on_deactivate(
   const rclcpp_lifecycle::State & /*previous_state*/)
 {
-  // motors cannot be disabled
+  // "disable" motors (set current to 0)
+  for (std::size_t i = 0; i < info_.joints.size(); i++)
+  {
+    control_mode_[i] = CURRENT_LOOP;
+    hw_commands_efforts_[i] = 0;
+  }
   return hardware_interface::CallbackReturn::SUCCESS;
 }
 
@@ -280,7 +312,7 @@ hardware_interface::return_type CubeMarsSystemHardware::read(
   }
 
   // check if all CAN IDs have received a message
-  for (size_t i = 0; i < can_ids_.size(); i++)
+  for (std::size_t i = 0; i < info_.joints.size(); i++)
   {
     if (!all_ids[i])
     {
@@ -293,7 +325,7 @@ hardware_interface::return_type CubeMarsSystemHardware::read(
     {
       // Unit conversions
       hw_states_positions_[i] = hw_states_positions_[i] * 0.1 * M_PI / 180;
-      hw_states_velocities_[i] = hw_states_velocities_[i] * 10 / erpm_conversion_[i];
+      hw_states_velocities_[i] = hw_states_velocities_[i] * 10 / erpm_conversions_[i];
       hw_states_efforts_[i] = hw_states_efforts_[i] * 0.01 * torque_constants_[i];
       hw_states_temperatures_[i] = read_data[6];
       RCLCPP_INFO(rclcpp::get_logger("CubeMarsSystemHardware"), "pos: %f, spd: %f, eff: %f, temp: %f",
@@ -310,7 +342,7 @@ hardware_interface::return_type CubeMarsSystemHardware::write(
   for (std::size_t i = 0; i < info_.joints.size(); i++)
   {
     //test
-    hw_commands_positions_[i] = 0;
+    // hw_commands_positions_[i] = 0;
 
     switch (control_mode_[i])
     {
@@ -340,8 +372,11 @@ hardware_interface::return_type CubeMarsSystemHardware::write(
           data[1] = current >> 16;
           data[2] = current >> 8;
           data[3] = current;
-          
-          can_.write_message(can_ids_[i] | CURRENT_LOOP << 8, data, 4);
+
+          if (!can_.write_message(can_ids_[i] | CURRENT_LOOP << 8, data, 4))
+          {
+            return hardware_interface::return_type::ERROR;
+          }
         }
         break;
       }
@@ -349,7 +384,7 @@ hardware_interface::return_type CubeMarsSystemHardware::write(
       {
         if (!std::isnan(hw_commands_velocities_[i]))
         {
-          int32_t speed = hw_commands_velocities_[i] * erpm_conversion_[i];
+          int32_t speed = hw_commands_velocities_[i] * erpm_conversions_[i];
           if (std::abs(speed) >= 100000)
           {
             RCLCPP_ERROR(
@@ -366,8 +401,11 @@ hardware_interface::return_type CubeMarsSystemHardware::write(
           data[1] = speed >> 16;
           data[2] = speed >> 8;
           data[3] = speed;
-          
-          can_.write_message(can_ids_[i] | SPEED_LOOP << 8, data, 4);
+
+          if (!can_.write_message(can_ids_[i] | SPEED_LOOP << 8, data, 4))
+          {
+            return hardware_interface::return_type::ERROR;
+          }
         }
         break;
       }
@@ -393,7 +431,10 @@ hardware_interface::return_type CubeMarsSystemHardware::write(
           data[2] = position >> 8;
           data[3] = position;
 
-          can_.write_message(can_ids_[i] | POSITION_LOOP << 8, data, 4);
+          if (!can_.write_message(can_ids_[i] | POSITION_LOOP << 8, data, 4))
+          {
+            return hardware_interface::return_type::ERROR;
+          }
         }
         break;
       }
@@ -404,8 +445,8 @@ hardware_interface::return_type CubeMarsSystemHardware::write(
           !std::isnan(hw_commands_accelerations_[i]))
         {
           int32_t position = hw_commands_positions_[i] * 10000 * 180 / M_PI;
-          int16_t speed = hw_commands_velocities_[i] / 10 * erpm_conversion_[i];
-          int16_t acceleration = hw_commands_accelerations_[i] / 10 * erpm_conversion_[i];
+          int16_t speed = hw_commands_velocities_[i] / 10 * erpm_conversions_[i];
+          int16_t acceleration = hw_commands_accelerations_[i] / 10 * erpm_conversions_[i];
           if (std::abs(position) >= 360000000)
           {
             RCLCPP_ERROR(
@@ -442,7 +483,10 @@ hardware_interface::return_type CubeMarsSystemHardware::write(
           data[6] = acceleration >> 8;
           data[7] = acceleration;
 
-          can_.write_message(can_ids_[i] | POSITION_SPEED_LOOP << 8, data, 8);
+          if (!can_.write_message(can_ids_[i] | POSITION_SPEED_LOOP << 8, data, 8))
+          {
+            return hardware_interface::return_type::ERROR;
+          }
         }
         break;
       }

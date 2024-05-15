@@ -13,30 +13,34 @@ namespace cubemars_hardware
 {
 bool CanSocket::connect(std::string can_itf, const std::vector<canid_t> & can_ids, canid_t can_mask)
 {
-  // Open socket
+  // open socket
   socket_ = socket(PF_CAN, SOCK_RAW, CAN_RAW);
   if (socket_ < 0) {
-    RCLCPP_ERROR(rclcpp::get_logger("CubeMarsSystemHardware"), "Could not create socket");
+    RCLCPP_ERROR(
+      rclcpp::get_logger("CubeMarsSystemHardware"),
+      "Could not create socket");
     return false;
   }
 
-  // Get CAN interface index
+  // get CAN interface index
   struct ifreq ifr;
   strcpy(ifr.ifr_name, can_itf.c_str());
   ioctl(socket_, SIOCGIFINDEX, &ifr);
 
-  // Bind CAN interface
+  // bind CAN interface
   struct sockaddr_can addr;
   memset(&addr, 0, sizeof(addr));
   addr.can_family = AF_CAN;
   addr.can_ifindex = ifr.ifr_ifindex;
   if (bind(socket_, (struct sockaddr *)&addr, sizeof(addr)) < 0)
   {
-    RCLCPP_ERROR(rclcpp::get_logger("CubeMarsSystemHardware"), "Could not bind CAN interface");
+    RCLCPP_ERROR(
+      rclcpp::get_logger("CubeMarsSystemHardware"),
+      "Could not bind CAN interface");
     return false;
   }
 
-  // Filter CAN IDs
+  // filter CAN IDs
   can_mask_ = can_mask;
   struct can_filter rfilter[can_ids.size()];
   for (std::size_t i = 0; i < can_ids.size(); i++)
@@ -46,12 +50,14 @@ bool CanSocket::connect(std::string can_itf, const std::vector<canid_t> & can_id
   }
   setsockopt(socket_, SOL_CAN_RAW, CAN_RAW_FILTER, &rfilter, sizeof(rfilter));
 
-  // Write test message, fails if socket is available but not usable
-  // if (!write_message(0, NULL, 0))
-  // {
-  //   RCLCPP_ERROR(rclcpp::get_logger("CubeMarsSystemHardware"), "Could not write CAN socket");
-  //   return false;
-  // }
+  // write test message
+  if (!write_message(0, NULL, 0))
+  {
+    RCLCPP_ERROR(
+      rclcpp::get_logger("CubeMarsSystemHardware"),
+      "Test message failed");
+    return false;
+  }
 
   return true;
 }
@@ -61,7 +67,9 @@ bool CanSocket::disconnect()
   std::this_thread::sleep_for(std::chrono::microseconds(500));
   if (close(socket_) < 0)
   {
-    RCLCPP_ERROR(rclcpp::get_logger("CubeMarsSystemHardware"), "Could not close CAN socket");
+    RCLCPP_ERROR(
+      rclcpp::get_logger("CubeMarsSystemHardware"),
+      "Could not close CAN socket");
     return false;
   }
   return true;
@@ -78,7 +86,9 @@ bool CanSocket::read_nonblocking(uint32_t & id, uint8_t data[], uint8_t & len)
     }
     else
     {
-      RCLCPP_ERROR(rclcpp::get_logger("CubeMarsSystemHardware"), "Could not read CAN socket");
+      RCLCPP_ERROR(
+        rclcpp::get_logger("CubeMarsSystemHardware"),
+        "Could not read CAN socket");
     }
     return false;
   }
@@ -94,12 +104,13 @@ bool CanSocket::write_message(uint32_t id, const uint8_t data[], uint8_t len)
 {
   struct can_frame frame;
   frame.can_id = id | CAN_EFF_FLAG;
-  RCLCPP_INFO(rclcpp::get_logger("CubeMarsSystemHardware"), "can_id: %x", frame.can_id);
   frame.len = len;
   memcpy(frame.data, data, len);
   if (write(socket_, &frame, sizeof(struct can_frame)) != sizeof(struct can_frame))
   {
-    RCLCPP_ERROR(rclcpp::get_logger("CubeMarsSystemHardware"), "Could not write message to CAN socket");
+    RCLCPP_ERROR(
+      rclcpp::get_logger("CubeMarsSystemHardware"),
+      "Could not write message to CAN socket");
     return false;
   }
   return true;

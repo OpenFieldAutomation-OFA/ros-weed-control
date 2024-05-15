@@ -77,7 +77,7 @@ private:
   std::vector<double> hw_states_efforts_;
   std::vector<double> hw_states_temperatures_;
 
-  std::vector<double> erpm_conversion_;
+  std::vector<double> erpm_conversions_;
   std::vector<double> torque_constants_;
 
   CanSocket can_;
