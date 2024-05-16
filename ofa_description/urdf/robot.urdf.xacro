@@ -14,16 +14,17 @@
   <xacro:include filename="materials.urdf.xacro" />
 
   <!-- Import ros2_control description -->
-  <xacro:include filename="$(find ofa_description)/ros2_control/2dof_arm.ros2_control.xacro" />
-  <!-- <xacro:include filename="$(find ofa_description)/ros2_control/linear_axis.ros2_control.xacro" /> -->
+  <xacro:include filename="$(find ofa_description)/ros2_control/arm_2dof.ros2_control.xacro" />
+  <xacro:include filename="$(find ofa_description)/ros2_control/linear_axis.ros2_control.xacro" />
 
   <!-- Used for fixing robot -->
   <link name="world"/>
 
   <xacro:weed_robot parent="world" prefix="$(arg prefix)" />
 
-  <xacro:arm_ros2_control
-    name="2dof_arm" prefix="$(arg prefix)" use_mock_hardware="$(arg use_mock_hardware)"/>
-  <!-- <xacro:linear_axis_ros2_control name="linear_axis" prefix="$(arg prefix)" /> -->
+  <xacro:arm_2dof_ros2_control
+    name="arm_2dof" prefix="$(arg prefix)" use_mock_hardware="$(arg use_mock_hardware)"/>
+  <xacro:linear_axis_ros2_control
+    name="linear_axis" prefix="$(arg prefix)" use_mock_hardware="$(arg use_mock_hardware)"/>
 
 </robot>

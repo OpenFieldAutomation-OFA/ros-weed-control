@@ -1,13 +1,12 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
-  <xacro:macro name="arm_ros2_control" params="name prefix use_mock_hardware">
+  <xacro:macro name="arm_2dof_ros2_control" params="name prefix use_mock_hardware">
 
     <ros2_control name="${name}" type="system">
       <hardware>
         <xacro:if value="${use_mock_hardware}">
           <plugin>mock_components/GenericSystem</plugin>
-          <param name="calculate_dynamics">true</param>
         </xacro:if>
         <xacro:unless value="${use_mock_hardware}">
           <plugin>cubemars_hardware/CubeMarsSystemHardware</plugin>

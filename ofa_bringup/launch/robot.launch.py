@@ -15,7 +15,7 @@
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, RegisterEventHandler
-# from launch.conditions import IfCondition
+from launch.conditions import IfCondition
 from launch.event_handlers import OnProcessExit
 from launch.substitutions import Command, FindExecutable, LaunchConfiguration, PathJoinSubstitution
 
@@ -27,6 +27,13 @@ from launch_ros.descriptions import ParameterValue
 def generate_launch_description():
     # Declare arguments
     declared_arguments = []
+    declared_arguments.append(
+        DeclareLaunchArgument(
+            "gui",
+            default_value="true",
+            description="Start RViz2 automatically with this launch file.",
+        )
+    )
     declared_arguments.append(
         DeclareLaunchArgument(
             "prefix",
@@ -43,8 +50,8 @@ def generate_launch_description():
             description="Start robot with mock hardware mirroring command to its states.",
         )
     )
-
     # Initialize Arguments
+    gui = LaunchConfiguration("gui")
     prefix = LaunchConfiguration("prefix")
     use_mock_hardware = LaunchConfiguration("use_mock_hardware")
 
@@ -78,9 +85,9 @@ def generate_launch_description():
             "robot_controllers.yaml",
         ]
     )
-    # rviz_config_file = PathJoinSubstitution(
-    #     [FindPackageShare("ros2_control_demo_description"), "rrbot/rviz", "rrbot.rviz"]
-    # )
+    rviz_config_file = PathJoinSubstitution(
+        [FindPackageShare("ofa_description"), "rviz", "urdf.rviz"]
+    )
 
     control_node = Node(
         package="controller_manager",
@@ -102,8 +109,8 @@ def generate_launch_description():
         executable="rviz2",
         name="rviz2",
         output="log",
-        # arguments=["-d", rviz_config_file],
-        # condition=IfCondition(gui),
+        arguments=["-d", rviz_config_file],
+        condition=IfCondition(gui),
     )
 
     joint_state_broadcaster_spawner = Node(
