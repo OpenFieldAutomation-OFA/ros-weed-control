@@ -303,8 +303,8 @@ hardware_interface::return_type CubeMarsSystemHardware::read(
     if (!all_ids[i])
     {
       RCLCPP_WARN(
-        rclcpp::get_logger("CubeMarsSystemHardware"), "No CAN message received from CAN ID: %u. "
-        "Lower the update rate of the controller manager or increase the update frequency of the actuator.",
+        rclcpp::get_logger("CubeMarsSystemHardware"),
+        "No CAN message received from CAN ID: %u. ",
         can_ids_[i]);
     }
     else

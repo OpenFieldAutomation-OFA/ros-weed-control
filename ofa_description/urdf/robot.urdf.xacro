@@ -4,6 +4,7 @@
   
   <!-- Enable setting arguments from the launch file -->
   <xacro:arg name="prefix" default="" />
+  <xacro:arg name="use_mock_hardware" default="false" />
 
   <!-- Import robot macro -->
    <xacro:include filename="robot_description.urdf.xacro" />
@@ -22,7 +23,7 @@
   <xacro:weed_robot parent="world" prefix="$(arg prefix)" />
 
   <xacro:arm_ros2_control
-    name="2dof_arm" prefix="$(arg prefix)" />
+    name="2dof_arm" prefix="$(arg prefix)" use_mock_hardware="$(arg use_mock_hardware)"/>
   <!-- <xacro:linear_axis_ros2_control name="linear_axis" prefix="$(arg prefix)" /> -->
 
 </robot>

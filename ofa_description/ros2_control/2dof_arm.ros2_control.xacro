@@ -1,24 +1,46 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
-  <xacro:macro name="arm_ros2_control" params="name prefix">
+  <xacro:macro name="arm_ros2_control" params="name prefix use_mock_hardware">
 
     <ros2_control name="${name}" type="system">
       <hardware>
-        <plugin>cubemars_hardware/CubeMarsSystemHardware</plugin>
-        <param name="can_interface">can0</param>
+        <xacro:if value="${use_mock_hardware}">
+          <plugin>mock_components/GenericSystem</plugin>
+          <param name="calculate_dynamics">true</param>
+        </xacro:if>
+        <xacro:unless value="${use_mock_hardware}">
+          <plugin>cubemars_hardware/CubeMarsSystemHardware</plugin>
+          <param name="can_interface">can0</param>
+        </xacro:unless>
       </hardware>
       <joint name="${prefix}joint2">
         <param name="can_id">90</param>
         <param name="pole_pairs">21</param>
         <param name="gear_ratio">10</param>
         <param name="kt">0.123</param>
+        <command_interface name="position"/>
+        <command_interface name="velocity"/>
+        <command_interface name="acceleration"/>
+        <command_interface name="effort"/>
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+        <state_interface name="effort"/>
+        <state_interface name="temperature"/>
       </joint>
       <joint name="${prefix}joint3">
         <param name="can_id">91</param>
         <param name="pole_pairs">21</param>
         <param name="gear_ratio">10</param>
         <param name="kt">0.123</param>
+        <command_interface name="position"/>
+        <command_interface name="velocity"/>
+        <command_interface name="acceleration"/>
+        <command_interface name="effort"/>
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+        <state_interface name="effort"/>
+        <state_interface name="temperature"/>
       </joint>
     </ros2_control>
 
