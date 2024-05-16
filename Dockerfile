@@ -28,6 +28,10 @@ RUN vcs import  < dependencies.repos
 WORKDIR /home/ros/underlay
 RUN . /opt/ros/${ROS_DISTRO}/setup.sh \
     && apt-get update \
+    && apt-get install -y --no-install-recommends \
+    libgflags-dev \
+    nlohmann-json3-dev \
+    libgoogle-glog-dev \
     && rosdep install -y --from-paths src --ignore-src \
     && colcon build \
     && rm -rf /var/lib/apt/lists/*
@@ -77,6 +81,7 @@ RUN apt-get update \
     ros-$ROS_DISTRO-turtlesim \
     ros-$ROS_DISTRO-ros2-control \
     ros-$ROS_DISTRO-ros2-controllers \
+    ros-$ROS_DISTRO-ros2-controllers-test-nodes \ 
     ros-$ROS_DISTRO-moveit \
     ros-$ROS_DISTRO-moveit-visual-tools \
     ros-$ROS_DISTRO-rqt-joint-trajectory-controller

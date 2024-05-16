@@ -64,7 +64,7 @@ def generate_launch_description():
         [
             FindPackageShare("ofa_bringup"),
             "config",
-            "robot_controllers.yaml",
+            "joint_trajectory_controller.yaml",
         ]
     )
     # rviz_config_file = PathJoinSubstitution(

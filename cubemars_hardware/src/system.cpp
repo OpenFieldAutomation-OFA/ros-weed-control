@@ -361,10 +361,7 @@ hardware_interface::return_type CubeMarsSystemHardware::write(
           data[2] = current >> 8;
           data[3] = current;
 
-          if (!can_.write_message(can_ids_[i] | CURRENT_LOOP << 8, data, 4))
-          {
-            return hardware_interface::return_type::ERROR;
-          }
+          can_.write_message(can_ids_[i] | CURRENT_LOOP << 8, data, 4);
         }
         break;
       }
@@ -390,11 +387,7 @@ hardware_interface::return_type CubeMarsSystemHardware::write(
           data[2] = speed >> 8;
           data[3] = speed;
 
-          if (!can_.write_message(can_ids_[i] | SPEED_LOOP << 8, data, 4))
-          {
-            return hardware_interface::return_type::ERROR;
-          }
-          hw_commands_velocities_[i] = std::numeric_limits<double>::quiet_NaN();
+          can_.write_message(can_ids_[i] | SPEED_LOOP << 8, data, 4);
         }
         break;
       }
@@ -420,10 +413,7 @@ hardware_interface::return_type CubeMarsSystemHardware::write(
           data[2] = position >> 8;
           data[3] = position;
 
-          if (!can_.write_message(can_ids_[i] | POSITION_LOOP << 8, data, 4))
-          {
-            return hardware_interface::return_type::ERROR;
-          }
+          can_.write_message(can_ids_[i] | POSITION_LOOP << 8, data, 4);
         }
         break;
       }
@@ -472,10 +462,7 @@ hardware_interface::return_type CubeMarsSystemHardware::write(
           data[6] = acceleration >> 8;
           data[7] = acceleration;
 
-          if (!can_.write_message(can_ids_[i] | POSITION_SPEED_LOOP << 8, data, 8))
-          {
-            return hardware_interface::return_type::ERROR;
-          }
+          can_.write_message(can_ids_[i] | POSITION_SPEED_LOOP << 8, data, 8);
         }
         break;
       }
