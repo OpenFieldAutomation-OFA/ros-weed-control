@@ -10,9 +10,9 @@
 		<child link="${prefix}base_link" />
 	</joint>
 
-	<xacro:property name="base_l" value="1.5" />
-	<xacro:property name="base_w" value="1.5" />
-	<xacro:property name="base_h" value="0.1" />
+	<xacro:property name="base_l" value="1.216" />
+	<xacro:property name="base_w" value="0.06" />
+	<xacro:property name="base_h" value="0.072" />
 	<xacro:property name="base_m" value="5" />
 	<link name="${prefix}base_link">
 		<visual>
@@ -35,77 +35,104 @@
 		</inertial>
 	</link>
 
+	<xacro:property name="axis_length" value="1" />
 	<joint name="${prefix}joint1" type="prismatic">
-		<origin xyz="0 0 0" rpy="0 0 0" />
+		<origin xyz="${-base_l/2+0.116} 0 ${-0.06-0.002}" rpy="0 0 0" />
 		<parent link="${prefix}base_link" />
 		<child link="${prefix}link1" />
 		<axis xyz="1 0 0" />
-		<limit lower="${-base_l/2}" upper="${base_l/2}" velocity="100" effort="100" />
+		<limit lower="0" upper="${axis_length}" velocity="1" effort="10" />
 	</joint>
 
-	<xacro:property name="first_w" value="0.1" />
-	<xacro:property name="first_l" value="0.1" />
-	<xacro:property name="first_h" value="0.1" />
-	<xacro:property name="first_m" value="0.5" />
+	<xacro:property name="motor_r" value="${0.089/2}" />
+	<xacro:property name="motor_h" value="0.05025" />
+	<xacro:property name="motor_m" value="0.521" />
 	<link name="${prefix}link1">
 		<visual>
-			<origin xyz="0 0 ${-first_h/2}" rpy="0 0 0" />
+			<origin xyz="0 0 0" rpy="0 ${pi/2} 0" />
 			<geometry>
-				<box size="${first_w} ${first_l} ${first_h}" />
+				<cylinder length="${motor_h}" radius="${motor_r}" />
 			</geometry>
 			<material name="black"/>
 		</visual>
 		<collision>
-			<origin xyz="0 0 ${-first_h}" rpy="0 0 0" />
+			<origin xyz="0 0 0" rpy="0 ${pi/2} 0" />
 			<geometry>
-				<box size="${first_w} ${first_l} ${first_h}" />
+				<cylinder length="${motor_h}" radius="${motor_r}" />
 			</geometry>
 		</collision>
 		<inertial>
-			<origin xyz="0 0 ${-first_h/2}" rpy="0 0 0" />
-			<mass value="${first_m}" />
-			<xacro:box_inertia m="${first_m}" x="${first_w}" y="${first_l}" z="${first_h}" />
+			<origin xyz="0 0 0" rpy="0 ${pi/2} 0" />
+			<mass value="${motor_m}" />
+			<xacro:cylinder_inertia m="${motor_m}" r="${motor_r}" h="${motor_h}" />
 		</inertial>
 	</link>
 
 	<joint name="${prefix}joint2" type="revolute">
-		<origin xyz="0 0 ${-first_h}" rpy="0 0 0" />
+		<origin xyz="${motor_h/2+0.01} 0 0" rpy="0 0 0" />
 		<parent link="${prefix}link1" />
 		<child link="${prefix}link2" />
 		<axis xyz="1 0 0" />
-		<limit lower="${-pi}" upper="${pi}" velocity="5" effort="10" />
+		<limit lower="${-pi/2}" upper="${pi/2}" velocity="5" effort="10" />
 	</joint>
 
-	<xacro:property name="arm_length" value="0.25" />
-	<xacro:property name="arm_radius" value="0.045" />
-	<xacro:property name="arm_mass" value="1" />
+	<xacro:property name="arm_r" value="${0.045/2}" />
+	<xacro:property name="arm_ri" value="${0.041/2}" />
+	<xacro:property name="arm1_l" value="0.25" />
+	<xacro:property name="arm1_m" value="${1650*(arm_r**2*pi-arm_ri**2*pi)*arm1_l}" />
+	<xacro:property name="arm2_l" value="0.425" />
+	<xacro:property name="arm2_m" value="${1650*(arm_r**2*pi-arm_ri**2*pi)*arm2_l}" />
 	<link name="${prefix}link2">
 		<visual>
-			<origin xyz="0 0 ${-arm_length/2}" rpy="0 0 0" />
+			<origin xyz="${arm_r} 0 ${-arm1_l/2}" rpy="0 0 0" />
 			<geometry>
-				<cylinder length="${arm_length}" radius="${arm_radius}" />
+				<cylinder length="${arm1_l}" radius="${arm_r}" />
 			</geometry>
 			<material name="orange"/>
 		</visual>
 		<collision>
-			<origin xyz="0 0 ${-arm_length/2}" rpy="0 0 0" />
+			<origin xyz="${arm_r} 0 ${-arm1_l/2}" rpy="0 0 0" />
 			<geometry>
-				<cylinder length="${arm_length}" radius="${arm_radius}" />
+				<cylinder length="${arm1_l}" radius="${arm_r}" />
 			</geometry>
 		</collision>
 		<inertial>
-			<origin xyz="0 0 ${-arm_length/2}" rpy="0 0 0" />
-			<mass value="${arm_mass}" />
-			<xacro:cylinder_inertia m="${arm_mass}" r="${arm_radius}" h="${arm_length}" />
+			<origin xyz="${arm_r} 0 ${-arm1_l/2}" rpy="0 0 0" />
+			<mass value="${arm1_m}" />
+			<xacro:cylinder_inertia m="${arm1_m}" r="${arm_r}" h="${arm1_l}" />
 		</inertial>
 	</link>
 
-	<xacro:property name="arm2_radius" value="0.045" />
-	<xacro:property name="arm2_length" value="0.425" />
-	<xacro:property name="arm2_mass" value="0.5" />
-	<joint name="${prefix}joint3" type="continuous">
-		<origin xyz="0 0 ${-arm_length}" rpy="0 0 0" />
+	<joint name="${prefix}joint2_motor" type="fixed">
+		<origin xyz="${-motor_h/2-0.0058} 0 ${-arm1_l}" rpy="0 0 0" />
 		<parent link="${prefix}link2" />
+		<child link="${prefix}link2_motor" />
+	</joint>
+
+	<link name="${prefix}link2_motor">
+		<visual>
+			<origin xyz="0 0 0" rpy="0 ${pi/2} 0" />
+			<geometry>
+				<cylinder length="${motor_h}" radius="${motor_r}" />
+			</geometry>
+			<material name="black"/>
+		</visual>
+		<collision>
+			<origin xyz="0 0 0" rpy="0 ${pi/2} 0" />
+			<geometry>
+				<cylinder length="${motor_h}" radius="${motor_r}" />
+			</geometry>
+		</collision>
+		<inertial>
+			<origin xyz="0 0 0" rpy="0 ${pi/2} 0" />
+			<mass value="${motor_m}" />
+			<xacro:cylinder_inertia m="${motor_m}" r="${motor_r}" h="${motor_h}" />
+		</inertial>
+	</link>
+
+	<joint name="${prefix}joint3" type="continuous">
+		<origin xyz="${-motor_h/2-0.01} 0 0" rpy="0 0 0" />
+		<parent link="${prefix}link2_motor" />
 		<child link="${prefix}link3" />
 		<axis xyz="1 0 0" />
 		<limit lower="${-pi}" upper="${pi}" velocity="5" effort="10" />
@@ -113,26 +140,26 @@
 
 	<link name="${prefix}link3">
 		<visual>
-			<origin xyz="0 0 ${-arm2_length/2}" rpy="0 0 0" />
+			<origin xyz="${-arm_r} 0 ${-arm2_l/2}" rpy="0 0 0" />
 			<geometry>
-				<cylinder length="${arm2_length}" radius="${arm2_radius}" />
+				<cylinder length="${arm2_l}" radius="${arm_r}" />
 			</geometry>
 			<material name="orange"/>
 		</visual>
 		<collision>
-			<origin xyz="0 0 ${-arm2_length/2}" rpy="0 0 0" />
+			<origin xyz="${-arm_r} 0 ${-arm2_l/2}" rpy="0 0 0" />
 			<geometry>
-				<cylinder length="${arm2_length}" radius="${arm2_radius}" />
+				<cylinder length="${arm2_l}" radius="${arm_r}" />
 			</geometry>
 		</collision>
 		<inertial>
-			<origin xyz="0 0 ${-arm2_length/2}" rpy="0 0 0" />
-			<mass value="${arm2_mass}" />
-			<xacro:cylinder_inertia m="${arm2_mass}" r="${arm2_radius}" h="${arm2_length}" />
+			<origin xyz="${-arm_r} 0 ${-arm2_l/2}" rpy="0 0 0" />
+			<mass value="${arm2_m}" />
+			<xacro:cylinder_inertia m="${arm2_m}" r="${arm_r}" h="${arm2_l}" />
 		</inertial>
 	</link>
 
-  </xacro:macro>
+	</xacro:macro>
 
 	<!-- <xacro:property name="top_l" value="0.2" />
 	<xacro:property name="top_w" value="0.2" />

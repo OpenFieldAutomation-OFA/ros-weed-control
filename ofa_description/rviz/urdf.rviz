@@ -4,9 +4,11 @@ Panels:
     Name: Displays
     Property Tree Widget:
       Expanded:
+        - /Status1
         - /Grid1
+        - /TF1
       Splitter Ratio: 0.5
-    Tree Height: 428
+    Tree Height: 302
   - Class: rviz_common/Views
     Expanded:
       - /Current View1
@@ -56,37 +58,22 @@ Visualization Manager:
           Show Axes: false
           Show Trail: false
           Value: true
-        bl_wheel_link:
+        link1:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        br_wheel_link:
+        link2:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        first_axis_link:
+        link2_motor:
           Alpha: 1
           Show Axes: false
           Show Trail: false
           Value: true
-        fl_wheel_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        fr_wheel_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        second_axis_link:
-          Alpha: 1
-          Show Axes: false
-          Show Trail: false
-          Value: true
-        third_axis_link:
+        link3:
           Alpha: 1
           Show Axes: false
           Show Trail: false
@@ -110,42 +97,29 @@ Visualization Manager:
         All Enabled: true
         base_link:
           Value: true
-        bl_wheel_link:
+        link1:
           Value: true
-        br_wheel_link:
+        link2:
           Value: true
-        first_axis_link:
+        link2_motor:
           Value: true
-        fl_wheel_link:
-          Value: true
-        fr_wheel_link:
-          Value: true
-        second_axis_link:
-          Value: true
-        third_axis_link:
+        link3:
           Value: true
         world:
           Value: true
       Marker Scale: 1
       Name: TF
-      Show Arrows: true
-      Show Axes: true
+      Show Arrows: false
+      Show Axes: false
       Show Names: false
       Tree:
         world:
           base_link:
-            bl_wheel_link:
-              {}
-            br_wheel_link:
-              {}
-            first_axis_link:
-              second_axis_link:
-                third_axis_link:
-                  {}
-            fl_wheel_link:
-              {}
-            fr_wheel_link:
-              {}
+            link1:
+              link2:
+                link2_motor:
+                  link3:
+                    {}
       Update Interval: 0
       Value: true
   Enabled: true
@@ -163,35 +137,35 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 5.913505554199219
+      Distance: 2.058133363723755
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0.10782148689031601
-        Y: 0.023754967376589775
-        Z: -0.3622496426105499
+        X: 0.04537021368741989
+        Y: -0.22089339792728424
+        Z: -0.21464577317237854
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.08000015467405319
+      Pitch: 0.2550000548362732
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 1.2568186521530151
+      Yaw: 5.1150031089782715
     Saved: ~
 Window Geometry:
   Displays:
     collapsed: false
-  Height: 1007
+  Height: 800
   Hide Left Dock: false
   Hide Right Dock: false
-  QMainWindow State: 000000ff00000000fd00000001000000000000019b00000399fc0200000002fb000000100044006900730070006c006100790073010000003b0000022d000000c700fffffffb0000000a00560069006500770073010000026e00000166000000a000ffffff000005d30000039900000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
+  QMainWindow State: 000000ff00000000fd00000001000000000000019b000002cafc0200000002fb000000100044006900730070006c006100790073010000003b000001af000000c700fffffffb0000000a0056006900650077007301000001f000000115000000a000ffffff0000030f000002ca00000004000000040000000800000008fc0000000100000002000000010000000a0054006f006f006c00730100000000ffffffff0000000000000000
   Views:
     collapsed: false
-  Width: 1908
-  X: 0
-  Y: 0
+  Width: 1200
+  X: 565
+  Y: 128
