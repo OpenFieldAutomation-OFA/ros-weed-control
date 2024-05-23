@@ -3,7 +3,10 @@
 
   <xacro:macro name="weed_robot" params="parent prefix">
 	
-	<xacro:property name="height" value="0.6" />
+	<xacro:property name="attachment_off" value="${0.06+0.002}" />
+	<xacro:property name="tube_off" value="${0.01}" />
+	<xacro:property name="height" value="${0.5+attachment_off}" />
+
 	<joint name="${prefix}base_joint" type="fixed">
 		<origin xyz="0 0 ${height}" rpy="0 0 0" />
 		<parent link="${parent}" />
@@ -37,7 +40,7 @@
 
 	<xacro:property name="axis_length" value="1" />
 	<joint name="${prefix}joint1" type="prismatic">
-		<origin xyz="${-base_l/2+0.116} 0 ${-0.06-0.002}" rpy="0 0 0" />
+		<origin xyz="${-base_l/2+0.116} 0 ${-attachment_off}" rpy="0 0 0" />
 		<parent link="${prefix}base_link" />
 		<child link="${prefix}link1" />
 		<axis xyz="1 0 0" />
@@ -68,12 +71,44 @@
 		</inertial>
 	</link>
 
+	<xacro:property name="camera_w" value="0.120" />
+	<xacro:property name="camera_h" value="0.080" />
+	<xacro:property name="camera_l" value="0.048" />
+	<xacro:property name="camera_m" value="0.335" />
+	<xacro:property name="camera_off" value="${0.0885/2+0.002}" />
+	<joint name="${prefix}joint1_camera" type="fixed">
+		<origin xyz="-${camera_off} 0 ${attachment_off}" rpy="0 0 0" />
+		<parent link="${prefix}link1" />
+		<child link="${prefix}link1_camera" />
+	</joint>
+
+	<link name="${prefix}link1_camera">
+		<visual>
+			<origin xyz="${-camera_l/2} 0 ${-camera_h/2}" rpy="0 0 0" />
+			<geometry>
+				<box size="${camera_l} ${camera_w} ${camera_h}" />
+			</geometry>
+			<material name="grey"/>
+		</visual>
+		<collision>
+			<origin xyz="${-camera_l/2} 0 ${-camera_h/2}" rpy="0 0 0" />
+			<geometry>
+				<box size="${camera_l} ${camera_w} ${camera_h}" />
+			</geometry>
+		</collision>
+		<inertial>
+			<origin xyz="${-camera_l/2} 0 ${-camera_h/2}" rpy="0 0 0" />
+			<mass value="${camera_m}" />
+			<xacro:box_inertia m="${camera_m}" x="${camera_l}" y="${camera_w}" z="${camera_h}" />
+		</inertial>
+	</link>
+
 	<joint name="${prefix}joint2" type="revolute">
-		<origin xyz="${motor_h/2+0.01} 0 0" rpy="0 0 0" />
+		<origin xyz="${motor_h/2+tube_off} 0 0" rpy="0 0 0" />
 		<parent link="${prefix}link1" />
 		<child link="${prefix}link2" />
 		<axis xyz="1 0 0" />
-		<limit lower="${-pi/2}" upper="${pi/2}" velocity="5" effort="10" />
+		<limit lower="${-pi}" upper="${pi}" velocity="5" effort="10" />
 	</joint>
 
 	<xacro:property name="arm_r" value="${0.045/2}" />
@@ -131,7 +166,7 @@
 	</link>
 
 	<joint name="${prefix}joint3" type="continuous">
-		<origin xyz="${-motor_h/2-0.01} 0 0" rpy="0 0 0" />
+		<origin xyz="${-motor_h/2-tube_off} 0 0" rpy="0 0 0" />
 		<parent link="${prefix}link2_motor" />
 		<child link="${prefix}link3" />
 		<axis xyz="1 0 0" />
@@ -156,6 +191,36 @@
 			<origin xyz="${-arm_r} 0 ${-arm2_l/2}" rpy="0 0 0" />
 			<mass value="${arm2_m}" />
 			<xacro:cylinder_inertia m="${arm2_m}" r="${arm_r}" h="${arm2_l}" />
+		</inertial>
+	</link>
+
+	<joint name="${prefix}joint3_end" type="fixed">
+		<origin xyz="${-arm_r} 0 ${-arm2_l}" rpy="0 0 0" />
+		<parent link="${prefix}link3" />
+		<child link="${prefix}link3_end" />
+	</joint>
+
+	<xacro:property name="end_r" value="0.005" />
+	<xacro:property name="end_l" value="0.01" />
+	<xacro:property name="end_m" value="1" />
+	<link name="${prefix}link3_end">
+		<visual>
+			<origin xyz="0 0 ${-end_l}" rpy="0 0 0" />
+			<geometry>
+				<cylinder length="${end_l}" radius="${end_r}" />
+			</geometry>
+			<material name="black"/>
+		</visual>
+		<collision>
+			<origin xyz="0 0 ${-end_l}" rpy="0 0 0" />
+			<geometry>
+				<cylinder length="${end_l}" radius="${end_r}" />
+			</geometry>
+		</collision>
+		<inertial>
+			<origin xyz="0 0 ${-end_l}" rpy="0 0 0" />
+			<mass value="${end_m}" />
+			<xacro:cylinder_inertia m="${end_m}" r="${end_r}" h="${end_l}" />
 		</inertial>
 	</link>
 
