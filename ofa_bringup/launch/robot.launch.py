@@ -36,23 +36,13 @@ def generate_launch_description():
     )
     declared_arguments.append(
         DeclareLaunchArgument(
-            "prefix",
-            default_value='""',
-            description="Prefix of the joint names, useful for \
-        multi-robot setup. If changed than also joint names in the controllers' configuration \
-        have to be updated.",
-        )
-    )
-    declared_arguments.append(
-        DeclareLaunchArgument(
             "use_mock_hardware",
-            default_value="false",
+            default_value="true",
             description="Start robot with mock hardware mirroring command to its states.",
         )
     )
     # Initialize Arguments
     gui = LaunchConfiguration("gui")
-    prefix = LaunchConfiguration("prefix")
     use_mock_hardware = LaunchConfiguration("use_mock_hardware")
 
     # Get URDF via xacro
@@ -67,9 +57,6 @@ def generate_launch_description():
                     "robot.urdf.xacro",
                 ]
             ),
-            " ",
-            "prefix:=",
-            prefix,
             " ",
             "use_mock_hardware:=",
             use_mock_hardware,

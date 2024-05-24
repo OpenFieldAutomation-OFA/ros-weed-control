@@ -1,23 +1,23 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
-  <xacro:macro name="weed_robot" params="parent prefix">
+  <xacro:macro name="weed_robot" params="parent">
 	
 	<xacro:property name="attachment_off" value="${0.06+0.002}" />
 	<xacro:property name="tube_off" value="${0.01}" />
 	<xacro:property name="height" value="${0.5+attachment_off}" />
 
-	<joint name="${prefix}base_joint" type="fixed">
+	<joint name="base_joint" type="fixed">
 		<origin xyz="0 0 ${height}" rpy="0 0 0" />
 		<parent link="${parent}" />
-		<child link="${prefix}base_link" />
+		<child link="base_link" />
 	</joint>
 
 	<xacro:property name="base_l" value="1.216" />
 	<xacro:property name="base_w" value="0.06" />
 	<xacro:property name="base_h" value="0.072" />
-	<xacro:property name="base_m" value="5" />
-	<link name="${prefix}base_link">
+	<xacro:property name="base_m" value="6" />
+	<link name="base_link">
 		<visual>
 			<origin xyz="0 0 ${base_h/2}" rpy="0 0 0" />
 			<geometry>
@@ -39,18 +39,18 @@
 	</link>
 
 	<xacro:property name="axis_length" value="1" />
-	<joint name="${prefix}joint1" type="prismatic">
+	<joint name="joint1" type="prismatic">
 		<origin xyz="${-base_l/2+0.116} 0 ${-attachment_off}" rpy="0 0 0" />
-		<parent link="${prefix}base_link" />
-		<child link="${prefix}link1" />
+		<parent link="base_link" />
+		<child link="link1" />
 		<axis xyz="1 0 0" />
-		<limit lower="0" upper="${axis_length}" velocity="1" effort="10" />
+		<limit lower="0" upper="${axis_length}" velocity="1.0" effort="10" />
 	</joint>
 
 	<xacro:property name="motor_r" value="${0.089/2}" />
 	<xacro:property name="motor_h" value="0.05025" />
 	<xacro:property name="motor_m" value="0.521" />
-	<link name="${prefix}link1">
+	<link name="link1">
 		<visual>
 			<origin xyz="0 0 0" rpy="0 ${pi/2} 0" />
 			<geometry>
@@ -71,18 +71,18 @@
 		</inertial>
 	</link>
 
-	<xacro:property name="camera_w" value="0.120" />
-	<xacro:property name="camera_h" value="0.080" />
+	<xacro:property name="camera_w" value="0.12" />
+	<xacro:property name="camera_h" value="0.08" />
 	<xacro:property name="camera_l" value="0.048" />
 	<xacro:property name="camera_m" value="0.335" />
 	<xacro:property name="camera_off" value="${0.0885/2+0.002}" />
-	<joint name="${prefix}joint1_camera" type="fixed">
+	<joint name="joint1_camera" type="fixed">
 		<origin xyz="-${camera_off} 0 ${attachment_off}" rpy="0 0 0" />
-		<parent link="${prefix}link1" />
-		<child link="${prefix}link1_camera" />
+		<parent link="link1" />
+		<child link="link1_camera" />
 	</joint>
 
-	<link name="${prefix}link1_camera">
+	<link name="link1_camera">
 		<visual>
 			<origin xyz="${-camera_l/2} 0 ${-camera_h/2}" rpy="0 0 0" />
 			<geometry>
@@ -103,12 +103,12 @@
 		</inertial>
 	</link>
 
-	<joint name="${prefix}joint2" type="revolute">
+	<joint name="joint2" type="revolute">
 		<origin xyz="${motor_h/2+tube_off} 0 0" rpy="0 0 0" />
-		<parent link="${prefix}link1" />
-		<child link="${prefix}link2" />
+		<parent link="link1" />
+		<child link="link2" />
 		<axis xyz="1 0 0" />
-		<limit lower="${-pi}" upper="${pi}" velocity="5" effort="10" />
+		<limit lower="${-pi*2/3}" upper="${pi*2/3}" velocity="5.0" effort="10" />
 	</joint>
 
 	<xacro:property name="arm_r" value="${0.045/2}" />
@@ -117,7 +117,7 @@
 	<xacro:property name="arm1_m" value="${1650*(arm_r**2*pi-arm_ri**2*pi)*arm1_l}" />
 	<xacro:property name="arm2_l" value="0.425" />
 	<xacro:property name="arm2_m" value="${1650*(arm_r**2*pi-arm_ri**2*pi)*arm2_l}" />
-	<link name="${prefix}link2">
+	<link name="link2">
 		<visual>
 			<origin xyz="${arm_r} 0 ${-arm1_l/2}" rpy="0 0 0" />
 			<geometry>
@@ -138,13 +138,13 @@
 		</inertial>
 	</link>
 
-	<joint name="${prefix}joint2_motor" type="fixed">
+	<joint name="joint2_motor" type="fixed">
 		<origin xyz="${-motor_h/2-0.0058} 0 ${-arm1_l}" rpy="0 0 0" />
-		<parent link="${prefix}link2" />
-		<child link="${prefix}link2_motor" />
+		<parent link="link2" />
+		<child link="link2_motor" />
 	</joint>
 
-	<link name="${prefix}link2_motor">
+	<link name="link2_motor">
 		<visual>
 			<origin xyz="0 0 0" rpy="0 ${pi/2} 0" />
 			<geometry>
@@ -165,15 +165,15 @@
 		</inertial>
 	</link>
 
-	<joint name="${prefix}joint3" type="continuous">
+	<joint name="joint3" type="revolute">
 		<origin xyz="${-motor_h/2-tube_off} 0 0" rpy="0 0 0" />
-		<parent link="${prefix}link2_motor" />
-		<child link="${prefix}link3" />
+		<parent link="link2_motor" />
+		<child link="link3" />
 		<axis xyz="1 0 0" />
-		<limit lower="${-pi}" upper="${pi}" velocity="5" effort="10" />
+		<limit lower="${-pi*2/3}" upper="${pi*2/3}" velocity="5.0" effort="10" />
 	</joint>
 
-	<link name="${prefix}link3">
+	<link name="link3">
 		<visual>
 			<origin xyz="${-arm_r} 0 ${-arm2_l/2}" rpy="0 0 0" />
 			<geometry>
@@ -194,31 +194,31 @@
 		</inertial>
 	</link>
 
-	<joint name="${prefix}joint3_end" type="fixed">
+	<joint name="joint3_end" type="fixed">
 		<origin xyz="${-arm_r} 0 ${-arm2_l}" rpy="0 0 0" />
-		<parent link="${prefix}link3" />
-		<child link="${prefix}link3_end" />
+		<parent link="link3" />
+		<child link="link3_end" />
 	</joint>
 
 	<xacro:property name="end_r" value="0.005" />
-	<xacro:property name="end_l" value="0.01" />
+	<xacro:property name="end_l" value="0.02" />
 	<xacro:property name="end_m" value="1" />
-	<link name="${prefix}link3_end">
+	<link name="link3_end">
 		<visual>
-			<origin xyz="0 0 ${-end_l}" rpy="0 0 0" />
+			<origin xyz="0 0 ${-end_l/2}" rpy="0 0 0" />
 			<geometry>
 				<cylinder length="${end_l}" radius="${end_r}" />
 			</geometry>
 			<material name="black"/>
 		</visual>
 		<collision>
-			<origin xyz="0 0 ${-end_l}" rpy="0 0 0" />
+			<origin xyz="0 0 ${-end_l/2}" rpy="0 0 0" />
 			<geometry>
 				<cylinder length="${end_l}" radius="${end_r}" />
 			</geometry>
 		</collision>
 		<inertial>
-			<origin xyz="0 0 ${-end_l}" rpy="0 0 0" />
+			<origin xyz="0 0 ${-end_l/2}" rpy="0 0 0" />
 			<mass value="${end_m}" />
 			<xacro:cylinder_inertia m="${end_m}" r="${end_r}" h="${end_l}" />
 		</inertial>
@@ -233,13 +233,13 @@
 	<xacro:property name="wheel_m" value="5" />
 	<xacro:property name="top_h" value="${height-2*wheel_r}" />
 	<xacro:macro name="wheel" params="prefix x y">
-		<joint name="${prefix}_wheel_joint" type="fixed">
+		<joint name="_wheel_joint" type="fixed">
 			<parent link="base_link" />
-			<child link="${prefix}_wheel_link" />
+			<child link="_wheel_link" />
 			<origin xyz="${x} ${y} 0" rpy="0 0 0" />
 		</joint>
 
-		<link name="${prefix}_wheel_link">
+		<link name="_wheel_link">
 			<visual>
 				<origin xyz="0 0 ${-top_h/2}" rpy="0 0 0"/>
 				<geometry>

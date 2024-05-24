@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
-  <xacro:macro name="arm_2dof_ros2_control" params="name prefix use_mock_hardware">
+  <xacro:macro name="arm_2dof_ros2_control" params="name use_mock_hardware">
 
     <ros2_control name="${name}" type="system">
       <hardware>
@@ -13,7 +13,7 @@
           <param name="can_interface">can0</param>
         </xacro:unless>
       </hardware>
-      <joint name="${prefix}joint2">
+      <joint name="joint2">
         <param name="can_id">90</param>
         <param name="pole_pairs">21</param>
         <param name="gear_ratio">10</param>
@@ -27,7 +27,7 @@
         <state_interface name="effort"/>
         <state_interface name="temperature"/>
       </joint>
-      <joint name="${prefix}joint3">
+      <joint name="joint3">
         <param name="can_id">91</param>
         <param name="pole_pairs">21</param>
         <param name="gear_ratio">10</param>

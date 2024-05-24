@@ -77,6 +77,7 @@ RUN apt-get update \
     usbutils \
     net-tools \
     can-utils \
+    gdb \
     ros-$ROS_DISTRO-urdf-launch \
     ros-$ROS_DISTRO-turtlesim \
     ros-$ROS_DISTRO-ros2-control \
@@ -84,6 +85,7 @@ RUN apt-get update \
     ros-$ROS_DISTRO-ros2-controllers-test-nodes \ 
     ros-$ROS_DISTRO-moveit \
     ros-$ROS_DISTRO-moveit-visual-tools \
+    ros-$ROS_DISTRO-moveit-ros-perception \
     ros-$ROS_DISTRO-rqt-joint-trajectory-controller
     # ros-$ROS_DISTRO-ros-gz
     # && rm -rf /var/lib/apt/lists/*
