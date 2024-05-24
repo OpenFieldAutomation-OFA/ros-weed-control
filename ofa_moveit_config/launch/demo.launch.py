@@ -12,7 +12,7 @@ from launch_ros.actions import Node
 # because of custom launch argument: "use_mock_hardware"
 def generate_launch_description():
     moveit_config = (
-        MoveItConfigsBuilder("ofa_arm", package_name="ofa_moveit_config")
+        MoveItConfigsBuilder("ofa_robot", package_name="ofa_moveit_config")
         .robot_description(
             mappings={"use_mock_hardware": LaunchConfiguration("use_mock_hardware")})
         .to_moveit_configs()

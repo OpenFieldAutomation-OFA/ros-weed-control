@@ -1,9 +1,9 @@
 moveit_setup_assistant_config:
   urdf:
     package: ofa_description
-    relative_path: urdf/robot.urdf.xacro
+    relative_path: urdf/ofa_robot.urdf.xacro
   srdf:
-    relative_path: config/ofa_arm.srdf
+    relative_path: config/ofa_robot.srdf
   package_settings:
     author_name: Jan-Marco Haldemann
     author_email: j.haldemann@proton.me

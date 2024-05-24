@@ -54,7 +54,7 @@ def generate_launch_description():
                 [
                     FindPackageShare("ofa_description"),
                     "urdf",
-                    "robot.urdf.xacro",
+                    "ofa_robot.urdf.xacro",
                 ]
             ),
             " ",

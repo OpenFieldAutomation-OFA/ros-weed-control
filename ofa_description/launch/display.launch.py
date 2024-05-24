@@ -7,7 +7,7 @@ from launch_ros.substitutions import FindPackageShare
 def generate_launch_description():
     ld = LaunchDescription()
 
-    model_path = PathJoinSubstitution(['urdf', 'robot.urdf.xacro'])
+    model_path = PathJoinSubstitution(['urdf', 'ofa_robot.urdf.xacro'])
     rviz_config_path = PathJoinSubstitution([FindPackageShare('ofa_description'), 'rviz', 'urdf.rviz'])
     
     ld.add_action(IncludeLaunchDescription(
