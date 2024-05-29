@@ -314,10 +314,10 @@ hardware_interface::return_type CubeMarsSystemHardware::read(
       hw_states_velocities_[i] = hw_states_velocities_[i] * 10 / erpm_conversions_[i];
       hw_states_efforts_[i] = hw_states_efforts_[i] * 0.01 * torque_constants_[i];
       hw_states_temperatures_[i] = read_data[6];
-      RCLCPP_INFO(
-        rclcpp::get_logger("CubeMarsSystemHardware"),
-        "read states joint %lu: pos %f, spd %f, eff %f, temp %f",
-        i, hw_states_positions_[i], hw_states_velocities_[i], hw_states_efforts_[i], hw_states_temperatures_[i]);
+      // RCLCPP_INFO(
+      //   rclcpp::get_logger("CubeMarsSystemHardware"),
+      //   "read states joint %lu: pos %f, spd %f, eff %f, temp %f",
+      //   i, hw_states_positions_[i], hw_states_velocities_[i], hw_states_efforts_[i], hw_states_temperatures_[i]);
     }
   }
 
@@ -335,9 +335,9 @@ hardware_interface::return_type CubeMarsSystemHardware::write(
     switch (control_mode_[i])
     {
       case UNDEFINED:
-        RCLCPP_INFO(
-          rclcpp::get_logger("CubeMarsSystemHardware"),
-          "Nothing is using the hardware interface!");
+        // RCLCPP_INFO(
+        //   rclcpp::get_logger("CubeMarsSystemHardware"),
+        //   "Nothing is using the hardware interface!");
         return hardware_interface::return_type::OK;
       case CURRENT_LOOP:
       {
@@ -351,9 +351,9 @@ hardware_interface::return_type CubeMarsSystemHardware::write(
               "current command is over maximal allowed value of 60000: %d", current);
             return hardware_interface::return_type::ERROR;
           }
-          RCLCPP_INFO(
-            rclcpp::get_logger("CubeMarsSystemHardware"),
-            "current command for joint %lu: %d", i, current);
+          // RCLCPP_INFO(
+          //   rclcpp::get_logger("CubeMarsSystemHardware"),
+          //   "current command for joint %lu: %d", i, current);
 
           uint8_t data[4];
           data[0] = current >> 24;
@@ -377,9 +377,9 @@ hardware_interface::return_type CubeMarsSystemHardware::write(
               "speed command is over maximal allowed value of 100000: %d", speed);
             return hardware_interface::return_type::ERROR;
           }
-          RCLCPP_INFO(
-            rclcpp::get_logger("CubeMarsSystemHardware"),
-            "speed command for joint %lu: %d", i, speed);
+          // RCLCPP_INFO(
+          //   rclcpp::get_logger("CubeMarsSystemHardware"),
+          //   "speed command for joint %lu: %d", i, speed);
 
           uint8_t data[4];
           data[0] = speed >> 24;
@@ -403,9 +403,9 @@ hardware_interface::return_type CubeMarsSystemHardware::write(
               "speed command is over maximal allowed value of 360000000: %d", position);
             return hardware_interface::return_type::ERROR;
           }
-          RCLCPP_INFO(
-            rclcpp::get_logger("CubeMarsSystemHardware"),
-            "position command for joint %lu: %d", i, position);
+          // RCLCPP_INFO(
+          //   rclcpp::get_logger("CubeMarsSystemHardware"),
+          //   "position command for joint %lu: %d", i, position);
 
           uint8_t data[4];
           data[0] = position >> 24;
@@ -426,6 +426,8 @@ hardware_interface::return_type CubeMarsSystemHardware::write(
           int32_t position = hw_commands_positions_[i] * 10000 * 180 / M_PI;
           int16_t speed = hw_commands_velocities_[i] / 10 * erpm_conversions_[i];
           int16_t acceleration = hw_commands_accelerations_[i] / 10 * erpm_conversions_[i];
+          speed = std::abs(speed);
+          acceleration = std::abs(acceleration);
           if (std::abs(position) >= 360000000)
           {
             RCLCPP_ERROR(
@@ -440,7 +442,7 @@ hardware_interface::return_type CubeMarsSystemHardware::write(
               "speed command is over maximal allowed value of 32767: %d", speed);
             return hardware_interface::return_type::ERROR;
           }
-          else if (acceleration < 0 || acceleration >= 32767)
+          else if (acceleration >= 32767)
           {
             RCLCPP_ERROR(
               rclcpp::get_logger("CubeMarsSystemHardware"),

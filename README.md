@@ -80,7 +80,7 @@ docker run --net=host -e "DISPLAY=$DISPLAY" weed_control ros2 launch ofa_descrip
 #### Development
 For development we use [Dev Containers](https://code.visualstudio.com/docs/devcontainers/containers).
 
-To get started just open the `ofa-weed-control-ros` folder in VS Code and run **Dev Containers: Rebuild and Reopen in Container**. This will automatically build and run the container with `--target=dev` (specified in the `.devcontainer/devcontainer.json` file). Then open two new terminals, one for running `colcon build` and one for sourcing the workspace (using two terminals avoids [install artifacts](https://colcon.readthedocs.io/en/released/user/what-is-a-workspace.html#install-artifacts)).
+To get started just open the `ofa-weed-control-ros` folder in VS Code and run **Dev Containers: Rebuild and Reopen in Container**. This will automatically build and run the container with `--target=dev` (specified in the `.devcontainer/devcontainer.json` file). Then open two new terminals, one for running `colcon build --symlink-install` and one for sourcing the workspace (using two terminals avoids [install artifacts](https://colcon.readthedocs.io/en/released/user/what-is-a-workspace.html#install-artifacts)).
 
 After that you can run all the same commands as specified above.
 
