@@ -1,0 +1,40 @@
+if no command is sent for 1 second, the motor stalls, regardless of mode
+
+speed 0 command:
+cansend can0 8000035a#00000000
+
+set origin command:
+cansend can0 0000055a#01
+cansend can0 0000055b#01
+cansend can0 000005XX#00
+
+position loop:
+origin:
+cansend can0 0000045b#00.00.00.00
+5 degrees:
+cansend can0 0000045b#00.00.C3.50
+
+speed loop:
+0:
+cansend can0 0000035b#00.00.00.00
+500 erpm:
+cansend can0 0000035b#00.00.01.F4
+
+position-speed loop:
+origin:
+cansend can0 0000065b#00.00.00.00.00.64.00.64
+10 degrees, 1000 erpm, 1000 erpm/s^2:
+cansend can0 0000065b#00.01.86.A0.00.64.00.64
+40 degrees, 1000 erpm, 1000 erpm/s^2:
+cansend can0 0000065b#00.06.1A.80.00.64.00.64
+-10 degrees, 1000 erpm, 1000 erpm/s^2:
+cansend can0 0000065b#FF.FE.79.60.00.64.00.64
+
+ros2 topic pub /forward_position_controller/commands std_msgs/msg/Float64MultiArray "data:
+- 0
+- 0"
+
+ros2 topic pub /forward_position_controller/commands std_msgs/msg/Float64MultiArray "data:
+- 0"
+
+ros2 topic echo /ofa_robot_controller/follow_joint_trajectory/_action/feedback

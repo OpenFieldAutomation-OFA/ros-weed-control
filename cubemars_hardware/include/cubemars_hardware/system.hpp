@@ -89,7 +89,6 @@ private:
     CURRENT_LOOP = 1,
     SPEED_LOOP = 3,
     POSITION_LOOP = 4,
-    POSITION_SPEED_LOOP = 6,
     UNDEFINED = 99
   };
 

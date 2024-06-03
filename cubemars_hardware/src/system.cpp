@@ -134,7 +134,6 @@ hardware_interface::return_type CubeMarsSystemHardware::prepare_command_mode_swi
   std::unordered_set<std::string> eff {"effort"};
   std::unordered_set<std::string> vel {"velocity"};
   std::unordered_set<std::string> pos {"position"};
-  std::unordered_set<std::string> pos_spd {"position", "velocity", "acceleration"};
   
   std::unordered_set<std::string> joint_interfaces;
   for (std::size_t i = 0; i < info_.joints.size(); i++)
@@ -144,7 +143,7 @@ hardware_interface::return_type CubeMarsSystemHardware::prepare_command_mode_swi
     for (std::string key : stop_interfaces)
     {
       RCLCPP_INFO(rclcpp::get_logger("CubeMarsSystemHardware"), "stop interface: %s", key.c_str());
-      if (key.find(info_.joints[i].name))
+      if (key.find(info_.joints[i].name) != std::string::npos)
       {
         stop_modes_[i] = true;
         break;
@@ -172,10 +171,6 @@ hardware_interface::return_type CubeMarsSystemHardware::prepare_command_mode_swi
     else if (joint_interfaces == pos)
     {
       start_modes_.push_back(POSITION_LOOP);
-    }
-    else if (joint_interfaces == pos_spd)
-    {
-      start_modes_.push_back(POSITION_SPEED_LOOP);
     }
     else if (joint_interfaces.empty())
     {
@@ -209,11 +204,6 @@ hardware_interface::return_type CubeMarsSystemHardware::perform_command_mode_swi
           break;
         case POSITION_LOOP:
           hw_commands_positions_[i] = std::numeric_limits<double>::quiet_NaN();
-          break;
-        case POSITION_SPEED_LOOP:
-          hw_commands_positions_[i] = std::numeric_limits<double>::quiet_NaN();
-          hw_commands_velocities_[i] = std::numeric_limits<double>::quiet_NaN();
-          hw_commands_accelerations_[i] = std::numeric_limits<double>::quiet_NaN();
           break;
         case UNDEFINED:
           return hardware_interface::return_type::ERROR;
@@ -329,9 +319,6 @@ hardware_interface::return_type CubeMarsSystemHardware::write(
 {
   for (std::size_t i = 0; i < info_.joints.size(); i++)
   {
-    //test
-    // hw_commands_positions_[i] = 0;
-
     switch (control_mode_[i])
     {
       case UNDEFINED:
@@ -414,57 +401,6 @@ hardware_interface::return_type CubeMarsSystemHardware::write(
           data[3] = position;
 
           can_.write_message(can_ids_[i] | POSITION_LOOP << 8, data, 4);
-        }
-        break;
-      }
-      case POSITION_SPEED_LOOP:
-      {
-        if (!std::isnan(hw_commands_positions_[i]) &&
-          !std::isnan(hw_commands_velocities_[i]) &&
-          !std::isnan(hw_commands_accelerations_[i]))
-        {
-          int32_t position = hw_commands_positions_[i] * 10000 * 180 / M_PI;
-          int16_t speed = hw_commands_velocities_[i] / 10 * erpm_conversions_[i];
-          int16_t acceleration = hw_commands_accelerations_[i] / 10 * erpm_conversions_[i];
-          speed = std::abs(speed);
-          acceleration = std::abs(acceleration);
-          if (std::abs(position) >= 360000000)
-          {
-            RCLCPP_ERROR(
-              rclcpp::get_logger("CubeMarsSystemHardware"),
-              "position command is over maximal allowed value of 360000000: %d", position);
-            return hardware_interface::return_type::ERROR;
-          }
-          else if (std::abs(speed) >= 32767)
-          {
-            RCLCPP_ERROR(
-              rclcpp::get_logger("CubeMarsSystemHardware"),
-              "speed command is over maximal allowed value of 32767: %d", speed);
-            return hardware_interface::return_type::ERROR;
-          }
-          else if (acceleration >= 32767)
-          {
-            RCLCPP_ERROR(
-              rclcpp::get_logger("CubeMarsSystemHardware"),
-              "acceleration command is not in range 0-32767: %d", acceleration);
-            return hardware_interface::return_type::ERROR;
-          }
-          RCLCPP_INFO(
-            rclcpp::get_logger("CubeMarsSystemHardware"),
-            "command for joint %lu: pos %d, speed %d, acc %d",
-            i, position, speed, acceleration);
-
-          uint8_t data[8];
-          data[0] = position >> 24;
-          data[1] = position >> 16;
-          data[2] = position >> 8;
-          data[3] = position;
-          data[4] = speed >> 8;
-          data[5] = speed;
-          data[6] = acceleration >> 8;
-          data[7] = acceleration;
-
-          can_.write_message(can_ids_[i] | POSITION_SPEED_LOOP << 8, data, 8);
         }
         break;
       }
