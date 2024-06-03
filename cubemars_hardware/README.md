@@ -34,12 +34,12 @@ The hardware interfaces can also be listed by starting the controller manager an
 ros2 control list_hardware_interfaces
 ```
 
-You can use any controller that claims one of the following command interfaces. You can only claim one at a time.
+You can use any controller that claims one of the following command interfaces. Claiming multiple interfaces at the same time is not possible.
 - `effort` (Current Loop Mode)
 - `velocity` (Speed Loop Mode)
 - `position` (Position Loop Mode)
 
-Note that the Position-Speed Loop Mode is not implemented. This is done on purpose, as that mode expects a constant value for speed and acceleration, instead of feedforward values.
+Note that the Position-Speed Loop Mode is not implemented. This is done on purpose, as that mode expects a constant value for speed and acceleration, instead of feed-forward values.
 
 ## Parameters
 Hardware:
