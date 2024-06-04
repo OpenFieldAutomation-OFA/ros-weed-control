@@ -19,7 +19,7 @@
   <!-- Used for fixing robot -->
   <link name="world"/>
 
-  <xacro:weed_robot parent="world" />
+  <xacro:weed_robot parent="world" joint_limits_file="$(find ofa_moveit_config)/config/joint_limits.yaml" />
 
   <xacro:arm_2dof_ros2_control
     name="arm_2dof" use_mock_hardware="$(arg use_mock_hardware)"/>

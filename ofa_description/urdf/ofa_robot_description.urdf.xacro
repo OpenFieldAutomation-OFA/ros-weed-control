@@ -1,8 +1,9 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
-  <xacro:macro name="weed_robot" params="parent">
-	
+  <xacro:macro name="weed_robot" params="parent joint_limits_file">
+	<xacro:property name="joint_limits" value="${xacro.load_yaml(joint_limits_file)['joint_limits']}"/>
+
 	<xacro:property name="attachment_off" value="${0.06+0.002}" />
 	<xacro:property name="tube_off" value="${0.01}" />
 	<xacro:property name="height" value="${0.5+attachment_off}" />
@@ -44,7 +45,8 @@
 		<parent link="base_link" />
 		<child link="link1" />
 		<axis xyz="1 0 0" />
-		<limit lower="0" upper="${axis_length}" velocity="1.0" effort="10" />
+		<limit lower="${joint_limits['joint1']['min_position']}" upper="${joint_limits['joint1']['max_position']}"
+		velocity="${joint_limits['joint1']['max_velocity']}" effort="100" />
 	</joint>
 
 	<xacro:property name="motor_r" value="${0.089/2}" />
@@ -108,7 +110,8 @@
 		<parent link="link1" />
 		<child link="link2" />
 		<axis xyz="1 0 0" />
-		<limit lower="${-pi*2/3}" upper="${pi*2/3}" velocity="5.0" effort="10" />
+		<limit lower="${joint_limits['joint2']['min_position']}" upper="${joint_limits['joint2']['max_position']}"
+		velocity="${joint_limits['joint2']['max_velocity']}" effort="100" />
 	</joint>
 
 	<xacro:property name="arm_r" value="${0.045/2}" />
@@ -170,7 +173,8 @@
 		<parent link="link2_motor" />
 		<child link="link3" />
 		<axis xyz="1 0 0" />
-		<limit lower="${-pi*2/3}" upper="${pi*2/3}" velocity="5.0" effort="10" />
+		<limit lower="${joint_limits['joint3']['min_position']}" upper="${joint_limits['joint3']['max_position']}"
+		velocity="${joint_limits['joint3']['max_velocity']}" effort="100" />
 	</joint>
 
 	<link name="link3">
