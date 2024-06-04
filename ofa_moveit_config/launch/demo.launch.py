@@ -8,13 +8,14 @@ from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
-# not using generate_demo_launch() from moveit_configs_utils.launches
+# not directly using generate_demo_launch() from moveit_configs_utils.launches
 # because of custom launch argument: "use_mock_hardware"
 def generate_launch_description():
     moveit_config = (
         MoveItConfigsBuilder("ofa_robot", package_name="ofa_moveit_config")
         .robot_description(
             mappings={"use_mock_hardware": LaunchConfiguration("use_mock_hardware")})
+        .planning_pipelines(pipelines=["ompl"])
         .to_moveit_configs()
     )
     
