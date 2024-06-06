@@ -40,7 +40,7 @@ docker build -t fixed-openrave $TMP_DIR
 echo "Successfully built docker image."
 
 # create dae file
-cp "$INPUT" "$TMP_DIR/robot.urdf"
+cp "$URDF" "$TMP_DIR/robot.urdf"
 docker run --rm --user $(id -u):$(id -g) -v $TMP_DIR:/input --workdir /input -e HOME=/input \
     fixed-openrave:latest rosrun collada_urdf urdf_to_collada robot.urdf robot.dae
 
