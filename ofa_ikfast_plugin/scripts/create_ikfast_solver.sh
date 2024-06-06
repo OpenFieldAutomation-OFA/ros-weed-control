@@ -1,23 +1,22 @@
 #!/bin/bash
 
-# Create an ikfast plugin package for MoveIt from a given robot URDF
-# This includes:
-# - conversion of URDF to Collada
-# - running openrave from a docker image to create the actual ikfast solver
-# - running create_ikfast_moveit_plugin.py to create the corresponding plugin package
+# This is an adapted version of the script at
+# moveit2/moveit_kinematics/ikfast_kinematics_plugin/scripts/auto_create_ikfast_moveit_plugin.sh
+# It takes a urdf description and generates the ikfast cpp solver.
 
-# TODO: Would be nice to integrate this functionality directly into create_ikfast_moveit_plugin.py
+# This script pulls the personalrobotics/ros-openrave image.
+# Therefore it only runs on linux/amd64 architectures.
+# It will also not work when called inside a docker container.
 
 set -e  # fail on error
 
-URDF="`dirname $0`"/../../ofa_description/urdf/ofa_robot.urdf
+INPUT=${1:-"`dirname $0`"/../tmp/ofa_robot.urdf}
+OUTPUT=${2:-"`dirname $0`"/../tmp/solver.cpp}
 BASE_LINK=base_link
 EEF_LINK=eef_link
 IK_TYPE=Translation3D
 PKG_NAME=ofa_ikfast_plugin
-
-ROBOT_NAME=$(check_urdf "$URDF" 2> /dev/null | grep "^robot name is: ")
-ROBOT_NAME=${ROBOT_NAME##robot name is: }
+ROBOT_NAME=ofa_robot
 
 # Create a temporary directory to operate in
 TMP_DIR=$(mktemp -d --tmpdir ikfast.XXXXXX)
@@ -40,7 +39,7 @@ docker build -t fixed-openrave $TMP_DIR
 echo "Successfully built docker image."
 
 # create dae file
-cp "$URDF" "$TMP_DIR/robot.urdf"
+cp "$INPUT" "$TMP_DIR/robot.urdf"
 docker run --rm --user $(id -u):$(id -g) -v $TMP_DIR:/input --workdir /input -e HOME=/input \
     fixed-openrave:latest rosrun collada_urdf urdf_to_collada robot.urdf robot.dae
 
@@ -61,12 +60,8 @@ docker run --rm --user $(id -u):$(id -g) \
 CPP_FILE=$(ls -1 $TMP_DIR/.openrave/*/*.cpp 2> /dev/null)
 if [ -n "$CPP_FILE" ] ; then
     echo "Created $CPP_FILE"
+    cp "$CPP_FILE" "$OUTPUT"
+    echo "Saved $OUTPUT"
 else
     echo "Failed to create ikfast solver"
-    exit 1
 fi
-
-# create plugin
-echo "Running $(dirname $0)/create_ikfast_moveit_plugin.py \"$ROBOT_NAME\" \"$PLANNING_GROUP\" \"$PKG_NAME\" \"$BASE_LINK\" \"$EEF_LINK\" \"$INPUT\""
-$(dirname "$0")/create_ikfast_moveit_plugin.py "$ROBOT_NAME" "$PLANNING_GROUP" "$PKG_NAME" "$BASE_LINK" "$EEF_LINK" "$CPP_FILE"
-

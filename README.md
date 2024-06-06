@@ -85,6 +85,4 @@ To get started just open the `ofa-weed-control-ros` folder in VS Code and run **
 After that you can run all the same commands as specified above.
 
 ### Non-Docker
-If you do not want to use Docker you can also install the application on the host.
-
 TODO

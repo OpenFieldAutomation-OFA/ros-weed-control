@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(ofa_ikfast_plugin)
+project(_PACKAGE_NAME_)
 
 if(NOT "${CMAKE_CXX_STANDARD}")
   set(CMAKE_CXX_STANDARD 14)
@@ -23,9 +23,9 @@ generate_parameter_library(
   src/ikfast_kinematics_parameters.yaml # path to input yaml file
 )
 
-set(IKFAST_LIBRARY_NAME ofa_robot_moveit_ikfast_plugin)
+set(IKFAST_LIBRARY_NAME _LIBRARY_NAME_)
 add_library(${IKFAST_LIBRARY_NAME} SHARED
-            src/ofa_robot__GROUP_NAME__ikfast_moveit_plugin.cpp)
+            src/_ROBOT_NAME___GROUP_NAME__ikfast_moveit_plugin.cpp)
 ament_target_dependencies(
   ${IKFAST_LIBRARY_NAME}
   rclcpp
@@ -49,7 +49,7 @@ install(
   RUNTIME DESTINATION bin)
 
 pluginlib_export_plugin_description_file(
-  moveit_core ofa_robot__GROUP_NAME__moveit_ikfast_plugin_description.xml)
+  moveit_core _ROBOT_NAME___GROUP_NAME__moveit_ikfast_plugin_description.xml)
 
 ament_export_targets(${PROJECT_NAME}Targets HAS_LIBRARY_TARGET)
 ament_export_dependencies(moveit_core)
