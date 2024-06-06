@@ -4,12 +4,11 @@
   <version>0.0.0</version>
   <description>IKFast plugin for ofa_robot</description>
   <license>BSD</license>
-  <maintainer email="ros@todo.todo">ros</maintainer>
+  <maintainer email="j.haldemann@proton.me">Jan-Marco Haldemann</maintainer>
   <buildtool_depend>ament_cmake</buildtool_depend>
   <export>
     <build_type>ament_cmake</build_type>
     <moveit_core plugin="${prefix}/ofa_robot_arm_moveit_ikfast_plugin_description.xml"/>
-    <moveit_core plugin="${prefix}/ofa_robot_moveit_ikfast_plugin_description.xml"/>
   </export>
   <build_depend>tf2_kdl</build_depend>
   <build_depend>rclcpp</build_depend>

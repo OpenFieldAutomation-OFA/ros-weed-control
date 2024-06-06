@@ -1,2 +1,2 @@
 arm:
-  kinematics_solver: ofa_robot/IKFastKinematicsPlugin
+  kinematics_solver: ofa_robot_arm/IKFastKinematicsPlugin
