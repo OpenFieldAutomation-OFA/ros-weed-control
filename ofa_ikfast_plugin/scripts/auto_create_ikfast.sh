@@ -10,18 +10,14 @@
 
 set -e  # fail on error
 
-if [ $# -ne 1 ] ; then
-    echo "Expecting 1 positional arguments! Got $#: $*"
-    exit 1
-fi
-
-INPUT=$1
+URDF="`dirname $0`"/../../ofa_description/urdf/ofa_robot.urdf
 BASE_LINK=base_link
 EEF_LINK=eef_link
 IK_TYPE=Translation3D
 PKG_NAME=ofa_ikfast_plugin
 
-ROBOT_NAME=$(check_urdf "$INPUT" 2> /dev/null | grep "^robot name is: ")
+ROBOT_NAME=$(check_urdf "$URDF" 2> /dev/null | grep "^robot name is: ")
+ROBOT_NAME=${ROBOT_NAME##robot name is: }
 
 # Create a temporary directory to operate in
 TMP_DIR=$(mktemp -d --tmpdir ikfast.XXXXXX)
