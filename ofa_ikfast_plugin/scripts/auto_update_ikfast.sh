@@ -71,4 +71,4 @@ fi
 echo "Running $(dirname $0)/update_ikfast.py"
 $(dirname "$0")/update_ikfast.py "$OUTPUT"
 
-echo "Success"
+echo "Success!"
