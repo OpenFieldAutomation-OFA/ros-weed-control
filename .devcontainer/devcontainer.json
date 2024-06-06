@@ -31,7 +31,7 @@
   ],
   "runArgs": [
       "--net=host",
-      "-e", "DISPLAY=${env:DISPLAY}",
+      "-e", "DISPLAY=:0",
       "--device-cgroup-rule", "c 189:* rmw"
   ]
 }

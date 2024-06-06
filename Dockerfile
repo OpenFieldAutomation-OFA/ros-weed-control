@@ -78,6 +78,7 @@ RUN apt-get update \
     net-tools \
     can-utils \
     gdb \
+    liblapack-dev \
     ros-$ROS_DISTRO-urdf-launch \
     ros-$ROS_DISTRO-turtlesim \
     ros-$ROS_DISTRO-ros2-control \

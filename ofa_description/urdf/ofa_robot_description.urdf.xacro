@@ -201,13 +201,13 @@
 	<joint name="joint3_end" type="fixed">
 		<origin xyz="${-arm_r} 0 ${-arm2_l}" rpy="0 0 0" />
 		<parent link="link3" />
-		<child link="link3_end" />
+		<child link="eef_link" />
 	</joint>
 
 	<xacro:property name="end_r" value="0.005" />
 	<xacro:property name="end_l" value="0.02" />
 	<xacro:property name="end_m" value="1" />
-	<link name="link3_end">
+	<link name="eef_link">
 		<visual>
 			<origin xyz="0 0 ${-end_l/2}" rpy="0 0 0" />
 			<geometry>
