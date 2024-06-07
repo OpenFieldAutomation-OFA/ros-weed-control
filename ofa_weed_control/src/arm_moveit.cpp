@@ -20,12 +20,13 @@ int main(int argc, char* argv[])
   // Set a target Pose
   auto const target_pose = [] {
     geometry_msgs::msg::Pose msg;
-    msg.orientation.w = 1.0;
     msg.position.x = 0;
     msg.position.y = 0;
     msg.position.z = -0.4;
     return msg;
   }();
+
+  move_group_interface.setGoalOrientationTolerance(1.5);
 
   move_group_interface.setPoseTarget(target_pose, "eef_link");
 
@@ -38,6 +39,9 @@ int main(int argc, char* argv[])
 
   auto test2 = move_group_interface.getEndEffectorLink();
   RCLCPP_INFO(logger, "end effector: %s", test2.c_str());
+
+  auto test3 = move_group_interface.getGoalOrientationTolerance();
+  RCLCPP_INFO(logger, "tolerance: %f", test3);
 
   // Create a plan to that target pose
   auto const [success, plan] = [&move_group_interface] {

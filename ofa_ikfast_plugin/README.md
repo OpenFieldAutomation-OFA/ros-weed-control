@@ -11,7 +11,7 @@ If you are developing on a `arm64` platform (e. g. Nvidia Jetson) the procedure 
     xacro ofa_robot.urdf.xacro > ofa_robot.urdf
     ```
     Then commit and push the repository.
-2. On a computer with `amd64` architecture, pull the repository with the new URDF file and run the script. It cannot be executed on a `arm64` platform.
+2. On a computer with `amd64` architecture, pull the repository with the new URDF file and run the script. This cannot be executed on a `arm64` platform.
     ```bash
     bash auto_update_ikfast.sh
     ```

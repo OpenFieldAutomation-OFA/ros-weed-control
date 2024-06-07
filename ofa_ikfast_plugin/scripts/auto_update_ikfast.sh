@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# This is an adapted version of the script at
-# moveit2/moveit_kinematics/ikfast_kinematics_plugin/scripts/auto_update_ikfast_moveit_plugin.sh
+# This is an adapted version of
+# moveit2/moveit_kinematics/ikfast_kinematics_plugin/scripts/auto_create_ikfast_moveit_plugin.sh
 # It takes the urdf description and generates the ikfast plugin
 
 # This script pulls the personalrobotics/ros-openrave image.
