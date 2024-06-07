@@ -29,9 +29,11 @@
     //   "source=/usr/src/jetson_multimedia_api,target=/usr/src/jetson_multimedia_api,type=bind",
     //   "source=/usr/lib/aarch64-linux-gnu/tegra,target=/usr/lib/aarch64-linux-gnu/tegra,type=bind"
   ],
+  "containerEnv": {
+    "DISPLAY": "${localEnv:DISPLAY}"
+  },
   "runArgs": [
       "--net=host",
-      "-e", "DISPLAY=:0",
       "--device-cgroup-rule", "c 189:* rmw"
   ]
 }

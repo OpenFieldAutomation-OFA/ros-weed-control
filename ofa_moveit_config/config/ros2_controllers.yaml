@@ -20,5 +20,3 @@ ofa_robot_controller:
     state_interfaces:
       - position
       - velocity
-    
-    open_loop_control: true
