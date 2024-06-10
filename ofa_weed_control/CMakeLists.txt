@@ -10,7 +10,10 @@ find_package(ament_cmake REQUIRED)
 find_package(moveit_ros_planning_interface REQUIRED)
 find_package(moveit_visual_tools REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(tf2 REQUIRED)
+# find_package(tf2_ros REQUIRED)
 
+# add_executable(arm_moveit src/tf2_test.cpp)
 add_executable(arm_moveit src/arm_moveit.cpp)
 target_include_directories(arm_moveit PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
