@@ -38,3 +38,5 @@ ros2 topic pub /forward_position_controller/commands std_msgs/msg/Float64MultiAr
 - 0"
 
 ros2 topic echo /ofa_robot_controller/follow_joint_trajectory/_action/feedback
+ros2 topic echo /move_action/_action/feedback
+ros2 topic echo /execute_trajectory/_action/feedback

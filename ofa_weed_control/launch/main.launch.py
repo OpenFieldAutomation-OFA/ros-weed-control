@@ -65,15 +65,6 @@ def generate_launch_description():
         condition=IfCondition(LaunchConfiguration("gui")),
     )
 
-    # Static TF
-    static_tf = Node(
-        package="tf2_ros",
-        executable="static_transform_publisher",
-        name="static_transform_publisher",
-        output="log",
-        arguments=["--frame-id", "world", "--child-frame-id", "base_link"],
-    )
-
     # Publish TF
     robot_state_publisher = Node(
         package="robot_state_publisher",
@@ -119,7 +110,6 @@ def generate_launch_description():
         declared_arguments + 
         [
             rviz_node,
-            static_tf,
             robot_state_publisher,
             move_group_node,
             ros2_control_node,

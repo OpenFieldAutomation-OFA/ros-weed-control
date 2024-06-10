@@ -13,7 +13,8 @@
               "charliermarsh.ruff",
               "ms-vscode.cpptools-extension-pack",
               "ms-iot.vscode-ros",
-              "ms-azuretools.vscode-docker"
+              "ms-azuretools.vscode-docker",
+              "tomoki1207.pdf"
           ],
           "settings": {
               "files.associations": {

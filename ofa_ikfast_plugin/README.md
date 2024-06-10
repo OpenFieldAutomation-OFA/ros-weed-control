@@ -13,7 +13,7 @@ If you are developing on a `arm64` platform (e. g. Nvidia Jetson) the procedure 
     Then commit and push the repository.
 2. On a computer with `amd64` architecture, pull the repository with the new URDF file and run the script. This cannot be executed on a `arm64` platform.
     ```bash
-    bash auto_update_ikfast.sh
+    bash scripts/auto_update_ikfast.sh
     ```
     Then commit and push the changes.
 
