@@ -18,20 +18,41 @@ int main(int argc, char* argv[])
   using moveit::planning_interface::MoveGroupInterface;
   auto move_group_interface = MoveGroupInterface(node, "arm");
 
-  // Set a target Pose
-  auto const target_pose = [] {
-    geometry_msgs::msg::Pose msg;
-    msg.position.x = 0.2;
-    msg.position.y = 0.1;
-    msg.position.z = -0.4;
-    return msg;
-  }();
+  // move_group_interface.setGoalPositionTolerance(0.1);
 
-  move_group_interface.setGoalOrientationTolerance(1.5);
+  // set position goal
+  move_group_interface.setPositionTarget(0.2, 0.1, 0, "eef_link");
 
-  move_group_interface.setGoalPositionTolerance(1);
+  // add contstraint
+  moveit_msgs::msg::JointConstraint jc;
+  jc.joint_name = "joint2";
+  jc.position = 0;
+  jc.tolerance_above = 3;
+  jc.tolerance_below = 0;
+  jc.weight = 1.0;
+  moveit_msgs::msg::Constraints constraints;
+  constraints.joint_constraints.push_back(jc);
+  move_group_interface.setPathConstraints(constraints);
 
-  move_group_interface.setPoseTarget(target_pose, "eef_link");
+  // rclcpp::Client<rcl_interfaces::srv::SetParametersAtomically>::SharedPtr client =
+  //   node->create_client<rcl_interfaces::srv::SetParametersAtomically>("/move_group/set_parameters_atomically");
+  
+  // auto request = std::make_shared<rcl_interfaces::srv::SetParametersAtomically::Request>();
+  // rcl_interfaces::msg::Parameter parameter;
+  // parameter.name = "robot_description_planning.joint_limits.joint2.max_position";
+  // parameter.value.type = 3;
+  // parameter.value.double_value = 0;
+  // request->parameters.push_back(parameter);
+
+  // auto result = client->async_send_request(request);
+
+  // if (rclcpp::spin_until_future_complete(node, result) ==
+  //   rclcpp::FutureReturnCode::SUCCESS)
+  // {
+  //   RCLCPP_INFO(logger, "Service clal done");
+  // } else {
+  //   RCLCPP_ERROR(logger, "Failed to call service add_two_ints");
+  // }
 
   // Create a plan to that target pose
   auto const [success, plan] = [&move_group_interface] {
@@ -44,6 +65,35 @@ int main(int argc, char* argv[])
   if (success)
   {
     move_group_interface.execute(plan);
+  }
+  else
+  {
+    RCLCPP_ERROR(logger, "Planning failed!");
+  }
+
+  move_group_interface.clearPathConstraints();
+
+   // add contstraint
+    jc.joint_name = "joint2";
+    jc.position = 0;
+    jc.tolerance_above = 0;
+    jc.tolerance_below = 3;
+    jc.weight = 1.0;
+    moveit_msgs::msg::Constraints constraints2;
+    constraints2.joint_constraints.push_back(jc);
+    move_group_interface.setPathConstraints(constraints2); 
+
+  // Create a plan to that target pose
+  auto const [success2, plan2] = [&move_group_interface] {
+    moveit::planning_interface::MoveGroupInterface::Plan msg;
+    auto const ok = static_cast<bool>(move_group_interface.plan(msg));
+    return std::make_pair(ok, msg);
+  }();
+
+  // Execute the plan
+  if (success2)
+  {
+    move_group_interface.execute(plan2);
   }
   else
   {
