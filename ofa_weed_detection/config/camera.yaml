@@ -1,0 +1,173 @@
+/camera/ob_camera_node:
+  ros__parameters:
+    accel_optical_frame_id: camera_accel_optical_frame
+    accel_qos: default
+    accel_range: 4g
+    accel_rate: 100hz
+    align_mode: SW
+    align_target_stream: COLOR
+    angular_vel_cov: 0.01
+    camera_accel_frame_id: camera_accel_frame
+    camera_color_frame_id: camera_color_frame
+    camera_depth_frame_id: camera_depth_frame
+    camera_gyro_frame_id: camera_gyro_frame
+    camera_ir_frame_id: camera_ir_frame
+    camera_left_ir_frame_id: camera_left_ir_frame
+    camera_name: camera
+    camera_right_ir_frame_id: camera_right_ir_frame
+    color:
+      image_raw:
+        enable_pub_plugins:
+        - image_transport/raw
+    color_camera_info_qos: default
+    color_delay_us: 0
+    color_format: MJPG
+    color_fps: 30
+    color_height: 720
+    color_info_url: ''
+    color_optical_frame_id: camera_color_optical_frame
+    color_qos: default
+    color_width: 1280
+    connection_delay: 100
+    decimation_filter_scale_: -1
+    depth:
+      image_raw:
+        enable_pub_plugins:
+        - image_transport/raw
+    depth_camera_info_qos: default
+    depth_delay_us: 0
+    depth_filter_config: ''
+    depth_format: Y16
+    depth_fps: 30
+    depth_height: 576
+    depth_optical_frame_id: camera_depth_optical_frame
+    depth_precision: ''
+    depth_qos: default
+    depth_registration: false
+    depth_width: 640
+    depth_work_mode: ''
+    device_num: 1
+    device_preset: ''
+    diagnostic_period: 1.0
+    diagnostic_updater:
+      period: 1.0
+    enable_accel: false
+    enable_color: true
+    enable_color_auto_exposure: true
+    enable_colored_point_cloud: false
+    enable_d2c_viewer: false
+    enable_decimation_filter: false
+    enable_depth: true
+    enable_depth_scale: true
+    enable_frame_sync: false
+    enable_gyro: false
+    enable_hardware_d2d: true
+    enable_hdr_merge: false
+    enable_hole_filling_filter: false
+    enable_ir: true
+    enable_ir_auto_exposure: true
+    enable_ir_long_exposure: true
+    enable_laser: true
+    enable_ldp: true
+    enable_left_ir: false
+    enable_noise_removal_filter: true
+    enable_point_cloud: true
+    enable_right_ir: false
+    enable_sequence_id_filter: false
+    enable_soft_filter: true
+    enable_spatial_filter: false
+    enable_sync_output_accel_gyro: true
+    enable_temporal_filter: false
+    enable_threshold_filter: false
+    enumerate_net_device: false
+    flip_color: false
+    flip_depth: false
+    flip_ir: false
+    flip_left_ir: false
+    flip_right_ir: false
+    gyro_optical_frame_id: camera_gyro_optical_frame
+    gyro_qos: default
+    gyro_range: 1000dps
+    gyro_rate: 100hz
+    hdr_merge_exposure_1: -1
+    hdr_merge_exposure_2: -1
+    hdr_merge_gain_1: -1
+    hdr_merge_gain_2: -1
+    hole_filling_filter_mode: ''
+    ir:
+      image_raw:
+        enable_pub_plugins:
+        - image_transport/raw
+    ir_camera_info_qos: default
+    ir_format: Y16
+    ir_fps: 30
+    ir_height: 576
+    ir_info_url: ''
+    ir_optical_frame_id: camera_ir_optical_frame
+    ir_qos: default
+    ir_width: 640
+    laser_on_off_mode: 0
+    left_ir_camera_info_qos: default
+    left_ir_format: Y16
+    left_ir_fps: 0
+    left_ir_height: 0
+    left_ir_optical_frame_id: camera_left_ir_optical_frame
+    left_ir_qos: default
+    left_ir_width: 0
+    linear_accel_cov: 0.0003
+    log_level: none
+    max_save_images_count: 10
+    net_device_ip: ''
+    net_device_port: 0
+    noise_removal_filter_max_size: 80
+    noise_removal_filter_min_diff: 256
+    ordered_pc: false
+    point_cloud_qos: default
+    publish_tf: true
+    qos_overrides:
+      /parameter_events:
+        publisher:
+          depth: 1000
+          durability: volatile
+          history: keep_last
+          reliability: reliable
+      /tf:
+        publisher:
+          depth: 100
+          durability: volatile
+          history: keep_last
+          reliability: reliable
+      /tf_static:
+        publisher:
+          depth: 1
+          history: keep_last
+          reliability: reliable
+    retry_on_usb3_detection_failure: false
+    right_ir_camera_info_qos: default
+    right_ir_format: Y16
+    right_ir_fps: 0
+    right_ir_height: 0
+    right_ir_optical_frame_id: camera_right_ir_optical_frame
+    right_ir_qos: default
+    right_ir_width: 0
+    sequence_id_filter_id: -1
+    serial_number: ''
+    soft_filter_max_diff: -1
+    soft_filter_speckle_size: -1
+    spatial_filter_alpha: -1.0
+    spatial_filter_diff_threshold: -1
+    spatial_filter_magnitude: -1
+    spatial_filter_radius: -1
+    sync_mode: standalone
+    temporal_filter_diff_threshold: -1.0
+    temporal_filter_weight: -1.0
+    tf_publish_rate: 10.0
+    threshold_filter_max: -1
+    threshold_filter_min: -1
+    trigger2image_delay_us: 0
+    trigger_out_delay_us: 0
+    trigger_out_enabled: false
+    usb_port: ''
+    use_hardware_time: false
+    use_sim_time: false
+
