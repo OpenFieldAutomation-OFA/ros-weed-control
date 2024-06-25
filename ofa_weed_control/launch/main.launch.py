@@ -27,12 +27,12 @@ def generate_launch_description():
     )
 
     # Load the robot configuration
-    launch_arguments = {
+    mappings = {
         "use_mock_hardware": LaunchConfiguration("use_mock_hardware"),
     }
     moveit_config = (
         MoveItConfigsBuilder("ofa_robot", package_name="ofa_moveit_config")
-        .robot_description(mappings=launch_arguments)
+        .robot_description(mappings=mappings)
         .planning_pipelines(pipelines=["ompl"])
         .to_moveit_configs()
     )
