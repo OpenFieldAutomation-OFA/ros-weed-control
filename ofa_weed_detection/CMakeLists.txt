@@ -18,13 +18,14 @@ endforeach()
 add_executable(process_image src/process_image.cpp)
 target_include_directories(process_image PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>)
+  $<INSTALL_INTERFACE:include>
+  ${CMAKE_CURRENT_SOURCE_DIR}/sdk/include)
 target_compile_features(process_image PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 ament_target_dependencies(
   process_image
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
-target_link_libraries(process_image ${CMAKE_CURRENT_SOURCE_DIR}/lib/libk4a.so)
+target_link_libraries(process_image ${CMAKE_CURRENT_SOURCE_DIR}/sdk/lib/libk4a.so)
 
 ## INSTALL
 install(
