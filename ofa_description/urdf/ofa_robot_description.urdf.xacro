@@ -116,9 +116,9 @@
 
 	<xacro:property name="arm_r" value="${0.045/2}" />
 	<xacro:property name="arm_ri" value="${0.041/2}" />
-	<xacro:property name="arm1_l" value="0.25" />
+	<xacro:property name="arm1_l" value="0.368" />
 	<xacro:property name="arm1_m" value="${1650*(arm_r**2*pi-arm_ri**2*pi)*arm1_l}" />
-	<xacro:property name="arm2_l" value="0.425" />
+	<xacro:property name="arm2_l" value="0.307" />
 	<xacro:property name="arm2_m" value="${1650*(arm_r**2*pi-arm_ri**2*pi)*arm2_l}" />
 	<link name="link2">
 		<visual>
