@@ -11,6 +11,7 @@ set(THIS_PACKAGE_INCLUDE_DEPENDS
   pluginlib
   rclcpp
   rclcpp_lifecycle
+  # Threads
 )
 find_package(ament_cmake REQUIRED)
 foreach(Dependency IN ITEMS ${THIS_PACKAGE_INCLUDE_DEPENDS})
@@ -31,12 +32,12 @@ ament_target_dependencies(
   teknic_hardware PUBLIC
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
-# target_link_libraries(teknic_hardware ${CMAKE_CURRENT_SOURCE_DIR}/sdk/lib/libsFoundation20.so)
+target_link_libraries(teknic_hardware PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/lib/libsFoundation20.so)
 
 
 # Causes the visibility macros to use dllexport rather than dllimport,
 # which is appropriate when building the dll but not consuming it.
-target_compile_definitions(${PROJECT_NAME} PRIVATE "TEKNIC_HARDWARE_BUILDING_DLL")
+target_compile_definitions(${PROJECT_NAME} PUBLIC "TEKNIC_HARDWARE_BUILDING_DLL")
 
 # Export hardware plugins
 pluginlib_export_plugin_description_file(hardware_interface teknic_hardware.xml)
@@ -44,16 +45,20 @@ pluginlib_export_plugin_description_file(hardware_interface teknic_hardware.xml)
 # INSTALL
 install(
   DIRECTORY include/
-  DESTINATION include/teknic_hardware
+  DESTINATION include/${PROJECT_NAME}
+)
+install(
+  DIRECTORY lib/
+  DESTINATION lib
 )
 install(TARGETS teknic_hardware
-  EXPORT export_teknic_hardware
+  EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
 )
 
 ## EXPORTS
-ament_export_targets(export_teknic_hardware HAS_LIBRARY_TARGET)
+ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
 ament_export_dependencies(${THIS_PACKAGE_INCLUDE_DEPENDS})
 ament_package()

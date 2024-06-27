@@ -43,16 +43,16 @@ pluginlib_export_plugin_description_file(hardware_interface cubemars_hardware.xm
 ## INSTALL
 install(
   DIRECTORY include/
-  DESTINATION include/cubemars_hardware
+  DESTINATION include/${PROJECT_NAME}
 )
 install(TARGETS cubemars_hardware
-  EXPORT export_cubemars_hardware
+  EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
 )
 
 ## EXPORTS
-ament_export_targets(export_cubemars_hardware HAS_LIBRARY_TARGET)
+ament_export_targets(export_${PROJECT_NAME} HAS_LIBRARY_TARGET)
 ament_export_dependencies(${THIS_PACKAGE_INCLUDE_DEPENDS})
 ament_package()

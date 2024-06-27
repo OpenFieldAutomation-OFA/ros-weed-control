@@ -9,7 +9,7 @@ find_package(ament_cmake REQUIRED)
 
 install(
   DIRECTORY launch urdf rviz ros2_control
-  DESTINATION share/${PROJECT_NAME}/
+  DESTINATION share/${PROJECT_NAME}
 )
 
 ament_package()

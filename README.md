@@ -57,7 +57,7 @@ TODO: try flashing jetson with rt_preempt
     sudo systemctl enable systemd-networkd
     echo -e '[Match]\nName=can0\n[CAN]\nBitRate=1M' | sudo tee /etc/systemd/network/80-can.network
     ```
-6. Install SC4-Hub USB Driver.
+6. Install the SC4-Hub USB Driver.
     ```bash
     wget https://teknic.com/files/downloads/Linux_Software.tar.gz
     tar -xvf Linux_Software.tar.gz

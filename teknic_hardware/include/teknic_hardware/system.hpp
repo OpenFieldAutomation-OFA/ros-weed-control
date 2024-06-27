@@ -14,6 +14,7 @@
 #include "rclcpp_lifecycle/node_interfaces/lifecycle_node_interface.hpp"
 #include "rclcpp_lifecycle/state.hpp"
 #include "teknic_hardware/visibility_control.h"
+#include "sFoundation/pubSysCls.h"
 
 namespace teknic_hardware
 {
@@ -75,6 +76,8 @@ private:
   std::vector<double> hw_states_velocities_;
   std::vector<double> hw_states_efforts_;
   std::vector<double> hw_states_temperatures_;
+
+  sFnd::SysManager* myMgr = sFnd::SysManager::Instance();
 };
 
 }  // namespace teknic_hardware
