@@ -56,6 +56,21 @@ TODO: try flashing jetson with rt_preempt
     sudo rm /etc/modprobe.d/denylist-mttcan.conf
     sudo systemctl enable systemd-networkd
     echo -e '[Match]\nName=can0\n[CAN]\nBitRate=1M' | sudo tee /etc/systemd/network/80-can.network
+    ```
+6. Install SC4-Hub USB Driver.
+    ```bash
+    wget https://teknic.com/files/downloads/Linux_Software.tar.gz
+    tar -xvf Linux_Software.tar.gz
+    tar -xvf Linux_Software/Teknic_SC4Hub_USB_Driver.tar
+    rm -r Linux_Software*
+    make -C ExarKernelDriver
+    sudo cp ExarKernelDriver/xr_usb_serial_common.ko /lib/modules/"$(uname -r)"/kernel/drivers/usb/serial
+    sudo depmod
+    sudo modprobe xr_usb_serial_common
+    sudo rm -r ExarKernelDriver
+    ```
+7. Reboot.
+    ```bash
     sudo reboot
     ```
 10. Finally, clone this repo.

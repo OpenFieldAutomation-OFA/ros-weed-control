@@ -36,6 +36,9 @@ RUN . /opt/ros/${ROS_DISTRO}/setup.sh \
 RUN su $USERNAME -c "mkdir /home/ros/overlay"
 WORKDIR /home/ros/overlay
 
+# Allow access to serial devices
+RUN usermod -aG dialout $USERNAME
+
 ####################
 # Production Image #
 ####################

@@ -12,13 +12,10 @@ set(THIS_PACKAGE_INCLUDE_DEPENDS
   rclcpp
   rclcpp_lifecycle
 )
-
-# find dependencies
 find_package(ament_cmake REQUIRED)
 foreach(Dependency IN ITEMS ${THIS_PACKAGE_INCLUDE_DEPENDS})
   find_package(${Dependency} REQUIRED)
 endforeach()
-
 
 ## COMPILE
 add_library(
@@ -34,6 +31,7 @@ ament_target_dependencies(
   teknic_hardware PUBLIC
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
+# target_link_libraries(teknic_hardware ${CMAKE_CURRENT_SOURCE_DIR}/sdk/lib/libsFoundation20.so)
 
 
 # Causes the visibility macros to use dllexport rather than dllimport,

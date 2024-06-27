@@ -26,7 +26,7 @@
   "workspaceFolder": "/home/ros/overlay",
   "workspaceMount": "source=${localWorkspaceFolder},target=/home/ros/overlay/src,type=bind",
   "mounts": [
-      "source=/dev/bus/usb,target=/dev/bus/usb,type=bind"
+      "source=/dev,target=/dev,type=bind"
     //   "source=/usr/src/jetson_multimedia_api,target=/usr/src/jetson_multimedia_api,type=bind",
     //   "source=/usr/lib/aarch64-linux-gnu/tegra,target=/usr/lib/aarch64-linux-gnu/tegra,type=bind"
   ],
@@ -35,6 +35,7 @@
   },
   "runArgs": [
       "--net=host",
-      "--device-cgroup-rule", "c 189:* rmw"
+      "--device-cgroup-rule", "c 189:* rmw", // camera
+      "--device-cgroup-rule", "c 266:* rmw" // SC4-Hub
   ]
 }
