@@ -44,10 +44,10 @@ hardware_interface::CallbackReturn CubeMarsSystemHardware::on_init(
       joint.parameters.count("pole_pairs") != 0 &&
       joint.parameters.count("gear_ratio") != 0)
     {
-    can_ids_.emplace_back(std::stoul(joint.parameters.at("can_id")));
-    torque_constants_.emplace_back(std::stod(joint.parameters.at("kt")));
-    erpm_conversions_.emplace_back(std::stoi(joint.parameters.at("pole_pairs")) * 
-      std::stoi(joint.parameters.at("gear_ratio")) * 60 / (2 * M_PI));
+      can_ids_.emplace_back(std::stoul(joint.parameters.at("can_id")));
+      torque_constants_.emplace_back(std::stod(joint.parameters.at("kt")));
+      erpm_conversions_.emplace_back(std::stoi(joint.parameters.at("pole_pairs")) * 
+        std::stoi(joint.parameters.at("gear_ratio")) * 60 / (2 * M_PI));
     }
     else
     {
@@ -108,7 +108,7 @@ std::vector<hardware_interface::CommandInterface>
 CubeMarsSystemHardware::export_command_interfaces()
 {
   std::vector<hardware_interface::CommandInterface> command_interfaces;
-  for (uint i = 0; i < info_.joints.size(); i++)
+  for (std::size_t i = 0; i < info_.joints.size(); i++)
   {
     command_interfaces.emplace_back(hardware_interface::CommandInterface(
       info_.joints[i].name, hardware_interface::HW_IF_POSITION, &hw_commands_positions_[i]));

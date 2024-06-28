@@ -78,7 +78,8 @@ private:
   std::vector<double> hw_states_temperatures_;
 
   sFnd::SysManager* myMgr = sFnd::SysManager::Instance();
-  std::size_t portCount;
+  std::vector<std::string> chports;
+  std::vector<std::pair<std::size_t, std::size_t>> nodes;
 };
 
 }  // namespace teknic_hardware

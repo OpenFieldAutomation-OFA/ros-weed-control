@@ -6,6 +6,8 @@
 #include "hardware_interface/types/hardware_interface_type_values.hpp"
 #include "rclcpp/rclcpp.hpp"
 
+#define TIME_TILL_TIMEOUT	10000
+
 namespace teknic_hardware
 {
 hardware_interface::CallbackReturn TeknicSystemHardware::on_init(
@@ -20,6 +22,35 @@ hardware_interface::CallbackReturn TeknicSystemHardware::on_init(
   RCLCPP_INFO(
     rclcpp::get_logger("TeknicSystemHardware"),
     "Hello World!");
+  
+  for (const hardware_interface::ComponentInfo & joint : info_.joints)
+  {
+    if (joint.parameters.count("port") != 0 &&
+      joint.parameters.count("node") != 0)
+    {
+      std::pair<std::size_t, std::size_t> node;
+      std::string port = joint.parameters.at("port");
+      auto it = std::find(chports.begin(), chports.end(), port);
+      if (it != chports.end())
+      {
+        node.first = std::distance(chports.begin(), it);
+      }
+      else
+      {
+        node.first = chports.size();
+        chports.emplace_back(port);
+      }
+      node.second = std::stoul(joint.parameters.at("node"));
+      nodes.emplace_back(node);
+    }
+    else
+    {
+      RCLCPP_FATAL(
+        rclcpp::get_logger("CubeMarsSystemHardware"),
+        "Missing parameters in URDF for %s", joint.name.c_str());
+      return hardware_interface::CallbackReturn::ERROR;
+    }
+  }
 
   return hardware_interface::CallbackReturn::SUCCESS;
 }
@@ -29,105 +60,17 @@ hardware_interface::CallbackReturn TeknicSystemHardware::on_configure(
 {
   try
   {
-    // detect all ports
-	  std::vector<std::string> comHubPorts;
-		sFnd::SysManager::FindComHubPorts(comHubPorts);
-    RCLCPP_INFO(
-      rclcpp::get_logger("TeknicSystemHardware"),
-      "Found %ld SC Hubs\n", comHubPorts.size());
-		for (portCount = 0; portCount < comHubPorts.size() && portCount < NET_CONTROLLER_MAX; portCount++)
+    for (size_t pc = 0; pc < chports.size(); pc++)
     {
-			myMgr->ComHubPort(portCount, comHubPorts[portCount].c_str());
-		}
-    if (portCount > 0) {
-			myMgr->PortsOpen(portCount);
-			for (size_t i = 0; i < portCount; i++) {
-				sFnd::IPort &myPort = myMgr->Ports(i);
-        RCLCPP_INFO(
-          rclcpp::get_logger("TeknicSystemHardware"),
-          "Port[%d]: state=%d, nodes=%d",
-          myPort.NetNumber(), myPort.OpenState(), myPort.NodeCount());
-			}
-		}
-    else
-    {
-      RCLCPP_ERROR(
-        rclcpp::get_logger("TeknicSystemHardware"),
-        "Unable to locate SC hub port");
-      return hardware_interface::CallbackReturn::FAILURE;
+      myMgr->ComHubPort(pc, chports[pc].c_str());
     }
-
-    // clear all alerts
-    for (size_t iPort = 0; iPort < portCount; iPort++) {
-			sFnd::IPort &myPort = myMgr->Ports(iPort);
-			char alertList[256];
+    myMgr->PortsOpen(chports.size());
+    for (size_t i = 0; i < chports.size(); i++) {
+      sFnd::IPort &myPort = myMgr->Ports(i);
       RCLCPP_INFO(
         rclcpp::get_logger("TeknicSystemHardware"),
-        "Checking for Alerts");
-			for (unsigned iNode = 0; iNode < myPort.NodeCount(); iNode++) {
-				sFnd::INode &theNode = myPort.Nodes(iNode);
-				theNode.Status.RT.Refresh();
-				theNode.Status.Alerts.Refresh();
-        RCLCPP_INFO(
-          rclcpp::get_logger("TeknicSystemHardware"),
-          "Checking node %i for Alerts", iNode);
-				if (!theNode.Status.RT.Value().cpm.AlertPresent) {
-          RCLCPP_INFO(
-            rclcpp::get_logger("TeknicSystemHardware"),
-            "Node has no alerts");
-				}
-				if (theNode.Status.HadTorqueSaturation()) {
-          RCLCPP_INFO(
-            rclcpp::get_logger("TeknicSystemHardware"),
-            "Node has experienced torque saturation since last checking");
-				}
-				if (theNode.Status.Alerts.Value().isInAlert()) {
-					theNode.Status.Alerts.Value().StateStr(alertList, 256);
-          RCLCPP_INFO(
-            rclcpp::get_logger("TeknicSystemHardware"),
-            "Node has alerts! Alerts:\n%s\n", alertList);
-					if (theNode.Status.Alerts.Value().cpm.Common.EStopped) {
-            RCLCPP_INFO(
-              rclcpp::get_logger("TeknicSystemHardware"),
-              "Node is e-stopped: Clearing E-Stop");
-						theNode.Motion.NodeStopClear();
-					}
-					if (theNode.Status.Alerts.Value().cpm.TrackingShutdown) {
-            RCLCPP_INFO(
-              rclcpp::get_logger("TeknicSystemHardware"),
-              "Node exceeded Tracking error limit");
-					}
-					theNode.Status.Alerts.Refresh();
-					if (theNode.Status.Alerts.Value().isInAlert()) {
-						theNode.Status.Alerts.Value().StateStr(alertList, 256);
-            RCLCPP_INFO(
-              rclcpp::get_logger("TeknicSystemHardware"),
-              "Node has non-estop alerts: %s", alertList);
-            RCLCPP_INFO(
-              rclcpp::get_logger("TeknicSystemHardware"),
-              "Clearing non-serious alerts");
-						theNode.Status.AlertsClear();
-						theNode.Status.Alerts.Refresh();
-						if (theNode.Status.Alerts.Value().isInAlert()) {
-							theNode.Status.Alerts.Value().StateStr(alertList, 256);
-              RCLCPP_INFO(
-                rclcpp::get_logger("TeknicSystemHardware"),
-                "Node has serious, non-clearing alerts: %s", alertList);
-						}
-						else {
-              RCLCPP_INFO(
-                rclcpp::get_logger("TeknicSystemHardware"),
-                "Node %d: all alerts have been cleared", theNode.Info.Ex.Addr());
-						}
-					}
-					else {
-            RCLCPP_INFO(
-              rclcpp::get_logger("TeknicSystemHardware"),
-              "Node %d: all alerts have been cleared\n", theNode.Info.Ex.Addr());
-					}
-
-				}
-			}
+        "Port[%d]: state=%d, nodes=%d",
+        myPort.NetNumber(), myPort.OpenState(), myPort.NodeCount());
     }
   }
   catch(sFnd::mnErr& theErr)
@@ -205,12 +148,111 @@ hardware_interface::return_type TeknicSystemHardware::perform_command_mode_switc
 hardware_interface::CallbackReturn TeknicSystemHardware::on_activate(
   const rclcpp_lifecycle::State & /*previous_state*/)
 {
+  try
+  {
+    for (const std::pair<std::size_t, std::size_t> & node : nodes)
+    {
+      // enable node
+      sFnd::INode &inode = myMgr->Ports(node.first).Nodes(node.second);
+      RCLCPP_INFO(
+        rclcpp::get_logger("TeknicSystemHardware"),
+        "Node[%zu]: type=%d\nuserID: %s\nFW version: %s\nSerial #: %d\nModel: %s\n",
+        node.first, inode.Info.NodeType(), inode.Info.UserID.Value(),
+        inode.Info.FirmwareVersion.Value(), inode.Info.SerialNumber.Value(),
+        inode.Info.Model.Value());
+      inode.Status.AlertsClear();
+      inode.Motion.NodeStopClear();
+      inode.EnableReq(true);
+      double timeout = myMgr->TimeStampMsec() + TIME_TILL_TIMEOUT;	//define a timeout in case the node is unable to enable
+      while (!inode.Motion.IsReady()) {
+        if (myMgr->TimeStampMsec() > timeout) {
+          if (inode.Status.Power.Value().fld.InBusLoss) {
+            RCLCPP_ERROR(
+              rclcpp::get_logger("TeknicSystemHardware"),
+              "Bus Power low");
+            return hardware_interface::CallbackReturn::ERROR;
+          }
+          RCLCPP_ERROR(
+            rclcpp::get_logger("TeknicSystemHardware"),
+            "Timed out waiting for Node %zu to enable", node.first);
+          return hardware_interface::CallbackReturn::ERROR;
+        }
+      }
+      RCLCPP_INFO(
+        rclcpp::get_logger("TeknicSystemHardware"),
+        "Node %zu enabled", node.first);
+      
+      // TODO: homing
+      //   //At this point the Node is enabled, and we will now check to see if the Node has been homed
+      //   //Check the Node to see if it has already been homed, 
+      //   if (theNode.Motion.Homing.HomingValid())
+      //   {
+      //     if (theNode.Motion.Homing.WasHomed())
+      //     {
+      //       printf("Node %d has already been homed, current position is: \t%8.0f \n", iNode, theNode.Motion.PosnMeasured.Value());
+      //       printf("Rehoming Node... \n");
+      //     }
+      //     else
+      //     {
+      //       printf("Node [%d] has not been homed.  Homing Node now...\n", iNode);
+      //     }
+      //     //Now we will home the Node
+      //     theNode.Motion.Homing.Initiate();
+
+      //     timeout = myMgr->TimeStampMsec() + TIME_TILL_TIMEOUT;	//define a timeout in case the node is unable to enable
+      //                                 // Basic mode - Poll until disabled
+      //     while (!theNode.Motion.Homing.WasHomed()) {
+      //       if (myMgr->TimeStampMsec() > timeout) {
+      //                       if (IsBusPowerLow(theNode)) {
+      //                           printf("Error: Bus Power low. Make sure 75V supply is powered on.\n");
+      //                           msgUser("Press any key to continue.");
+      //                           return -1;
+      //                       }
+      //         printf("Node did not complete homing:  \n\t -Ensure Homing settings have been defined through ClearView. \n\t -Check for alerts/Shutdowns \n\t -Ensure timeout is longer than the longest possible homing move.\n");
+      //         msgUser("Press any key to continue."); //pause so the user can see the error message; waits for user to press a key
+      //         return -2;
+      //       }
+      //     }
+      //     printf("Node completed homing\n");
+      //   }
+      //   else {
+      //     printf("Node[%d] has not had homing setup through ClearView.  The node will not be homed.\n", iNode);
+      //   }
+    }
+  }
+  catch(sFnd::mnErr& theErr)
+  {
+    RCLCPP_ERROR(
+      rclcpp::get_logger("TeknicSystemHardware"),
+      "Caught error: addr=%d, err=0x%08x\nmsg=%s\n", theErr.TheAddr, theErr.ErrorCode, theErr.ErrorMsg);
+    return hardware_interface::CallbackReturn::ERROR;
+  }
+
   return hardware_interface::CallbackReturn::SUCCESS;
 }
 
 hardware_interface::CallbackReturn TeknicSystemHardware::on_deactivate(
   const rclcpp_lifecycle::State & /*previous_state*/)
 {
+  try
+  {
+    for (const std::pair<std::size_t, std::size_t> & node : nodes)
+    {
+      // disable node
+      sFnd::INode &inode = myMgr->Ports(node.first).Nodes(node.second);
+      RCLCPP_INFO(
+        rclcpp::get_logger("TeknicSystemHardware"),
+        "Disabling Node %zu", node.first);
+      inode.EnableReq(false);
+    }
+  }
+  catch(sFnd::mnErr& theErr)
+  {
+    RCLCPP_ERROR(
+      rclcpp::get_logger("TeknicSystemHardware"),
+      "Caught error: addr=%d, err=0x%08x\nmsg=%s\n", theErr.TheAddr, theErr.ErrorCode, theErr.ErrorMsg);
+    return hardware_interface::CallbackReturn::ERROR;
+  }
   return hardware_interface::CallbackReturn::SUCCESS;
 }
 
