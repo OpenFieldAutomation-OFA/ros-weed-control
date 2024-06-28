@@ -70,16 +70,27 @@ public:
 private:
   std::vector<double> hw_commands_positions_;
   std::vector<double> hw_commands_velocities_;
-  std::vector<double> hw_commands_accelerations_;
-  std::vector<double> hw_commands_efforts_;
   std::vector<double> hw_states_positions_;
   std::vector<double> hw_states_velocities_;
   std::vector<double> hw_states_efforts_;
-  std::vector<double> hw_states_temperatures_;
 
   sFnd::SysManager* myMgr = sFnd::SysManager::Instance();
   std::vector<std::string> chports;
   std::vector<std::pair<std::size_t, std::size_t>> nodes;
+
+  enum control_mode_t
+  {
+    SPEED_LOOP,
+    POSITION_LOOP,
+    UNDEFINED
+  };
+
+  // command mode switch variables
+  std::vector<bool> stop_modes_;
+  std::vector<control_mode_t> start_modes_;
+
+  // active control mode for each actuator
+  std::vector<control_mode_t> control_mode_;
 };
 
 }  // namespace teknic_hardware

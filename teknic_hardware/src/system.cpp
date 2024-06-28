@@ -19,10 +19,14 @@ hardware_interface::CallbackReturn TeknicSystemHardware::on_init(
   {
     return hardware_interface::CallbackReturn::ERROR;
   }
-  RCLCPP_INFO(
-    rclcpp::get_logger("TeknicSystemHardware"),
-    "Hello World!");
-  
+
+  hw_states_positions_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
+  hw_states_velocities_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
+  hw_states_efforts_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
+  hw_commands_positions_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
+  hw_commands_velocities_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
+  control_mode_.resize(info_.joints.size(), control_mode_t::UNDEFINED);
+
   for (const hardware_interface::ComponentInfo & joint : info_.joints)
   {
     if (joint.parameters.count("port") != 0 &&
@@ -116,8 +120,6 @@ TeknicSystemHardware::export_state_interfaces()
       info_.joints[i].name, hardware_interface::HW_IF_VELOCITY, &hw_states_velocities_[i]));
     state_interfaces.emplace_back(hardware_interface::StateInterface(
       info_.joints[i].name, hardware_interface::HW_IF_EFFORT, &hw_states_efforts_[i]));
-    state_interfaces.emplace_back(hardware_interface::StateInterface(
-      info_.joints[i].name, "temperature", &hw_states_temperatures_[i]));
   }
   return state_interfaces;
 }
@@ -131,9 +133,60 @@ TeknicSystemHardware::export_command_interfaces()
 }
 
 hardware_interface::return_type TeknicSystemHardware::prepare_command_mode_switch(
-  const std::vector<std::string> & /*start_interfaces*/,
-  const std::vector<std::string> & /*stop_interfaces*/)
+  const std::vector<std::string> & start_interfaces,
+  const std::vector<std::string> & stop_interfaces)
 {
+  stop_modes_.clear();
+  start_modes_.clear();
+
+  // Define allowed combination of command interfaces
+  std::unordered_set<std::string> vel {"velocity"};
+  std::unordered_set<std::string> pos {"position"};
+  
+  std::unordered_set<std::string> joint_interfaces;
+  for (std::size_t i = 0; i < info_.joints.size(); i++)
+  {
+    // find stop modes
+    stop_modes_.push_back(false);
+    for (std::string key : stop_interfaces)
+    {
+      RCLCPP_INFO(rclcpp::get_logger("CubeMarsSystemHardware"), "stop interface: %s", key.c_str());
+      if (key.find(info_.joints[i].name) != std::string::npos)
+      {
+        stop_modes_[i] = true;
+        break;
+      }
+    }
+
+    // find start modes
+    joint_interfaces.clear();
+    for (std::string key : start_interfaces)
+    {
+      RCLCPP_INFO(rclcpp::get_logger("CubeMarsSystemHardware"), "start interface: %s", key.c_str());
+      if (key.find(info_.joints[i].name) != std::string::npos)
+      {
+        joint_interfaces.insert(key.substr(key.find("/") + 1));
+      }
+    }
+    if (joint_interfaces == vel)
+    {
+      start_modes_.push_back(SPEED_LOOP);
+    }
+    else if (joint_interfaces == pos)
+    {
+      start_modes_.push_back(POSITION_LOOP);
+    }
+    else if (joint_interfaces.empty())
+    {
+      // don't change control mode
+      start_modes_.push_back(control_mode_[i]);
+    }
+    else
+    {
+      return hardware_interface::return_type::ERROR;
+    }
+  }
+
   return hardware_interface::return_type::OK;
 }
 
@@ -141,6 +194,25 @@ hardware_interface::return_type TeknicSystemHardware::perform_command_mode_switc
   const std::vector<std::string> & /*start_interfaces*/,
   const std::vector<std::string> & /*stop_interfaces*/)
 {
+  for (std::size_t i = 0; i < info_.joints.size(); i++)
+  {
+    if (stop_modes_[i])
+    {
+      switch (control_mode_[i])
+      {
+        case SPEED_LOOP:
+          hw_commands_velocities_[i] = std::numeric_limits<double>::quiet_NaN();
+          break;
+        case POSITION_LOOP:
+          hw_commands_positions_[i] = std::numeric_limits<double>::quiet_NaN();
+          break;
+        case UNDEFINED:
+          return hardware_interface::return_type::ERROR;
+      }
+    }
+    // switch control mode
+    control_mode_[i] = start_modes_[i];
+  }
   return hardware_interface::return_type::OK;
 }
 
