@@ -128,6 +128,13 @@ std::vector<hardware_interface::CommandInterface>
 TeknicSystemHardware::export_command_interfaces()
 {
   std::vector<hardware_interface::CommandInterface> command_interfaces;
+  for (std::size_t i = 0; i < info_.joints.size(); i++)
+  {
+    command_interfaces.emplace_back(hardware_interface::CommandInterface(
+      info_.joints[i].name, hardware_interface::HW_IF_POSITION, &hw_commands_positions_[i]));
+    command_interfaces.emplace_back(hardware_interface::CommandInterface(
+      info_.joints[i].name, hardware_interface::HW_IF_VELOCITY, &hw_commands_velocities_[i]));
+  }
 
   return command_interfaces;
 }
@@ -222,10 +229,12 @@ hardware_interface::CallbackReturn TeknicSystemHardware::on_activate(
 {
   try
   {
-    for (const std::pair<std::size_t, std::size_t> & node : nodes)
+    for (std::size_t i = 0; i < info_.joints.size(); i++)
     {
-      // enable node
+      std::pair<std::size_t, std::size_t> node = nodes[i];
       sFnd::INode &inode = myMgr->Ports(node.first).Nodes(node.second);
+      
+      // enable node
       RCLCPP_INFO(
         rclcpp::get_logger("TeknicSystemHardware"),
         "Node[%zu]: type=%d\nuserID: %s\nFW version: %s\nSerial #: %d\nModel: %s\n",
@@ -290,6 +299,30 @@ hardware_interface::CallbackReturn TeknicSystemHardware::on_activate(
       //   else {
       //     printf("Node[%d] has not had homing setup through ClearView.  The node will not be homed.\n", iNode);
       //   }
+
+      // set units
+      inode.AccUnit(sFnd::INode::RPM_PER_SEC);
+			inode.VelUnit(sFnd::INode::RPM);
+
+      // set limits
+      if (info_.joints[i].parameters.count("vel_limit") != 0)
+      {
+        double vel = std::stod(info_.joints[i].parameters.at("vel_limit"));
+        inode.Motion.VelLimit = vel;
+        RCLCPP_INFO(
+          rclcpp::get_logger("TeknicSystemHardware"),
+          "Velocity limit of Node %zu set to: %f",
+          node.first, vel);
+      }
+      if (info_.joints[i].parameters.count("acc_limit") != 0)
+      {
+        double acc = std::stod(info_.joints[i].parameters.at("acc_limit"));
+        inode.Motion.AccLimit = acc;
+        RCLCPP_INFO(
+          rclcpp::get_logger("TeknicSystemHardware"),
+          "Acceleration limit of Node %zu set to: %f",
+          node.first, acc);
+      }
     }
   }
   catch(sFnd::mnErr& theErr)
@@ -308,10 +341,12 @@ hardware_interface::CallbackReturn TeknicSystemHardware::on_deactivate(
 {
   try
   {
-    for (const std::pair<std::size_t, std::size_t> & node : nodes)
+    for (std::size_t i = 0; i < info_.joints.size(); i++)
     {
-      // disable node
+      std::pair<std::size_t, std::size_t> node = nodes[i];
       sFnd::INode &inode = myMgr->Ports(node.first).Nodes(node.second);
+
+      // disable node
       RCLCPP_INFO(
         rclcpp::get_logger("TeknicSystemHardware"),
         "Disabling Node %zu", node.first);
@@ -337,6 +372,47 @@ hardware_interface::return_type TeknicSystemHardware::read(
 hardware_interface::return_type TeknicSystemHardware::write(
   const rclcpp::Time & /*time*/, const rclcpp::Duration & /*period*/)
 {
+  try
+  {
+    for (std::size_t i = 0; i < info_.joints.size(); i++)
+    {
+      std::pair<std::size_t, std::size_t> node = nodes[i];
+      sFnd::INode &inode = myMgr->Ports(node.first).Nodes(node.second);
+      switch (control_mode_[i])
+      {
+        case UNDEFINED:
+          // RCLCPP_INFO(
+          //   rclcpp::get_logger("TeknicSystemHardware"),
+          //   "Nothing is using the hardware interface!");
+          return hardware_interface::return_type::OK;
+        case SPEED_LOOP:
+        {
+          if (!std::isnan(hw_commands_velocities_[i]))
+          {
+
+          }
+          break;
+        }
+        case POSITION_LOOP:
+        {
+          if (!std::isnan(hw_commands_positions_[i]))
+          {
+
+          }
+          break;
+        }
+      }
+    }
+
+  }
+  catch(sFnd::mnErr& theErr)
+  {
+    RCLCPP_ERROR(
+      rclcpp::get_logger("TeknicSystemHardware"),
+      "Caught error: addr=%d, err=0x%08x\nmsg=%s\n", theErr.TheAddr, theErr.ErrorCode, theErr.ErrorMsg);
+    return hardware_interface::return_type::ERROR;
+  }
+
   return hardware_interface::return_type::OK;
 }
 
