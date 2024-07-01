@@ -74,6 +74,8 @@ private:
   std::vector<double> hw_states_velocities_;
   std::vector<double> hw_states_efforts_;
 
+  std::vector<double> conversions_;
+
   sFnd::SysManager* myMgr = sFnd::SysManager::Instance();
   std::vector<std::string> chports;
   std::vector<std::pair<std::size_t, std::size_t>> nodes;
