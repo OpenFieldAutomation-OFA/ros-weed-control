@@ -76,8 +76,6 @@ private:
 
   std::vector<double> counts_conversions_;
 
-  std::vector<int32_t> previous_targets_;
-
   double count = 0;
 
   sFnd::SysManager* myMgr = sFnd::SysManager::Instance();
