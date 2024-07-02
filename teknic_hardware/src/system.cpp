@@ -25,6 +25,7 @@ hardware_interface::CallbackReturn TeknicSystemHardware::on_init(
   hw_states_efforts_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
   hw_commands_positions_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
   hw_commands_velocities_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
+  previous_targets_.resize(info_.joints.size(), std::numeric_limits<int32_t>::quiet_NaN());
   control_mode_.resize(info_.joints.size(), control_mode_t::UNDEFINED);
 
   for (const hardware_interface::ComponentInfo & joint : info_.joints)
@@ -59,16 +60,11 @@ hardware_interface::CallbackReturn TeknicSystemHardware::on_init(
 
     if (joint.parameters.count("feed_constant") != 0)
     {
-      // double fc = std::stod(joint.parameters.at("feed_constant"));
-      // double test = fc / 1000 * 2 * M_PI / 60;
-      // RCLCPP_INFO(
-      //   rclcpp::get_logger("CubeMarsSystemHardware"),
-      //   "value:  %F", test);
-      conversions_.emplace_back(1 / std::stod(joint.parameters.at("feed_constant")));
+      counts_conversions_.emplace_back(1 / std::stod(joint.parameters.at("feed_constant")));
     }
     else
     {
-      conversions_.emplace_back(1 / (2 * M_PI));
+      counts_conversions_.emplace_back(1 / (2 * M_PI));
     }
   }
 
@@ -228,9 +224,11 @@ hardware_interface::return_type TeknicSystemHardware::perform_command_mode_switc
       {
         case SPEED_LOOP:
           hw_commands_velocities_[i] = std::numeric_limits<double>::quiet_NaN();
+          previous_targets_[i] = std::numeric_limits<int32_t>::quiet_NaN();
           break;
         case POSITION_LOOP:
           hw_commands_positions_[i] = std::numeric_limits<double>::quiet_NaN();
+          previous_targets_[i] = std::numeric_limits<int32_t>::quiet_NaN();
           break;
         case UNDEFINED:
           return hardware_interface::return_type::ERROR;
@@ -320,7 +318,7 @@ hardware_interface::CallbackReturn TeknicSystemHardware::on_activate(
       //   }
 
       // get encoder counts
-      conversions_[i] *= inode.Info.PositioningResolution.Value();
+      counts_conversions_[i] *= inode.Info.PositioningResolution.Value();
 
       // set units
       inode.AccUnit(sFnd::INode::COUNTS_PER_SEC2);
@@ -329,17 +327,17 @@ hardware_interface::CallbackReturn TeknicSystemHardware::on_activate(
 
       // set limits
       double vel = std::stod(info_.joints[i].parameters.at("vel_limit"));
-      inode.Motion.VelLimit = vel * conversions_[i];
+      inode.Motion.VelLimit = vel * counts_conversions_[i];
       RCLCPP_INFO(
         rclcpp::get_logger("TeknicSystemHardware"),
         "Velocity limit of Node %zu set to: %f counts/s",
-        node.first, vel * conversions_[i]);
+        node.first, vel * counts_conversions_[i]);
       double acc = std::stod(info_.joints[i].parameters.at("acc_limit"));
-      inode.Motion.AccLimit = acc * conversions_[i];
+      inode.Motion.AccLimit = acc * counts_conversions_[i];
       RCLCPP_INFO(
         rclcpp::get_logger("TeknicSystemHardware"),
         "Acceleration limit of Node %zu set to: %f counts/s^2",
-        node.first, acc * conversions_[i]);
+        node.first, acc * counts_conversions_[i]);
     }
   }
   catch(sFnd::mnErr& theErr)
@@ -390,19 +388,28 @@ hardware_interface::return_type TeknicSystemHardware::read(
       std::pair<std::size_t, std::size_t> node = nodes[i];
       sFnd::INode &inode = myMgr->Ports(node.first).Nodes(node.second);
       inode.Motion.PosnMeasured.Refresh();
-      hw_states_positions_[i] = inode.Motion.PosnMeasured.Value() / conversions_[i];
+      hw_states_positions_[i] = inode.Motion.PosnMeasured.Value() / counts_conversions_[i];
       inode.Motion.VelMeasured.Refresh();
-      hw_states_velocities_[i] = inode.Motion.VelMeasured.Value() / conversions_[i];
+      hw_states_velocities_[i] = inode.Motion.VelMeasured.Value() / counts_conversions_[i];
       if (info_.joints[i].parameters.count("peak_torque") != 0)
       {
         inode.Motion.TrqMeasured.Refresh();
-        hw_states_efforts_[i] = inode.Motion.TrqMeasured.Value() / 100 *
+        double torque = inode.Motion.TrqMeasured.Value() / 100 *
           std::stod(info_.joints[i].parameters.at("peak_torque"));
+        if (info_.joints[i].parameters.count("feed_constant") != 0)
+        {
+          hw_states_efforts_[i] = torque * 2 * M_PI /
+            std::stod(info_.joints[i].parameters.at("feed_constant"));
+        }
+        else
+        {
+          hw_states_efforts_[i] = torque;
+        }
       }
-      RCLCPP_INFO(
-        rclcpp::get_logger("TeknicSystemHardware"),
-        "pos: %f, vel: %f, torque: %f",
-        hw_states_positions_[i], hw_states_velocities_[i], hw_states_efforts_[i]);
+      // RCLCPP_INFO(
+      //   rclcpp::get_logger("TeknicSystemHardware"),
+      //   "pos: %f, vel: %f, torque: %f",
+      //   hw_states_positions_[i], hw_states_velocities_[i], hw_states_efforts_[i]);
     }
   }
   catch(sFnd::mnErr& theErr)
@@ -436,7 +443,16 @@ hardware_interface::return_type TeknicSystemHardware::write(
         {
           if (!std::isnan(hw_commands_velocities_[i]))
           {
-
+            int32_t target = hw_commands_velocities_[i] * counts_conversions_[i];
+            RCLCPP_INFO(
+              rclcpp::get_logger("TeknicSystemHardware"),
+              "target vel: %i", target);
+            if (target != previous_targets_[i])
+            {
+              inode.Motion.NodeStop(STOP_TYPE_ABRUPT);
+              inode.Motion.MoveVelStart(target);
+            }
+            previous_targets_[i] = target;
           }
           break;
         }
@@ -444,13 +460,29 @@ hardware_interface::return_type TeknicSystemHardware::write(
         {
           if (!std::isnan(hw_commands_positions_[i]))
           {
-
+            int32_t target = hw_commands_positions_[i] * counts_conversions_[i];
+            // RCLCPP_INFO(
+            //   rclcpp::get_logger("TeknicSystemHardware"),
+            //   "target pos: %i", target);
+            if (inode.Motion.MoveIsDone())
+            {
+              inode.Motion.MovePosnStart(target, true);
+            }
+            // if (target != previous_targets_[i])
+            // {
+              // size_t bufsize = inode.Motion.MovePosnStart(target, true);
+            // }
+            // if (bufsize < 15) {
+            //   inode.Motion.NodeStop(STOP_TYPE_CLR_ALL);
+              // inode.Motion.NodeStop(STOP_TYPE_CLR_ALL);
+            // }
+              
+            // previous_targets_[i] = target;
           }
           break;
         }
       }
     }
-
   }
   catch(sFnd::mnErr& theErr)
   {

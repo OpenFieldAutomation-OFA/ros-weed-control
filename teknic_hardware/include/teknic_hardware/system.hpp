@@ -74,7 +74,11 @@ private:
   std::vector<double> hw_states_velocities_;
   std::vector<double> hw_states_efforts_;
 
-  std::vector<double> conversions_;
+  std::vector<double> counts_conversions_;
+
+  std::vector<int32_t> previous_targets_;
+
+  double count = 0;
 
   sFnd::SysManager* myMgr = sFnd::SysManager::Instance();
   std::vector<std::string> chports;

@@ -5,6 +5,15 @@ This package contains the [ros2_control](https://control.ros.org/master/index.ht
 ## Motor Setup
 The motor should be setup with the ClearView software. The details can be found in the [User Manual](https://teknic.com/files/downloads/Clearpath-SC%20User%20Manual.pdf). The hardware interface assumes that the motor is tuned.
 
+## sFoundation
+This package uses the sFoundation software library. This library does not allow direct access to the reference position / velocity. Instead we have to create a "move" with a predefined maximum acceleration (and velocity).
+
+In the implementation of this interface we only change the target command when the previous move is done. This means the maximum acceleration and velocity parameters should be set high if your controller has a high update frequency (much higher than the expected task acceleration / velocity). Otherwise there will be a delay between the commanded position and the reference position of the Clearpath motor.
+
+Furthremore, it might make sense to disable the tracking error limit when using high acceleration and velocity values.
+
+This is not a clean solution but rather a hack because we cannot access the reference position / velocity directly.
+
 ## Set Origin
 This hardware interface does NOT set the origin of the actuator on startup or at any other time. It assumes the position it receives over CAN is the correct position. This means you will have to set the origin yourself. You can do that with `can-utils` (replace `XX` with the hexadecimal representation of the CAN ID).
 ```
@@ -28,6 +37,8 @@ ros2 control list_hardware_interfaces
 ```
 
 You can use any controller that claims either the position interface or the velocity interface. Claiming both interfaces at the same time is not possible.
+
+## 
 
 ## Parameters
 Joint:
