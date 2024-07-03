@@ -314,33 +314,33 @@ hardware_interface::CallbackReturn TeknicSystemHardware::on_activate(
       //     printf("Node[%d] has not had homing setup through ClearView.  The node will not be homed.\n", iNode);
       //   }
 
+      // enable "immediate moves"
+      inode.Info.Ex.Parameter(98, 1);
+
       // get encoder counts
-      counts_conversions_[i] *= inode.Info.PositioningResolution.Value();
+      counts_conversions_[i] *= inode.Info.PositioningResolution.Value();      
 
-
-      
+      // set units
+      inode.AccUnit(sFnd::INode::COUNTS_PER_SEC2);
+			inode.VelUnit(sFnd::INode::COUNTS_PER_SEC);
+			inode.TrqUnit(sFnd::INode::PCT_MAX);   
 
       // set limits
       double vel = std::stod(info_.joints[i].parameters.at("vel_limit"));
-      inode.Motion.VelLimit = vel;
+      inode.Motion.VelLimit = vel * counts_conversions_[i];
       double acc = std::stod(info_.joints[i].parameters.at("acc_limit"));
-      inode.Motion.AccLimit = acc;
+      inode.Motion.AccLimit = acc * counts_conversions_[i];
 
       double vellim = inode.Motion.VelLimit;
       double accellim = inode.Motion.AccLimit;
       RCLCPP_INFO(
         rclcpp::get_logger("TeknicSystemHardware"),
-        "Acceleration limit of Node %zu set to: %f RPM/s",
+        "Acceleration limit of Node %zu set to: %f counts/s",
         node.first, accellim);
       RCLCPP_INFO(
         rclcpp::get_logger("TeknicSystemHardware"),
-        "Velocity limit of Node %zu set to: %f RPM",
+        "Velocity limit of Node %zu set to: %f counts/s^2",
         node.first, vellim);
-      
-      // set units
-      inode.AccUnit(sFnd::INode::COUNTS_PER_SEC2);
-			inode.VelUnit(sFnd::INode::COUNTS_PER_SEC);
-			inode.TrqUnit(sFnd::INode::PCT_MAX);   
     }
   }
   catch(sFnd::mnErr& theErr)
@@ -450,13 +450,13 @@ hardware_interface::return_type TeknicSystemHardware::write(
             // RCLCPP_INFO(
             //   rclcpp::get_logger("TeknicSystemHardware"),
             //   "target vel: %i", target);
-            if (inode.Motion.VelocityAtTarget())
-            {
-              inode.Motion.MoveVelStart(target);
-              RCLCPP_INFO(
-                rclcpp::get_logger("TeknicSystemHardware"),
-                "test");
-            }
+            // if (inode.Motion.VelocityAtTarget())
+            // {
+            inode.Motion.MoveVelStart(target);
+            //   RCLCPP_INFO(
+            //     rclcpp::get_logger("TeknicSystemHardware"),
+            //     "test");
+            // }
           }
           break;
         }
@@ -465,20 +465,20 @@ hardware_interface::return_type TeknicSystemHardware::write(
           if (!std::isnan(hw_commands_positions_[i]))
           {
             int32_t target = hw_commands_positions_[i] * counts_conversions_[i];
-            double msec = inode.Motion.MovePosnDurationMsec(target, true);
+            // double msec = inode.Motion.MovePosnDurationMsec(target, true);
             // RCLCPP_INFO(
             //   rclcpp::get_logger("TeknicSystemHardware"),
             //   "target pos: %i, duration: %f", target, msec);
-            if (inode.Motion.MoveIsDone())
-            {
-              inode.Motion.MovePosnStart(target, true);
-            }
-            else
-            {
-              RCLCPP_WARN(
-                rclcpp::get_logger("TeknicSystemHardware"),
-                "Move issued before previous was done");
-            }
+            // if (inode.Motion.MoveIsDone())
+            // {
+            inode.Motion.MovePosnStart(target, true);
+            // }
+            // else
+            // {
+            //   RCLCPP_WARN(
+            //     rclcpp::get_logger("TeknicSystemHardware"),
+            //     "Move issued before previous was done");
+            // }
           }
           break;
         }

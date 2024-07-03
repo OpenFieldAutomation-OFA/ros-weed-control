@@ -15,8 +15,8 @@
       <joint name="joint1">
         <param name="port">/dev/ttyXRUSB0</param>
         <param name="node">0</param>
-        <param name="acc_limit">10000</param>
-        <param name="vel_limit">1000</param>
+        <param name="acc_limit">${joint_limits['joint1']['max_acceleration']}</param>
+        <param name="vel_limit">${joint_limits['joint1']['max_velocity']}</param>
         <param name="feed_constant">0.078</param>
         <param name="peak_torque">4.01</param>
         <command_interface name="position"/>

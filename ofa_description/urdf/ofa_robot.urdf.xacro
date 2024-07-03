@@ -16,10 +16,14 @@
   <xacro:include filename="$(find ofa_description)/ros2_control/arm_2dof.ros2_control.xacro" />
   <xacro:include filename="$(find ofa_description)/ros2_control/linear_axis.ros2_control.xacro" />
 
+  <!-- Load joint_limits -->
+  <xacro:property name="joint_limits_file" value="$(find ofa_moveit_config)/config/joint_limits.yaml" />
+  <xacro:property name="joint_limits" value="${xacro.load_yaml(joint_limits_file)['joint_limits']}"/>
+
   <!-- Used for fixing robot -->
   <link name="world"/>
 
-  <xacro:weed_robot parent="world" joint_limits_file="$(find ofa_moveit_config)/config/joint_limits.yaml" />
+  <xacro:weed_robot parent="world" />
 
   <xacro:arm_2dof_ros2_control
     name="arm_2dof" use_mock_hardware="$(arg use_mock_hardware)"/>
