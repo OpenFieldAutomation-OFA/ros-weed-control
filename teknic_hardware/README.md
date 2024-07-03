@@ -5,8 +5,8 @@ This package contains the [ros2_control](https://control.ros.org/master/index.ht
 ## Motor Setup
 The motor should be setup with the ClearView software. The details can be found in the [User Manual](https://teknic.com/files/downloads/Clearpath-SC%20User%20Manual.pdf). The hardware interface assumes that the motor is tuned.
 
-## sFoundation
-This package uses the sFoundation software library. We use a feature called "Immediate Moves" (not in the official documentation) which allows to execute moves immediatly instead of storing them in a queue.
+## Immediate Moves
+This package uses the sFoundation software library and a feature called "Immediate Moves" (not in the official documentation) which allows to execute moves immediatly instead of storing them in a queue.
 
 > [!NOTE]
 > This will only work with the Clearpath-SC "Advanced" firmware option.

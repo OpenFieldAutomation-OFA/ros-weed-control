@@ -450,13 +450,7 @@ hardware_interface::return_type TeknicSystemHardware::write(
             // RCLCPP_INFO(
             //   rclcpp::get_logger("TeknicSystemHardware"),
             //   "target vel: %i", target);
-            // if (inode.Motion.VelocityAtTarget())
-            // {
             inode.Motion.MoveVelStart(target);
-            //   RCLCPP_INFO(
-            //     rclcpp::get_logger("TeknicSystemHardware"),
-            //     "test");
-            // }
           }
           break;
         }
@@ -465,20 +459,10 @@ hardware_interface::return_type TeknicSystemHardware::write(
           if (!std::isnan(hw_commands_positions_[i]))
           {
             int32_t target = hw_commands_positions_[i] * counts_conversions_[i];
-            // double msec = inode.Motion.MovePosnDurationMsec(target, true);
             // RCLCPP_INFO(
             //   rclcpp::get_logger("TeknicSystemHardware"),
-            //   "target pos: %i, duration: %f", target, msec);
-            // if (inode.Motion.MoveIsDone())
-            // {
+            //   "target pos: %i", target);
             inode.Motion.MovePosnStart(target, true);
-            // }
-            // else
-            // {
-            //   RCLCPP_WARN(
-            //     rclcpp::get_logger("TeknicSystemHardware"),
-            //     "Move issued before previous was done");
-            // }
           }
           break;
         }
