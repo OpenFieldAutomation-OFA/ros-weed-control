@@ -14,6 +14,15 @@ foreach(Dependency IN ITEMS ${THIS_PACKAGE_INCLUDE_DEPENDS})
   find_package(${Dependency} REQUIRED)
 endforeach()
 
+# get build platform
+if (${CMAKE_HOST_SYSTEM_PROCESSOR} STREQUAL x86_64)
+  set(HOST_PLATFORM x64)
+elseif (${CMAKE_HOST_SYSTEM_PROCESSOR} STREQUAL aarch64)
+  set(HOST_PLATFORM arm64)
+else ()
+  message(FATAL_ERROR "Host platform not supported" )
+endif ()
+
 ## COMPILE
 add_executable(process_image src/process_image.cpp)
 target_include_directories(process_image PUBLIC
@@ -24,7 +33,7 @@ ament_target_dependencies(
   process_image
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
-target_link_libraries(process_image ${CMAKE_CURRENT_SOURCE_DIR}/lib/libk4a.so)
+target_link_libraries(process_image ${CMAKE_CURRENT_SOURCE_DIR}/lib/${HOST_PLATFORM}/libk4a.so)
 
 ## INSTALL
 install(
@@ -32,7 +41,7 @@ install(
   DESTINATION lib/${PROJECT_NAME}
 )
 install(
-  DIRECTORY lib/
+  DIRECTORY lib/${HOST_PLATFORM}/
   DESTINATION lib/${PROJECT_NAME}
 )
 install(

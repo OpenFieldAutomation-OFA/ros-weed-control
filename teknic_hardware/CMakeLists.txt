@@ -18,6 +18,13 @@ foreach(Dependency IN ITEMS ${THIS_PACKAGE_INCLUDE_DEPENDS})
   find_package(${Dependency} REQUIRED)
 endforeach()
 
+# get build platform
+if (${CMAKE_HOST_SYSTEM_PROCESSOR} STREQUAL aarch64)
+  set(HOST_PLATFORM arm64)
+else ()
+  message(FATAL_ERROR "Host platform not supported." )
+endif ()
+
 ## COMPILE
 add_library(
   teknic_hardware
@@ -32,7 +39,7 @@ ament_target_dependencies(
   teknic_hardware PUBLIC
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
-target_link_libraries(teknic_hardware PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/lib/libsFoundation20.so)
+target_link_libraries(teknic_hardware PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/lib/${HOST_PLATFORM}/libsFoundation20.so)
 
 
 # Causes the visibility macros to use dllexport rather than dllimport,
@@ -48,7 +55,7 @@ install(
   DESTINATION include/${PROJECT_NAME}
 )
 install(
-  DIRECTORY lib/
+  DIRECTORY lib/${HOST_PLATFORM}/
   DESTINATION lib
 )
 install(TARGETS teknic_hardware
