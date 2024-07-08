@@ -168,7 +168,7 @@
     </link>
 
     <joint name="joint3" type="revolute">
-      <origin xyz="${-motor_h/2-tube_off} 0 0" rpy="0 0 0" />
+      <origin xyz="${-motor_h/2-tube_off} 0 0" rpy="${pi} 0 0" />
       <parent link="link2_motor" />
       <child link="link3" />
       <axis xyz="1 0 0" />

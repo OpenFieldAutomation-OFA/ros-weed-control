@@ -47,7 +47,7 @@ def generate_launch_description():
 
     # Launch RViz
     rviz_config_file = PathJoinSubstitution(
-        [FindPackageShare("ofa_description"), "rviz", "urdf.rviz"]
+        [FindPackageShare("ofa_weed_control"), "rviz", "main.rviz"]
     )
     rviz_node = Node(
         package="rviz2",

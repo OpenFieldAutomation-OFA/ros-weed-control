@@ -36,7 +36,7 @@ install(
   DESTINATION lib/${PROJECT_NAME}
 )
 install(
-  DIRECTORY launch
+  DIRECTORY launch rviz
   DESTINATION share/${PROJECT_NAME}
 )
 
