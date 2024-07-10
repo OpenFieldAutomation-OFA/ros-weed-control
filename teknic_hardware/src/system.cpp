@@ -433,10 +433,10 @@ hardware_interface::return_type TeknicSystemHardware::read(
           hw_states_efforts_[i] = torque;
         }
       }
-      RCLCPP_INFO(
-        rclcpp::get_logger("TeknicSystemHardware"),
-        "pos: %f, vel: %f, torque: %f",
-        hw_states_positions_[i], hw_states_velocities_[i], hw_states_efforts_[i]);
+      // RCLCPP_INFO(
+      //   rclcpp::get_logger("TeknicSystemHardware"),
+      //   "pos: %f, vel: %f, torque: %f",
+      //   hw_states_positions_[i], hw_states_velocities_[i], hw_states_efforts_[i]);
     }
   }
   catch(sFnd::mnErr& theErr)

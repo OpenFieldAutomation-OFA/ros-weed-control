@@ -19,4 +19,4 @@ ofa_robot_controller:
       - position
     state_interfaces:
       - position
-      - velocity
+      # - velocity
