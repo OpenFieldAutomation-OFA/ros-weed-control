@@ -75,6 +75,7 @@ private:
   std::vector<double> hw_states_efforts_;
 
   std::vector<double> counts_conversions_;
+  std::vector<int> homing_;
 
   double count = 0;
 

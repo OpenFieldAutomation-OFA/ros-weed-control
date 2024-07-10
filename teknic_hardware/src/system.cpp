@@ -6,7 +6,8 @@
 #include "hardware_interface/types/hardware_interface_type_values.hpp"
 #include "rclcpp/rclcpp.hpp"
 
-#define TIME_TILL_TIMEOUT	10000
+#define ENABLE_TIMEOUT	3000
+#define HOMING_TIMEOUT  50000
 
 namespace teknic_hardware
 {
@@ -32,7 +33,8 @@ hardware_interface::CallbackReturn TeknicSystemHardware::on_init(
     if (joint.parameters.count("port") != 0 &&
       joint.parameters.count("node") != 0 &&
       joint.parameters.count("vel_limit") != 0 &&
-      joint.parameters.count("acc_limit") != 0)
+      joint.parameters.count("acc_limit") != 0 &&
+      joint.parameters.count("homing") != 0)
     {
       std::pair<std::size_t, std::size_t> node;
       std::string port = joint.parameters.at("port");
@@ -48,6 +50,19 @@ hardware_interface::CallbackReturn TeknicSystemHardware::on_init(
       }
       node.second = std::stoul(joint.parameters.at("node"));
       nodes.emplace_back(node);
+
+      if (std::stoi(joint.parameters.at("homing")) >= 0 &&
+        std::stoi(joint.parameters.at("homing")) <= 2)
+      {
+        homing_.emplace_back(std::stoi(joint.parameters.at("homing")));
+      }
+      else
+      {
+        RCLCPP_FATAL(
+          rclcpp::get_logger("CubeMarsSystemHardware"),
+          "Homing parameter for joint %s must be 0, 1 or 2", joint.name.c_str());
+        return hardware_interface::CallbackReturn::ERROR;
+      }
     }
     else
     {
@@ -258,7 +273,7 @@ hardware_interface::CallbackReturn TeknicSystemHardware::on_activate(
       inode.Status.AlertsClear();
       inode.Motion.NodeStopClear();
       inode.EnableReq(true);
-      double timeout = myMgr->TimeStampMsec() + TIME_TILL_TIMEOUT;	//define a timeout in case the node is unable to enable
+      double timeout = myMgr->TimeStampMsec() + ENABLE_TIMEOUT;	//define a timeout in case the node is unable to enable
       while (!inode.Motion.IsReady()) {
         if (myMgr->TimeStampMsec() > timeout) {
           if (inode.Status.Power.Value().fld.InBusLoss) {
@@ -277,44 +292,53 @@ hardware_interface::CallbackReturn TeknicSystemHardware::on_activate(
         rclcpp::get_logger("TeknicSystemHardware"),
         "Node %zu enabled", node.first);
       
-      // TODO: homing
-      //   //At this point the Node is enabled, and we will now check to see if the Node has been homed
-      //   //Check the Node to see if it has already been homed, 
-      //   if (theNode.Motion.Homing.HomingValid())
-      //   {
-      //     if (theNode.Motion.Homing.WasHomed())
-      //     {
-      //       printf("Node %d has already been homed, current position is: \t%8.0f \n", iNode, theNode.Motion.PosnMeasured.Value());
-      //       printf("Rehoming Node... \n");
-      //     }
-      //     else
-      //     {
-      //       printf("Node [%d] has not been homed.  Homing Node now...\n", iNode);
-      //     }
-      //     //Now we will home the Node
-      //     theNode.Motion.Homing.Initiate();
+      // homing
+      if (homing_[i] != 0)
+      {
+        if (inode.Motion.Homing.HomingValid())
+        {
+          if (homing_[i] == 1 && inode.Motion.Homing.WasHomed())
+          {
+            RCLCPP_INFO(
+              rclcpp::get_logger("TeknicSystemHardware"),
+              "Node %zu has already been homed, not homing. Current position is: \t%8.0f",
+              node.first, inode.Motion.PosnMeasured.Value());
+          }
+          else
+          {
+            RCLCPP_INFO(
+              rclcpp::get_logger("TeknicSystemHardware"),
+              "Homing Node %zu now...", node.first);
+            inode.Motion.Homing.Initiate();
+            timeout = myMgr->TimeStampMsec() + HOMING_TIMEOUT;	//define a timeout in case the node is unable to enable
+            while (!inode.Motion.Homing.WasHomed()) {
+              if (myMgr->TimeStampMsec() > timeout) {
+                if (inode.Status.Power.Value().fld.InBusLoss) {
+                  RCLCPP_ERROR(
+                    rclcpp::get_logger("TeknicSystemHardware"),
+                    "Bus Power low");
+                  return hardware_interface::CallbackReturn::ERROR;
+                }
+                RCLCPP_ERROR(
+                  rclcpp::get_logger("TeknicSystemHardware"),
+                  "Node did not complete homing:  \n\t -Ensure Homing settings have been defined through ClearView. \n\t -Check for alerts/Shutdowns \n\t -Ensure timeout is longer than the longest possible homing move");
+                return hardware_interface::CallbackReturn::ERROR;
+              }
+            }
+            RCLCPP_INFO(
+              rclcpp::get_logger("TeknicSystemHardware"),
+              "Node completed homing.");
+          }
+          
+        }
+        else {
+          RCLCPP_INFO(
+            rclcpp::get_logger("TeknicSystemHardware"),
+            "Node[%zu] has not had homing setup through ClearView. The node will not be homed.", node.first);
+        }
+      }
 
-      //     timeout = myMgr->TimeStampMsec() + TIME_TILL_TIMEOUT;	//define a timeout in case the node is unable to enable
-      //                                 // Basic mode - Poll until disabled
-      //     while (!theNode.Motion.Homing.WasHomed()) {
-      //       if (myMgr->TimeStampMsec() > timeout) {
-      //                       if (IsBusPowerLow(theNode)) {
-      //                           printf("Error: Bus Power low. Make sure 75V supply is powered on.\n");
-      //                           msgUser("Press any key to continue.");
-      //                           return -1;
-      //                       }
-      //         printf("Node did not complete homing:  \n\t -Ensure Homing settings have been defined through ClearView. \n\t -Check for alerts/Shutdowns \n\t -Ensure timeout is longer than the longest possible homing move.\n");
-      //         msgUser("Press any key to continue."); //pause so the user can see the error message; waits for user to press a key
-      //         return -2;
-      //       }
-      //     }
-      //     printf("Node completed homing\n");
-      //   }
-      //   else {
-      //     printf("Node[%d] has not had homing setup through ClearView.  The node will not be homed.\n", iNode);
-      //   }
-
-      // enable "immediate moves"
+      // enable "interrupting moves"
       inode.Info.Ex.Parameter(98, 1);
 
       // get encoder counts
@@ -409,10 +433,10 @@ hardware_interface::return_type TeknicSystemHardware::read(
           hw_states_efforts_[i] = torque;
         }
       }
-      // RCLCPP_INFO(
-      //   rclcpp::get_logger("TeknicSystemHardware"),
-      //   "pos: %f, vel: %f, torque: %f",
-      //   hw_states_positions_[i], hw_states_velocities_[i], hw_states_efforts_[i]);
+      RCLCPP_INFO(
+        rclcpp::get_logger("TeknicSystemHardware"),
+        "pos: %f, vel: %f, torque: %f",
+        hw_states_positions_[i], hw_states_velocities_[i], hw_states_efforts_[i]);
     }
   }
   catch(sFnd::mnErr& theErr)
