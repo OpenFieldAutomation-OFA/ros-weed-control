@@ -79,6 +79,9 @@ private:
 
   std::vector<double> erpm_conversions_;
   std::vector<double> torque_constants_;
+  std::vector<double> enc_offs_;
+  std::vector<std::pair<int16_t, int16_t>> limits_;
+
 
   CanSocket can_;
   std::string can_itf_;
@@ -89,6 +92,7 @@ private:
     CURRENT_LOOP = 1,
     SPEED_LOOP = 3,
     POSITION_LOOP = 4,
+    POSITION_SPEED_LOOP = 6,
     UNDEFINED = 99
   };
 

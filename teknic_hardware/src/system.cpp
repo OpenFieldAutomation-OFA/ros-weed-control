@@ -214,8 +214,15 @@ hardware_interface::return_type TeknicSystemHardware::prepare_command_mode_switc
     }
     else if (joint_interfaces.empty())
     {
-      // don't change control mode
-      start_modes_.push_back(control_mode_[i]);
+      if (stop_modes_[i])
+      {
+        start_modes_.push_back(UNDEFINED);
+      }
+      else
+      {
+        // don't change control mode
+        start_modes_.push_back(control_mode_[i]);
+      }
     }
     else
     {

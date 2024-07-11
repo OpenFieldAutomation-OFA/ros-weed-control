@@ -18,6 +18,9 @@
         <param name="pole_pairs">21</param>
         <param name="gear_ratio">10</param>
         <param name="kt">0.123</param>
+        <param name="enc_off">-0.084</param>
+        <param name="acc_limit">${joint_limits['joint2']['max_acceleration']}</param>
+        <param name="vel_limit">${joint_limits['joint2']['max_velocity']}</param>
         <command_interface name="position"/>
         <command_interface name="velocity"/>
         <command_interface name="acceleration"/>
@@ -32,6 +35,9 @@
         <param name="pole_pairs">21</param>
         <param name="gear_ratio">10</param>
         <param name="kt">0.123</param>
+        <param name="enc_off">-0.084</param>
+        <param name="acc_limit">${joint_limits['joint3']['max_acceleration']}</param>
+        <param name="vel_limit">${joint_limits['joint3']['max_velocity']}</param>
         <command_interface name="position"/>
         <command_interface name="velocity"/>
         <command_interface name="acceleration"/>

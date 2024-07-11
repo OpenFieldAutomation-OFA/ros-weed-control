@@ -16,6 +16,8 @@ The following command interfaces are published:
 - `position`
 - `velocity`
 
+Your controller can claim either the position or the velocity command interface. Claiming both interfaces at the same time is not possible.
+
 The following state interfaces are published:
 - `position`
 - `velocity`
@@ -26,8 +28,6 @@ The hardware interfaces can also be listed by starting the controller manager an
 ros2 control list_hardware_interfaces
 ```
 
-You can use any controller that claims either the position interface or the velocity interface. Claiming both interfaces at the same time is not possible.
-
 ## Parameters
 Joint:
 - `port`: The serial port of the connected SC4-Hub
@@ -35,7 +35,5 @@ Joint:
 - `feed_constant`: Defines the conversion between one revolution of the output shaft to the distance traveled by the linear axis in m/rev. This needs to be set for `prismatic` joints and omitted for `revolute` joints.
 - `vel_limit`: Velocity limit in rad/s (without `feed_constant`) or m/s (with `feed_constant`). Used for position moves.
 - `acc_limit`: Acceleration limit in rad/s^2 (without `feed_constant`) or m/s^2 (with `feed_constant`). Used for position and velocity moves.
-- `peak_torque`: OPTIONAL. Peak torque of the motor in Nm. This is necessary if you want the `effort` state interface.
 - `homing`: If set to 2, the motor is always homed on activation. If set to 1 the motor is only homed if it has not been homed yet. If set to 0 the motor is never homed.
-
-Note that the acceleration and velocity limits defined here take precedence over any limits of your controller. E. g. if you use MoveIt with a `JointTrajectoryController` the limits in `joint_limits.yaml` need to be the same or smaller to work properly.
+- `peak_torque`: OPTIONAL. Peak torque of the motor in Nm. This is necessary if you want the `effort` state interface.

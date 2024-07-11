@@ -5,12 +5,12 @@
 
     <ros2_control name="${name}" type="system">
       <hardware>
-        <xacro:if value="${use_mock_hardware}">
+        <!-- <xacro:if value="${use_mock_hardware}"> -->
           <plugin>mock_components/GenericSystem</plugin>
-        </xacro:if>
+        <!-- </xacro:if>
         <xacro:unless value="${use_mock_hardware}">
           <plugin>teknic_hardware/TeknicSystemHardware</plugin>
-        </xacro:unless>
+        </xacro:unless> -->
       </hardware>
       <joint name="joint1">
         <param name="port">/dev/ttyXRUSB0</param>
