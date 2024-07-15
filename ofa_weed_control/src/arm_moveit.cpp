@@ -11,13 +11,38 @@
 
 static const rclcpp::Logger LOGGER = rclcpp::get_logger("arm_moveit");
 
+class MinimalParam : public rclcpp::Node
+{
+public:
+  MinimalParam()
+  : Node("arm_moveit",
+      rclcpp::NodeOptions().automatically_declare_parameters_from_overrides(true))
+  {
+    // this->declare_parameter("my_parameter", "world");
+    this->test();
+  }
+
+  void test()
+  {
+    std::string my_param = this->get_parameter("my_parameter").as_string();
+    RCLCPP_INFO(this->get_logger(), "Hello %s!", my_param.c_str());
+    this->get_parameter("motor1", motor1_);
+    RCLCPP_INFO(this->get_logger(), "test %f!", motor1_[0]);
+
+  }
+
+private:
+  std::vector<double> motor1_;
+  std::vector<double> motor2_;
+  std::vector<double> motor3_;
+};
+
+
 int main(int argc, char* argv[])
 {
   // Initialize ROS and create the Node
   rclcpp::init(argc, argv);
-  auto const node = std::make_shared<rclcpp::Node>(
-    "arm_moveit",
-    rclcpp::NodeOptions().automatically_declare_parameters_from_overrides(true));
+  auto const node = std::make_shared<MinimalParam>();
 
   // Create a ROS LOGGER
   // auto const LOGGER = rclcpp::get_logger("arm_moveit");
