@@ -10,13 +10,7 @@ This repo contains all ROS 2 packages that were developed for the OFA Weed Contr
 ### Host
 Even though Docker handles most of our setup (explained below), certain things still have to be configured on the host OS directly.
 
-The following steps describe the setup on a reComputer Industrial J40 flashed with JetPack 5.1.1. If you use different hardware you will have to figure out how to reproduce the setup yourself.
-
-<!--
-TODO: try flashing jetson with rt_preempt
-- https://docs.nvidia.com/jetson/archives/r35.3.1/DeveloperGuide/text/SD/Kernel/KernelCustomization.html
-- https://wiki.seeedstudio.com/reComputer_Industrial_Getting_Started/#flash-jetpack
--->
+The following steps describe the setup on a reComputer Industrial J40 flashed with JetPack 6.0. If you use different hardware you will have to figure out how to reproduce the setup yourself.
 
 1. [Maximize Performance](https://wiki.seeedstudio.com/reComputer_Industrial_J40_J30_Hardware_Interfaces_Usage/#max-performance-on-recomputer-industrial) of the Jetson.
     ```bash
@@ -44,7 +38,6 @@ TODO: try flashing jetson with rt_preempt
 3. Add your user to the `docker` group.
     ```bash
     sudo usermod -aG docker $USER
-    su - $USER
     ```
 4. Install the udev rules for the Orbbec Femto Bolt.
     ```bash
@@ -53,29 +46,22 @@ TODO: try flashing jetson with rt_preempt
     ```
 5. Enable the SocketCAN interface on boot.
     ```bash
-    sudo rm /etc/modprobe.d/denylist-mttcan.conf
     sudo systemctl enable systemd-networkd
     echo -e '[Match]\nName=can0\n[CAN]\nBitRate=1M' | sudo tee /etc/systemd/network/80-can.network
     ```
-6. Install the SC4-Hub USB Driver.
+6. Clone this repo.
     ```bash
-    wget https://teknic.com/files/downloads/Linux_Software.tar.gz
-    tar -xvf Linux_Software.tar.gz
-    tar -xvf Linux_Software/Teknic_SC4Hub_USB_Driver.tar
-    rm -r Linux_Software*
-    make -C ExarKernelDriver
-    sudo cp ExarKernelDriver/xr_usb_serial_common.ko /lib/modules/"$(uname -r)"/kernel/drivers/usb/serial
+    git clone https://github.com/OpenFieldAutomation-OFA/ros-weed-control-ros.git
+    ```
+7. Install the SC4-Hub USB Driver.
+    ```bash
+    sudo cp ros-weed-control/teknic_hardware/driver/jetpack_6.0/xr_usb_serial_common.ko /lib/modules/"$(uname -r)"/kernel/drivers/usb/serial
     sudo depmod
     sudo modprobe xr_usb_serial_common
-    sudo rm -r ExarKernelDriver
     ```
 7. Reboot.
     ```bash
     sudo reboot
-    ```
-10. Finally, clone this repo.
-    ```bash
-    git clone https://github.com/janmacro/ofa-weed-control-ros.git
     ```
 
 ### Docker
@@ -95,7 +81,7 @@ docker run --net=host -e "DISPLAY=$DISPLAY" weed_control ros2 launch ofa_descrip
 #### Development
 For development we use [Dev Containers](https://code.visualstudio.com/docs/devcontainers/containers).
 
-To get started just open the `ofa-weed-control-ros` folder in VS Code and run **Dev Containers: Rebuild and Reopen in Container**. This will automatically build and run the container with `--target=dev` (specified in the `.devcontainer/devcontainer.json` file). Then open two new terminals, one for running `colcon build --symlink-install` and one for sourcing the workspace (using two terminals avoids [install artifacts](https://colcon.readthedocs.io/en/released/user/what-is-a-workspace.html#install-artifacts)).
+To get started just open the `ros-weed-control` folder in VS Code and run **Dev Containers: Rebuild and Reopen in Container**. This will automatically build and run the container with `--target=dev` (specified in the `.devcontainer/devcontainer.json` file). Then open two new terminals, one for running `colcon build --symlink-install` and one for sourcing the workspace with `source install/setup.bash`.
 
 After that you can run all the same commands as specified above.
 

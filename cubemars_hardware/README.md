@@ -50,6 +50,6 @@ cansend can0 000005XX#01
 ```
 
 ## Velocity and Acceleration Limits
-The `position` command interface will by default use the Position Mode (control mode 4) where the motor runs to the specified position at maximum speed and acceleration. If you want to use the Position-Speed Loop Mode (control mode 6) you have to specify BOTH `vel_limit` and `acc_limit`. This will limit the maximum acceleration and velocity of the motor (trajectory control).
+The `position` command interface will by default use the Position Mode (control mode 4) where the motor runs to the specified position at maximum speed and acceleration. If you want to use the Position-Speed Loop Mode (control mode 6) you have to specify BOTH `vel_limit` and `acc_limit`. This will limit the maximum acceleration and velocity of the motor (trajectory planning). This does not work well together with a `joint_trajectory_controller`.
 
 Note that the limit parameters have no effect if only one is set or if you don't use the `position` command interface.
