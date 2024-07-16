@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
-  <xacro:macro name="linear_axis_ros2_control" params="name use_mock_hardware">
+  <xacro:macro name="linear_axis_ros2_control" params="name use_mock_hardware read_only">
 
     <ros2_control name="${name}" type="system">
       <hardware>
@@ -20,6 +20,9 @@
         <param name="feed_constant">0.078</param>
         <param name="peak_torque">4.01</param>
         <param name="homing">1</param>
+        <xacro:if value="${read_only}">
+          <param name="read_only">1</param>
+        </xacro:if>
         <command_interface name="position"/>
         <command_interface name="velocity"/>
         <state_interface name="position"/>

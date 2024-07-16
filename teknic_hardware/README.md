@@ -36,6 +36,7 @@ Joint:
 - `vel_limit`: Velocity limit in rad/s (without `feed_constant`) or m/s (with `feed_constant`). Used for position moves.
 - `acc_limit`: Acceleration limit in rad/s^2 (without `feed_constant`) or m/s^2 (with `feed_constant`). Used for position and velocity moves.
 - `homing`: If set to 2, the motor is always homed on activation. If set to 1 the motor is only homed if it has not been homed yet. If set to 0 the motor is never homed.
-- `peak_torque`: OPTIONAL. Peak torque of the motor in Nm. This is necessary if you want the `effort` state interface.
+- `read_only`: OPTIONAL. If set to 1, will disable the motor and regularly print the current position.
+- `peak_torque`: OPTIONAL. Peak torque of the motor in Nm. This is necessary if you want the `effort` state interface to work.
 
 It is not possible to disable the trajectory planning on the motor, therefore `vel_limit` and `acc_limit` always have to be specified. When using MoveIt 2 with `joint_trajectory_controller` you should set lower joint limits than the ones set here.

@@ -81,7 +81,7 @@ private:
   std::vector<double> torque_constants_;
   std::vector<double> enc_offs_;
   std::vector<std::pair<int16_t, int16_t>> limits_;
-
+  std::vector<bool> read_only_;
 
   CanSocket can_;
   std::string can_itf_;

@@ -40,6 +40,7 @@ Joint:
 - `enc_off`: OPTIONAL. Encoder offset in rad. (see explanation below)
 - `vel_limit`: OPTIONAL. Velocity limit in rad/s. (see explanation below)
 - `acc_limit`: OPTIONAL. Acceleration limit in rad/s^2. (see explanation below)
+- `read_only`: OPTIONAL. If set to 1, will only regularly print the current position and not write commands to motor.
 
 ## Encoder Offset
 For single-encoder motors there will most likely be an offset between your origin and the zero of the encoder after shutting the motor off and on. You can compensate for this offset by using `enc_off`. Note that in order for `enc_off` to work properly, the motor has to be very close to the origin on startup, otherwise the encoder value will wrap around.

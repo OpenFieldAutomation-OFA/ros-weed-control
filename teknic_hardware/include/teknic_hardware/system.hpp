@@ -76,6 +76,7 @@ private:
 
   std::vector<double> counts_conversions_;
   std::vector<int> homing_;
+  std::vector<bool> read_only_;
 
   double count = 0;
 

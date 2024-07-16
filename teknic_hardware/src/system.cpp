@@ -80,6 +80,15 @@ hardware_interface::CallbackReturn TeknicSystemHardware::on_init(
     {
       counts_conversions_.emplace_back(1 / (2 * M_PI));
     }
+
+    if (joint.parameters.count("read_only") != 0 && std::stoi(joint.parameters.at("read_only")) == 1)
+    {
+      read_only_.emplace_back(true);
+    }
+    else
+    {
+      read_only_.emplace_back(false);
+    }
   }
 
   return hardware_interface::CallbackReturn::SUCCESS;
@@ -269,7 +278,7 @@ hardware_interface::CallbackReturn TeknicSystemHardware::on_activate(
     {
       std::pair<std::size_t, std::size_t> node = nodes[i];
       sFnd::INode &inode = myMgr->Ports(node.first).Nodes(node.second);
-      
+
       // enable node
       RCLCPP_INFO(
         rclcpp::get_logger("TeknicSystemHardware"),
@@ -372,6 +381,15 @@ hardware_interface::CallbackReturn TeknicSystemHardware::on_activate(
         rclcpp::get_logger("TeknicSystemHardware"),
         "Velocity limit of Node %zu set to: %f counts/s^2",
         node.first, vellim);
+      
+      if (read_only_[i])
+      {
+        // disable node
+        RCLCPP_INFO(
+          rclcpp::get_logger("TeknicSystemHardware"),
+          "Disabling Node %zu", node.first);
+        inode.EnableReq(false);
+      }
     }
   }
   catch(sFnd::mnErr& theErr)
@@ -440,10 +458,18 @@ hardware_interface::return_type TeknicSystemHardware::read(
           hw_states_efforts_[i] = torque;
         }
       }
-      // RCLCPP_INFO(
-      //   rclcpp::get_logger("TeknicSystemHardware"),
-      //   "pos: %f, vel: %f, torque: %f",
-      //   hw_states_positions_[i], hw_states_velocities_[i], hw_states_efforts_[i]);
+
+      if (read_only_[i])
+      {
+        // RCLCPP_INFO(
+        //   rclcpp::get_logger("TeknicSystemHardware"),
+        //   "pos: %f, vel: %f, torque: %f",
+        //   hw_states_positions_[i], hw_states_velocities_[i], hw_states_efforts_[i]);
+        RCLCPP_INFO(
+          rclcpp::get_logger("TeknicSystemHardware"),
+          "Joint %lu: pos: %f",
+          i, hw_states_positions_[i]);
+      }
     }
   }
   catch(sFnd::mnErr& theErr)
@@ -464,38 +490,41 @@ hardware_interface::return_type TeknicSystemHardware::write(
   {
     for (std::size_t i = 0; i < info_.joints.size(); i++)
     {
-      std::pair<std::size_t, std::size_t> node = nodes[i];
-      sFnd::INode &inode = myMgr->Ports(node.first).Nodes(node.second);
-      switch (control_mode_[i])
+      if (!read_only_[i])
       {
-        case UNDEFINED:
-          // RCLCPP_INFO(
-          //   rclcpp::get_logger("TeknicSystemHardware"),
-          //   "Nothing is using the hardware interface!");
-          return hardware_interface::return_type::OK;
-        case SPEED_LOOP:
+        std::pair<std::size_t, std::size_t> node = nodes[i];
+        sFnd::INode &inode = myMgr->Ports(node.first).Nodes(node.second);
+        switch (control_mode_[i])
         {
-          if (!std::isnan(hw_commands_velocities_[i]))
-          {
-            int32_t target = hw_commands_velocities_[i] * counts_conversions_[i];
+          case UNDEFINED:
             // RCLCPP_INFO(
             //   rclcpp::get_logger("TeknicSystemHardware"),
-            //   "target vel: %i", target);
-            inode.Motion.MoveVelStart(target);
-          }
-          break;
-        }
-        case POSITION_LOOP:
-        {
-          if (!std::isnan(hw_commands_positions_[i]))
+            //   "Nothing is using the hardware interface!");
+            return hardware_interface::return_type::OK;
+          case SPEED_LOOP:
           {
-            int32_t target = hw_commands_positions_[i] * counts_conversions_[i];
-            // RCLCPP_INFO(
-            //   rclcpp::get_logger("TeknicSystemHardware"),
-            //   "target pos: %i", target);
-            inode.Motion.MovePosnStart(target, true);
+            if (!std::isnan(hw_commands_velocities_[i]))
+            {
+              int32_t target = hw_commands_velocities_[i] * counts_conversions_[i];
+              // RCLCPP_INFO(
+              //   rclcpp::get_logger("TeknicSystemHardware"),
+              //   "target vel: %i", target);
+              inode.Motion.MoveVelStart(target);
+            }
+            break;
           }
-          break;
+          case POSITION_LOOP:
+          {
+            if (!std::isnan(hw_commands_positions_[i]))
+            {
+              int32_t target = hw_commands_positions_[i] * counts_conversions_[i];
+              // RCLCPP_INFO(
+              //   rclcpp::get_logger("TeknicSystemHardware"),
+              //   "target pos: %i", target);
+              inode.Motion.MovePosnStart(target, true);
+            }
+            break;
+          }
         }
       }
     }
