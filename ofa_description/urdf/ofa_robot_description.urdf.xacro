@@ -78,10 +78,10 @@
     </link>
 
     <joint name="joint1" type="prismatic">
-      <origin xyz="${axis_l/2-carriage_off+motor_off} 0 ${-attachment_off}" rpy="0 0 0" />
+      <origin xyz="${-axis_l/2+carriage_off-motor_off} 0 ${-attachment_off}" rpy="0 0 0" />
       <parent link="base_link" />
       <child link="link1" />
-      <axis xyz="1 0 0" />
+      <axis xyz="-1 0 0" />
       <limit lower="${joint_limits['joint1']['min_position']}" upper="${joint_limits['joint1']['max_position']}"
       velocity="${joint_limits['joint1']['max_velocity']}" effort="100" />
     </joint>
@@ -108,34 +108,34 @@
     </link>
 
     <joint name="joint1_camera" type="fixed">
-      <origin xyz="${camera_off} 0 ${attachment_off}" rpy="0 0 0" />
+      <origin xyz="${-camera_off} 0 ${attachment_off}" rpy="0 0 0" />
       <parent link="link1" />
       <child link="link1_camera" />
     </joint>
 
     <link name="link1_camera">
       <visual>
-        <origin xyz="${camera_l/2} 0 ${-camera_h/2}" rpy="0 0 0" />
+        <origin xyz="${-camera_l/2} 0 ${-camera_h/2}" rpy="0 0 0" />
         <geometry>
-          <box size="${camera_l} ${camera_w} ${camera_h}" />
+          <box size="${-camera_l} ${camera_w} ${camera_h}" />
         </geometry>
         <material name="grey"/>
       </visual>
       <collision>
-        <origin xyz="${camera_l/2} 0 ${-camera_h/2}" rpy="0 0 0" />
+        <origin xyz="${-camera_l/2} 0 ${-camera_h/2}" rpy="0 0 0" />
         <geometry>
           <box size="${camera_l} ${camera_w} ${camera_h}" />
         </geometry>
       </collision>
       <inertial>
-        <origin xyz="${camera_l/2} 0 ${-camera_h/2}" rpy="0 0 0" />
+        <origin xyz="${-camera_l/2} 0 ${-camera_h/2}" rpy="0 0 0" />
         <mass value="${camera_m}" />
         <xacro:box_inertia m="${camera_m}" x="${camera_l}" y="${camera_w}" z="${camera_h}" />
       </inertial>
     </link>
 
     <joint name="joint2" type="revolute">
-      <origin xyz="${-motor_h/2-tube_off} 0 0" rpy="0 0 0" />
+      <origin xyz="${motor_h/2+tube_off} 0 0" rpy="0 0 0" />
       <parent link="link1" />
       <child link="link2" />
       <axis xyz="-1 0 0" />
@@ -145,27 +145,27 @@
 
     <link name="link2">
       <visual>
-        <origin xyz="${-arm_r} 0 ${-arm1_l/2}" rpy="0 0 0" />
+        <origin xyz="${arm_r} 0 ${-arm1_l/2}" rpy="0 0 0" />
         <geometry>
           <cylinder length="${arm1_l}" radius="${arm_r}" />
         </geometry>
         <material name="orange"/>
       </visual>
       <collision>
-        <origin xyz="${-arm_r} 0 ${-arm1_l/2}" rpy="0 0 0" />
+        <origin xyz="${arm_r} 0 ${-arm1_l/2}" rpy="0 0 0" />
         <geometry>
           <cylinder length="${arm1_l}" radius="${arm_r}" />
         </geometry>
       </collision>
       <inertial>
-        <origin xyz="${-arm_r} 0 ${-arm1_l/2}" rpy="0 0 0" />
+        <origin xyz="${arm_r} 0 ${-arm1_l/2}" rpy="0 0 0" />
         <mass value="${arm1_m}" />
         <xacro:cylinder_inertia m="${arm1_m}" r="${arm_r}" h="${arm1_l}" />
       </inertial>
     </link>
 
     <joint name="joint2_motor" type="fixed">
-      <origin xyz="${motor_h/2+tube_off} 0 ${-arm1_l}" rpy="0 0 0" />
+      <origin xyz="${-motor_h/2-tube_off} 0 ${-arm1_l}" rpy="0 0 0" />
       <parent link="link2" />
       <child link="link2_motor" />
     </joint>
@@ -192,7 +192,7 @@
     </link>
 
     <joint name="joint3" type="revolute">
-      <origin xyz="${motor_h/2+tube_off} 0 0" rpy="${pi} 0 0" />
+      <origin xyz="${-motor_h/2-tube_off} 0 0" rpy="${pi} 0 0" />
       <parent link="link2_motor" />
       <child link="link3" />
       <axis xyz="1 0 0" />
@@ -202,27 +202,27 @@
 
     <link name="link3">
       <visual>
-        <origin xyz="${arm_r} 0 ${-arm2_l/2}" rpy="0 0 0" />
+        <origin xyz="${-arm_r} 0 ${-arm2_l/2}" rpy="0 0 0" />
         <geometry>
           <cylinder length="${arm2_l}" radius="${arm_r}" />
         </geometry>
         <material name="orange"/>
       </visual>
       <collision>
-        <origin xyz="${arm_r} 0 ${-arm2_l/2}" rpy="0 0 0" />
+        <origin xyz="${-arm_r} 0 ${-arm2_l/2}" rpy="0 0 0" />
         <geometry>
           <cylinder length="${arm2_l}" radius="${arm_r}" />
         </geometry>
       </collision>
       <inertial>
-        <origin xyz="${arm_r} 0 ${-arm2_l/2}" rpy="0 0 0" />
+        <origin xyz="${-arm_r} 0 ${-arm2_l/2}" rpy="0 0 0" />
         <mass value="${arm2_m}" />
         <xacro:cylinder_inertia m="${arm2_m}" r="${arm_r}" h="${arm2_l}" />
       </inertial>
     </link>
 
     <joint name="joint3_end" type="fixed">
-      <origin xyz="${arm_r} 0 ${-arm2_l}" rpy="0 0 0" />
+      <origin xyz="${-arm_r} 0 ${-arm2_l}" rpy="0 0 0" />
       <parent link="link3" />
       <child link="eef_link" />
     </joint>
