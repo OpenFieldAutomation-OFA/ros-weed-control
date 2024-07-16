@@ -1,6 +1,7 @@
 #include <memory>
 #include <cmath>
 #include <chrono>
+#include <iostream>
 
 #include <rclcpp/rclcpp.hpp>
 #include <moveit/move_group_interface/move_group_interface.h>
@@ -18,17 +19,25 @@ public:
   : Node("arm_moveit",
       rclcpp::NodeOptions().automatically_declare_parameters_from_overrides(true))
   {
-    // this->declare_parameter("my_parameter", "world");
-    this->test();
+    this->get_parameters();
   }
 
-  void test()
+  std::vector<double> get_position(int i)
   {
-    std::string my_param = this->get_parameter("my_parameter").as_string();
-    RCLCPP_INFO(this->get_logger(), "Hello %s!", my_param.c_str());
-    this->get_parameter("motor1", motor1_);
-    RCLCPP_INFO(this->get_logger(), "test %f!", motor1_[0]);
+    return {motor1_[i], motor2_[i], motor3_[i]};
+  }
 
+  std::size_t get_length()
+  {
+    return motor1_.size();
+  }
+
+private:
+  void get_parameters()
+  {
+    this->get_parameter("motor1", motor1_);
+    this->get_parameter("motor2", motor2_);
+    this->get_parameter("motor3", motor3_);
   }
 
 private:
@@ -46,8 +55,6 @@ int main(int argc, char* argv[])
 
   // Create a ROS LOGGER
   // auto const LOGGER = rclcpp::get_logger("arm_moveit");
-
-  auto t1 = std::chrono::high_resolution_clock::now();
 
   // Create the MoveIt MoveGroup Interface
   moveit::planning_interface::MoveGroupInterface move_group(node, "arm");
@@ -79,50 +86,61 @@ int main(int argc, char* argv[])
   planning_scene_interface.addCollisionObjects(collision_objects);
 
 
-  move_group.getCurrentState(10);
+  // auto t1 = std::chrono::high_resolution_clock::now();
+  // move_group.getCurrentState(10);
+  
+  // auto t2 = std::chrono::high_resolution_clock::now();
+  // auto ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
+  // RCLCPP_INFO(LOGGER, "%ld ms", ms_int.count());
+
+  RCLCPP_INFO(LOGGER, "Planning frame: %s", move_group.getPlanningFrame().c_str());
 
   move_group.setMaxVelocityScalingFactor(1.0);
   move_group.setMaxAccelerationScalingFactor(1.0);
 
-  // set position goal (left position)
-  geometry_msgs::msg::Pose target_pose;
-  tf2::Quaternion q;
-  q.setRPY(90 * M_PI / 180, 0, 0);
-  // RCLCPP_INFO(LOGGER, "quaternion: %f %f %f %f", q.x(), q.y(), q.z(), q.w());
-  target_pose.orientation.w = q.w();
-  target_pose.orientation.x = q.x();
-  target_pose.orientation.y = q.y();
-  target_pose.orientation.z = q.z();
-  target_pose.position.x = 0.2;
-  target_pose.position.y = 0.1;
-  target_pose.position.z = 0.05;
-  // move_group.setPositionTarget(0.2, 0.1, 0.05);
-  move_group.setPoseTarget(target_pose);
-  move_group.setGoalOrientationTolerance(90 * M_PI / 180);
+  for (std::size_t i = 0; i < node->get_length(); i++)
+  {
+    std::vector<double> joint_values = node->get_position(i);
+    move_group.setJointValueTarget(joint_values);
+    move_group.move();
+    rclcpp::sleep_for(std::chrono::milliseconds(1000));
+  }
 
-  // plan and execute
-  move_group.move();
+  // // set position goal (left position)
+  // geometry_msgs::msg::Pose target_pose;
+  // tf2::Quaternion q;
+  // q.setRPY(90 * M_PI / 180, 0, 0);
+  // // RCLCPP_INFO(LOGGER, "quaternion: %f %f %f %f", q.x(), q.y(), q.z(), q.w());
+  // target_pose.orientation.w = q.w();
+  // target_pose.orientation.x = q.x();
+  // target_pose.orientation.y = q.y();
+  // target_pose.orientation.z = q.z();
+  // target_pose.position.x = 0.0;
+  // target_pose.position.y = 0.1;
+  // target_pose.position.z = 0.05;
+  // // move_group.setPositionTarget(0.2, 0.1, 0.05);
+  // move_group.setPoseTarget(target_pose);
+  // move_group.setGoalOrientationTolerance(90 * M_PI / 180);
 
-  // set position goal (right position)
-  q.setRPY(-90 * M_PI / 180, 0, 0);
-  // RCLCPP_INFO(LOGGER, "quaternion: %f %f %f %f", q.x(), q.y(), q.z(), q.w());
-  target_pose.orientation.w = q.w();
-  target_pose.orientation.x = q.x();
-  target_pose.orientation.y = q.y();
-  target_pose.orientation.z = q.z();
-  target_pose.position.x = -0.2;
-  target_pose.position.y = -0.1;
-  target_pose.position.z = 0.05;
-  // move_group.setPositionTarget(0.2, -0.1, 0.05);
-  move_group.setPoseTarget(target_pose);
-  move_group.setGoalOrientationTolerance(90 * M_PI / 180);
+  // // plan and execute
+  // move_group.move();
 
-  // plan and execute
-  move_group.move();
-  
-  auto t2 = std::chrono::high_resolution_clock::now();
-  auto ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
-  RCLCPP_INFO(LOGGER, "%ld ms", ms_int.count());
+  // // set position goal (right position)
+  // q.setRPY(-90 * M_PI / 180, 0, 0);
+  // // RCLCPP_INFO(LOGGER, "quaternion: %f %f %f %f", q.x(), q.y(), q.z(), q.w());
+  // target_pose.orientation.w = q.w();
+  // target_pose.orientation.x = q.x();
+  // target_pose.orientation.y = q.y();
+  // target_pose.orientation.z = q.z();
+  // target_pose.position.x = -0.2;
+  // target_pose.position.y = -0.1;
+  // target_pose.position.z = 0.05;
+  // // move_group.setPositionTarget(-0.2, -0.1, 0.05);
+  // move_group.setPoseTarget(target_pose);
+  // move_group.setGoalOrientationTolerance(90 * M_PI / 180);
+
+  // // plan and execute
+  // move_group.move();
 
   // Shutdown ROS
   rclcpp::shutdown();
