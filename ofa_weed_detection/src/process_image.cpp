@@ -6,16 +6,8 @@ int main(int argc, char ** argv)
   (void) argc;
   (void) argv;
 
-  uint32_t count = k4a::device::get_installed_count();
-
-  printf("Found %u connected devices:\n", count);
-
   // Open the first plugged in Kinect device
   k4a::device device = k4a::device::open(K4A_DEVICE_DEFAULT);
-
-  std::string serialnum = device.get_serialnum();
-
-  printf("Device serial number: %s", serialnum.c_str());
 
   // set color controls
   device.set_color_control(K4A_COLOR_CONTROL_POWERLINE_FREQUENCY,
@@ -37,20 +29,27 @@ int main(int argc, char ** argv)
 
   device.start_cameras(&config);
 
+  printf("test1\n");
+
   k4a::capture capture = k4a::capture::create();
 
-  if (device.get_capture(&capture))
-  {
-    k4a::image color_image = capture.get_color_image();
-    std::chrono::microseconds time = color_image.get_exposure();
-    printf("exposure time: %ld", time.count());
-    color_image.set_exposure_time(std::chrono::microseconds(100));
-    k4a::image ir_image = capture.get_ir_image();
-    
-  }
+  printf("test2\n");
+
+  device.get_capture(&capture, std::chrono::seconds(1));
+
+  printf("test3\n");
+
+  // if (device.get_capture(&capture))
+  // {
+  //   k4a::image color_image = capture.get_color_image();
+    // std::chrono::microseconds time = color_image.get_exposure();
+    // printf("exposure time: %ld", time.count());
+    // color_image.set_exposure_time(std::chrono::microseconds(100));
+    // k4a::image ir_image = capture.get_ir_image();
+  // }
 
 
-  device.stop_cameras();
+  // device.stop_cameras();
 
   return 0;
 }

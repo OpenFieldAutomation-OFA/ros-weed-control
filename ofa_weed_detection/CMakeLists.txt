@@ -42,7 +42,7 @@ install(
 )
 install(
   DIRECTORY lib/${HOST_PLATFORM}/
-  DESTINATION lib/${PROJECT_NAME}
+  DESTINATION lib
 )
 install(
   DIRECTORY launch

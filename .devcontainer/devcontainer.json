@@ -36,6 +36,9 @@
   },
   "runArgs": [
       "--net=host",
+      "--runtime=nvidia",
+      "--gpus=all",
+      "--device-cgroup-rule", "c 226:* rmw", // dri
       "--device-cgroup-rule", "c 189:* rmw", // camera
       "--device-cgroup-rule", "c 266:* rmw" // SC4-Hub
   ]

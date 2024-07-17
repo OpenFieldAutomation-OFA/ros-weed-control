@@ -138,7 +138,7 @@
       <origin xyz="${motor_h/2+tube_off} 0 0" rpy="0 0 0" />
       <parent link="link1" />
       <child link="link2" />
-      <axis xyz="-1 0 0" />
+      <axis xyz="1 0 0" />
       <limit lower="${joint_limits['joint2']['min_position']}" upper="${joint_limits['joint2']['max_position']}"
       velocity="${joint_limits['joint2']['max_velocity']}" effort="100" />
     </joint>
@@ -195,7 +195,7 @@
       <origin xyz="${-motor_h/2-tube_off} 0 0" rpy="${pi} 0 0" />
       <parent link="link2_motor" />
       <child link="link3" />
-      <axis xyz="1 0 0" />
+      <axis xyz="-1 0 0" />
       <limit lower="${joint_limits['joint3']['min_position']}" upper="${joint_limits['joint3']['max_position']}"
       velocity="${joint_limits['joint3']['max_velocity']}" effort="100" />
     </joint>

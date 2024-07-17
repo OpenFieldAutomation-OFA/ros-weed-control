@@ -39,4 +39,4 @@ Joint:
 - `read_only`: OPTIONAL. If set to 1, will disable the motor and regularly print the current position.
 - `peak_torque`: OPTIONAL. Peak torque of the motor in Nm. This is necessary if you want the `effort` state interface to work.
 
-It is not possible to disable the trajectory planning on the motor, therefore `vel_limit` and `acc_limit` always have to be specified. When using MoveIt 2 with `joint_trajectory_controller` you should set lower joint limits than the ones set here.
+It is not possible to disable the trajectory planning on the motor, therefore `vel_limit` and `acc_limit` always have to be specified. When using MoveIt 2 with `joint_trajectory_controller` you should use lower joint limits than the ones set here.
