@@ -19,7 +19,9 @@ foreach(Dependency IN ITEMS ${THIS_PACKAGE_INCLUDE_DEPENDS})
 endforeach()
 
 # get build platform
-if (${CMAKE_HOST_SYSTEM_PROCESSOR} STREQUAL aarch64)
+if (${CMAKE_HOST_SYSTEM_PROCESSOR} STREQUAL x86_64)
+  set(HOST_PLATFORM x64)
+elseif (${CMAKE_HOST_SYSTEM_PROCESSOR} STREQUAL aarch64)
   set(HOST_PLATFORM arm64)
 else ()
   message(FATAL_ERROR "Host platform not supported." )
