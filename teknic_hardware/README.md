@@ -2,14 +2,27 @@
 
 This package contains the [ros2_control](https://control.ros.org/master/index.html) hardware interface to control Teknic Clearpath SC servo motors with a `SystemInterface`. It was tested on a single CPM-SCSK-2321S-EQNA.
 
+> [!NOTE]
+> This interface only works if you have bought the "Advanced" firmware option and not "Basic".
+
+## SC4-Hub USB Driver
+For communication with the SC4-Hub you need to install the USB driver.
+```bash
+cd ExarKernelDriver
+sudo ./Install_DRV_SCRIPT.sh
+```
+
+Add your user to the dialout group so that it can access serial ports.
+```bash
+sudo usermod -aG dialout $USER
+sudo reboot
+```
+
 ## Motor Setup
 The motor should be setup with the ClearView software. The details can be found in the [User Manual](https://teknic.com/files/downloads/Clearpath-SC%20User%20Manual.pdf). The hardware interface assumes that the motor is tuned and homing parameters and software limits were set up.
 
 ## Interrupting Moves
-This package uses the sFoundation software library and a feature called "interrupting moves" (not in the official documentation) which allows to execute moves immediatly instead of storing them in a queue.
-
-> [!NOTE]
-> This will only work with the Clearpath-SC "Advanced" firmware option.
+This package uses the sFoundation software library and a feature called "interrupting" moves (not in the official documentation) which allows executing moves immediatly instead of storing them in a queue. This feature is the reason why the “Advanced” firmware option is needed.
 
 ## Hardware Interfaces
 The following command interfaces are published:

@@ -1,0 +1,6 @@
+ExarKernelDriver/*.cmd
+ExarKernelDriver/Module.symvers
+ExarKernelDriver/modules.order
+ExarKernelDriver/*.mod*
+ExarKernelDriver/xr_usb_serial_common.o
+ExarKernelDriver/xr_usb_serial_common.ko

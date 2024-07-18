@@ -1,4 +1,4 @@
-# ofa-weed-control-ros
+# ros-weed-control
 This repo contains all ROS 2 packages that were developed for the OFA Weed Control Unit.
 
 <!-- TODO: detailed explanation, some images -->
@@ -8,7 +8,7 @@ This repo contains all ROS 2 packages that were developed for the OFA Weed Contr
 
 ## Setup
 ### Host
-Even though Docker handles most of our setup (explained below), certain things still have to be configured on the host OS directly.
+Even though Docker handles most of our setup, certain things still have to be configured on the host OS directly.
 
 The following steps describe the setup on a reComputer Industrial J40 flashed with JetPack 6.0. If you use different hardware you will have to figure out how to reproduce the setup yourself.
 
@@ -55,9 +55,11 @@ The following steps describe the setup on a reComputer Industrial J40 flashed wi
     ```
 7. Install the SC4-Hub USB Driver.
     ```bash
-    sudo cp ros-weed-control/teknic_hardware/driver/jetpack_6.0/xr_usb_serial_common.ko /lib/modules/"$(uname -r)"/kernel/drivers/usb/serial
-    sudo depmod
-    sudo modprobe xr_usb_serial_common
+    # Fix linux headers symlink
+    sudo ln -sf /usr/src/linux-headers-5.15.136-tegra-ubuntu22.04_aarch64/3rdparty/canonical/linux-jammy/kernel-source /lib/modules/5.15.136-tegra/build
+    # Install driver
+    cd ros-weed-control/teknic_hardware/ExarKernelDriver
+    sudo ./Install_DRV_SCRIPT.sh
     ```
 7. Reboot.
     ```bash

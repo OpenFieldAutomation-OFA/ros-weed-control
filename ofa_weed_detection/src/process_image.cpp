@@ -27,29 +27,24 @@ int main(int argc, char ** argv)
   config.depth_mode = K4A_DEPTH_MODE_WFOV_UNBINNED;
   config.synchronized_images_only = true;
 
+  k4a_calibration_t calibration = device.get_calibration(config.depth_mode, config.color_resolution);
+  k4a::transformation transformation(calibration);
+
   device.start_cameras(&config);
 
-  printf("test1\n");
-
   k4a::capture capture = k4a::capture::create();
-
-  printf("test2\n");
-
-  device.get_capture(&capture, std::chrono::seconds(1));
-
-  printf("test3\n");
-
-  // if (device.get_capture(&capture))
-  // {
-  //   k4a::image color_image = capture.get_color_image();
-    // std::chrono::microseconds time = color_image.get_exposure();
-    // printf("exposure time: %ld", time.count());
-    // color_image.set_exposure_time(std::chrono::microseconds(100));
-    // k4a::image ir_image = capture.get_ir_image();
-  // }
+  
+  if (device.get_capture(&capture))
+  {
+    k4a::image color_image = capture.get_color_image();
+    int width = color_image.get_width_pixels();
+    int height = color_image.get_height_pixels();
+    printf("width: %i, height: %i\n", width, height);
+    k4a::image ir_image = capture.get_ir_image();
+  }
 
 
-  // device.stop_cameras();
+  device.stop_cameras();
 
   return 0;
 }
