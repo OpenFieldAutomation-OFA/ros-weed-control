@@ -12,7 +12,8 @@ int main(int argc, char ** argv)
   auto node = rclcpp::Node::make_shared("image_publisher");
   auto color_publisher = node->create_publisher<sensor_msgs::msg::Image>("color_image", 10);
   auto depth_publisher = node->create_publisher<sensor_msgs::msg::Image>("depth_image", 10);
-  auto ir_publisher = node->create_publisher<sensor_msgs::msg::Image>("ir_image", 10);
+  auto ir_active_publisher = node->create_publisher<sensor_msgs::msg::Image>("ir_active_image", 10);
+  auto ir_passive_publisher = node->create_publisher<sensor_msgs::msg::Image>("ir_passive_image", 10);
 
   // open the first plugged in Kinect device
   k4a::device device = k4a::device::open(K4A_DEVICE_DEFAULT);
@@ -36,57 +37,100 @@ int main(int argc, char ** argv)
     K4A_COLOR_CONTROL_MODE_MANUAL, 1);
 
   // define config
-  k4a_device_configuration_t config = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
-  config.camera_fps = K4A_FRAMES_PER_SECOND_5;
-  config.color_format = K4A_IMAGE_FORMAT_COLOR_BGRA32;
-  config.color_resolution = K4A_COLOR_RESOLUTION_2160P;
-  config.depth_mode = K4A_DEPTH_MODE_WFOV_UNBINNED;
-  config.synchronized_images_only = true;
+  k4a_device_configuration_t config_active = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
+  config_active.camera_fps = K4A_FRAMES_PER_SECOND_15;
+  config_active.color_format = K4A_IMAGE_FORMAT_COLOR_BGRA32;
+  config_active.color_resolution = K4A_COLOR_RESOLUTION_2160P;
+  config_active.depth_mode = K4A_DEPTH_MODE_WFOV_UNBINNED;
+  config_active.synchronized_images_only = true;
+  k4a_device_configuration_t config_passive = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
+  config_passive.depth_mode = K4A_DEPTH_MODE_PASSIVE_IR;
 
-  k4a_calibration_t calibration = device.get_calibration(config.depth_mode, config.color_resolution);
+  k4a_calibration_t calibration = device.get_calibration(config_active.depth_mode, config_active.color_resolution);
   k4a::transformation transformation(calibration);
 
-  device.start_cameras(&config);
+  k4a::capture capture_active = k4a::capture::create();
+  k4a::capture capture_passive = k4a::capture::create();
 
-  k4a::capture capture = k4a::capture::create();
-
-  rclcpp::WallRate loop_rate(1);
+  rclcpp::WallRate loop_rate(0.2);
   while (rclcpp::ok()) {
-    // capture
-    device.get_capture(&capture);
+    // capture in passive mode
+    device.start_cameras(&config_passive);
+    device.get_capture(&capture_passive);
+    k4a::image ir_passive_image = capture_passive.get_ir_image();
+    device.stop_cameras();
 
-    // get images
-    k4a::image color_image = capture.get_color_image();
-    k4a::image depth_image = capture.get_depth_image();
-    k4a::image ir_image = capture.get_ir_image();
+    // capture in active mode
+    device.start_cameras(&config_active);
+    device.get_capture(&capture_active);
+    k4a::image depth_image = capture_active.get_depth_image();
+    k4a::image color_image = capture_active.get_color_image();
+    k4a::image ir_active_image = capture_active.get_ir_image();
+    device.stop_cameras();
     
-    // transform depth and ir image to camera viewpoint
-    ir_image = k4a::image::create_from_buffer(
+    printf("color image %i, %i, %li\n",
+      color_image.get_width_pixels(),
+      color_image.get_height_pixels(),
+      color_image.get_size());
+    printf("depth image %i, %i, %li\n",
+      depth_image.get_width_pixels(),
+      depth_image.get_height_pixels(),
+      depth_image.get_size());
+    printf("active ir %i, %i, %li\n",
+      ir_active_image.get_width_pixels(),
+      ir_active_image.get_height_pixels(),
+      ir_active_image.get_size());
+    printf("passive ir %i, %i, %li\n",
+      ir_passive_image.get_width_pixels(),
+      ir_passive_image.get_height_pixels(),
+      ir_passive_image.get_size());
+    
+    // transform depth and ir images to camera viewpoint
+    ir_active_image = k4a::image::create_from_buffer(
       K4A_IMAGE_FORMAT_CUSTOM16,
-      ir_image.get_width_pixels(),
-      ir_image.get_height_pixels(),
-      ir_image.get_stride_bytes(),
-      ir_image.get_buffer(),
-      ir_image.get_size(),
+      ir_active_image.get_width_pixels(),
+      ir_active_image.get_height_pixels(),
+      ir_active_image.get_stride_bytes(),
+      ir_active_image.get_buffer(),
+      ir_active_image.get_size(),
       [](void *, void *) {},
       NULL
     );
     std::pair<k4a::image, k4a::image> transformed = transformation.depth_image_to_color_camera_custom(
       depth_image,
-      ir_image,
+      ir_active_image,
+      K4A_TRANSFORMATION_INTERPOLATION_TYPE_LINEAR,
+      0
+    );
+    ir_active_image = transformed.second;
+    ir_passive_image = k4a::image::create_from_buffer(
+      K4A_IMAGE_FORMAT_CUSTOM16,
+      ir_passive_image.get_width_pixels(),
+      ir_passive_image.get_height_pixels(),
+      ir_passive_image.get_stride_bytes(),
+      ir_passive_image.get_buffer(),
+      ir_passive_image.get_size(),
+      [](void *, void *) {},
+      NULL
+    );
+    transformed = transformation.depth_image_to_color_camera_custom(
+      depth_image,
+      ir_passive_image,
       K4A_TRANSFORMATION_INTERPOLATION_TYPE_LINEAR,
       0
     );
     depth_image = transformed.first;
-    ir_image = transformed.second;
+    ir_passive_image = transformed.second;
 
     // buffer data to vector
     uint8_t *color_buffer = color_image.get_buffer();
     std::vector<uint8_t> color_vector(color_buffer, color_buffer + color_image.get_size());
     uint8_t *depth_buffer = depth_image.get_buffer();
     std::vector<uint8_t> depth_vector(depth_buffer, depth_buffer + depth_image.get_size());
-    uint8_t *ir_buffer = ir_image.get_buffer();
-    std::vector<uint8_t> ir_vector(ir_buffer, ir_buffer + ir_image.get_size());
+    uint8_t *ir_passive_buffer = ir_passive_image.get_buffer();
+    std::vector<uint8_t> ir_passive_vector(ir_passive_buffer, ir_passive_buffer + ir_passive_image.get_size());
+    uint8_t *ir_active_buffer = ir_active_image.get_buffer();
+    std::vector<uint8_t> ir_active_vector(ir_active_buffer, ir_active_buffer + ir_active_image.get_size());
 
     // int stride = ir_image.get_stride_bytes();
     // size_t size = ir_image.get_size();
@@ -116,11 +160,13 @@ int main(int argc, char ** argv)
     ros_image.data = color_vector;
     color_publisher->publish(ros_image);
     ros_image.encoding = "mono16";;
-    ros_image.width = ir_image.get_width_pixels();
-    ros_image.height = ir_image.get_height_pixels();
-    ros_image.step = ir_image.get_stride_bytes();
-    ros_image.data = ir_vector;
-    ir_publisher->publish(ros_image);
+    ros_image.width = ir_active_image.get_width_pixels();
+    ros_image.height = ir_active_image.get_height_pixels();
+    ros_image.step = ir_active_image.get_stride_bytes();
+    ros_image.data = ir_active_vector;
+    ir_active_publisher->publish(ros_image);
+    ros_image.data = ir_passive_vector;
+    ir_passive_publisher->publish(ros_image);
     ros_image.data = depth_vector;
     depth_publisher->publish(ros_image);
 
