@@ -19,7 +19,7 @@ sudo reboot
 ```
 
 ## Motor Setup
-The motor should be setup with the ClearView software. The details can be found in the [User Manual](https://teknic.com/files/downloads/Clearpath-SC%20User%20Manual.pdf). The hardware interface assumes that the motor is tuned and homing parameters and software limits were set up.
+The motor should be setup with the ClearView software. The details can be found in the [User Manual](https://teknic.com/files/downloads/Clearpath-SC%20User%20Manual.pdf). Make sure that the motor is tuned and homing parameters are set up.
 
 ## Interrupting Moves
 This package uses the sFoundation software library and a feature called "interrupting" moves (not in the official documentation) which allows executing moves immediatly instead of storing them in a queue. This feature is the reason why the “Advanced” firmware option is needed.
