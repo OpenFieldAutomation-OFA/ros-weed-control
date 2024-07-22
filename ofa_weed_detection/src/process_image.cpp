@@ -14,6 +14,7 @@ int main(int argc, char ** argv)
   auto depth_publisher = node->create_publisher<sensor_msgs::msg::Image>("depth_image", 10);
   auto ir_active_publisher = node->create_publisher<sensor_msgs::msg::Image>("ir_active_image", 10);
   auto ir_passive_publisher = node->create_publisher<sensor_msgs::msg::Image>("ir_passive_image", 10);
+  auto red_publisher = node->create_publisher<sensor_msgs::msg::Image>("red_image", 10);
 
   // open the first plugged in Kinect device
   k4a::device device = k4a::device::open(K4A_DEVICE_DEFAULT);
@@ -99,7 +100,7 @@ int main(int argc, char ** argv)
     std::pair<k4a::image, k4a::image> transformed = transformation.depth_image_to_color_camera_custom(
       depth_image,
       ir_active_image,
-      K4A_TRANSFORMATION_INTERPOLATION_TYPE_LINEAR,
+      K4A_TRANSFORMATION_INTERPOLATION_TYPE_NEAREST,
       0
     );
     ir_active_image = transformed.second;
@@ -131,6 +132,14 @@ int main(int argc, char ** argv)
     std::vector<uint8_t> ir_passive_vector(ir_passive_buffer, ir_passive_buffer + ir_passive_image.get_size());
     uint8_t *ir_active_buffer = ir_active_image.get_buffer();
     std::vector<uint8_t> ir_active_vector(ir_active_buffer, ir_active_buffer + ir_active_image.get_size());
+
+    // calculate NDVI
+    size_t red_size = color_image.get_width_pixels() * color_image.get_height_pixels();
+    std::vector<uint8_t> red_channel(red_size);
+    for (size_t i = 0; i < red_size; i++)
+    {
+      red_channel[i] = color_vector[i * 4 + 2];
+    }
 
     // int stride = ir_image.get_stride_bytes();
     // size_t size = ir_image.get_size();
@@ -169,15 +178,19 @@ int main(int argc, char ** argv)
     ir_passive_publisher->publish(ros_image);
     ros_image.data = depth_vector;
     depth_publisher->publish(ros_image);
+    ros_image.encoding = "mono8";;
+    ros_image.width = color_image.get_width_pixels();
+    ros_image.height = color_image.get_height_pixels();
+    ros_image.step = color_image.get_width_pixels();
+    ros_image.data = red_channel;
+    red_publisher->publish(ros_image);
 
     RCLCPP_INFO(node->get_logger(), "Published");
     rclcpp::spin_some(node);
     loop_rate.sleep();
   }
 
-  
 
-  // transform
 
   device.stop_cameras();
 

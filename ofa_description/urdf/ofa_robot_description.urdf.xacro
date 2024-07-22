@@ -34,21 +34,26 @@
     <xacro:property name="camera_h" value="0.08" />
     <xacro:property name="camera_l" value="0.048" />
     <xacro:property name="camera_m" value="0.335" />
+    <xacro:property name="camera_block_w" value="0.01" />
+    <xacro:property name="camera_block_h" value="0.08" />
+    <xacro:property name="camera_block_l" value="0.048" />
+    <xacro:property name="camera_block_m" value="0.01" />
 
     <!-- Offset between camera enclosure and motor center -->
-    <xacro:property name="camera_off" value="${motor_h/2+0.04355}" />
+    <xacro:property name="camera_off_x" value="${motor_h/2+0.04355}" />
+    <xacro:property name="camera_off_y" value="${0.044}" />
     
     <!-- Tube dimensions (cylinders) -->
     <xacro:property name="arm_r" value="${0.045/2}" />
     <xacro:property name="arm_ri" value="${0.041/2}" />
     <xacro:property name="arm1_l" value="0.368" />
     <xacro:property name="arm1_m" value="${1650*(arm_r**2*pi-arm_ri**2*pi)*arm1_l}" />
-    <xacro:property name="arm2_l" value="0.28" />
+    <xacro:property name="arm2_l" value="0.17" />
     <xacro:property name="arm2_m" value="${1650*(arm_r**2*pi-arm_ri**2*pi)*arm2_l}" />
 
     <!-- End effector dimensions (cylinder) -->
-    <xacro:property name="end_r" value="0.005" />
-    <xacro:property name="end_l" value="0.02" />
+    <xacro:property name="end_r" value="0.01" />
+    <xacro:property name="end_l" value="0.2" />
     <xacro:property name="end_m" value="1" />
 
     <joint name="base_joint" type="fixed">
@@ -108,7 +113,7 @@
     </link>
 
     <joint name="joint1_camera" type="fixed">
-      <origin xyz="${-camera_off} 0 ${attachment_off}" rpy="0 0 0" />
+      <origin xyz="${-camera_off_x} ${-camera_off_y} ${attachment_off}" rpy="0 0 0" />
       <parent link="link1" />
       <child link="link1_camera" />
     </joint>
@@ -117,7 +122,7 @@
       <visual>
         <origin xyz="${-camera_l/2} 0 ${-camera_h/2}" rpy="0 0 0" />
         <geometry>
-          <box size="${-camera_l} ${camera_w} ${camera_h}" />
+          <box size="${camera_l} ${camera_w} ${camera_h}" />
         </geometry>
         <material name="grey"/>
       </visual>
@@ -133,6 +138,34 @@
         <xacro:box_inertia m="${camera_m}" x="${camera_l}" y="${camera_w}" z="${camera_h}" />
       </inertial>
     </link>
+
+    <joint name="joint1_camera_block" type="fixed">
+      <origin xyz="0 ${-camera_w/2} 0" rpy="0 0 0" />
+      <parent link="link1_camera" />
+      <child link="link1_camera_block" />
+    </joint>
+
+    <link name="link1_camera_block">
+      <visual>
+        <origin xyz="${camera_block_l/2} ${camera_block_w/2} ${-camera_block_h/2}" rpy="0 0 0" />
+        <geometry>
+          <box size="${camera_block_l} ${camera_block_w} ${camera_block_h}" />
+        </geometry>
+        <material name="grey"/>
+      </visual>
+      <collision>
+        <origin xyz="${camera_block_l/2} ${camera_block_w/2} ${-camera_block_h/2}" rpy="0 0 0" />
+        <geometry>
+          <box size="${camera_block_l} ${camera_block_w} ${camera_block_h}" />
+        </geometry>
+      </collision>
+      <inertial>
+        <origin xyz="${camera_block_l/2} ${camera_block_w/2} ${-camera_block_h/2}" rpy="0 0 0" />
+        <mass value="${camera_block_m}" />
+        <xacro:box_inertia m="${camera_block_m}" x="${camera_block_l}" y="${camera_block_w}" z="${camera_block_h}" />
+      </inertial>
+    </link>
+
 
     <joint name="joint2" type="revolute">
       <origin xyz="${motor_h/2+tube_off} 0 0" rpy="0 0 0" />
