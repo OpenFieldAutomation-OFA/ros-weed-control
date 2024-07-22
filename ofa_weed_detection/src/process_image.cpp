@@ -15,7 +15,10 @@ int main(int argc, char ** argv)
   auto ir_active_publisher = node->create_publisher<sensor_msgs::msg::Image>("ir_active_image", 10);
   auto ir_passive_publisher = node->create_publisher<sensor_msgs::msg::Image>("ir_passive_image", 10);
   auto red_publisher = node->create_publisher<sensor_msgs::msg::Image>("red_image", 10);
-
+  auto nir_publisher = node->create_publisher<sensor_msgs::msg::Image>("nir_image", 10);
+  auto ndvi_publisher = node->create_publisher<sensor_msgs::msg::Image>("ndvi_image", 10);
+  auto exg_publisher = node->create_publisher<sensor_msgs::msg::Image>("exg_image", 10);
+  auto binary_publisher = node->create_publisher<sensor_msgs::msg::Image>("binary_image", 10);
   // open the first plugged in Kinect device
   k4a::device device = k4a::device::open(K4A_DEVICE_DEFAULT);
 
@@ -134,28 +137,78 @@ int main(int argc, char ** argv)
     std::vector<uint8_t> ir_active_vector(ir_active_buffer, ir_active_buffer + ir_active_image.get_size());
 
     // calculate NDVI
-    size_t red_size = color_image.get_width_pixels() * color_image.get_height_pixels();
-    std::vector<uint8_t> red_channel(red_size);
-    for (size_t i = 0; i < red_size; i++)
+    std::size_t mono_size = color_image.get_width_pixels() * color_image.get_height_pixels();
+    std::vector<uint8_t> red_channel(mono_size);
+    for (std::size_t i = 0; i < mono_size; i++)
     {
       red_channel[i] = color_vector[i * 4 + 2];
     }
+    std::vector<uint8_t> nir_channel(mono_size);
+    for (std::size_t i = 0; i < ir_passive_vector.size(); i += 2)
+    {
+      uint16_t pixel16 = (static_cast<uint16_t>(ir_passive_vector[i + 1]) << 8) | ir_passive_vector[i];
+      if (pixel16 < 256)  // we assume a maximum passive ir value of 255 (even though much higher values are possible)
+      {
+        nir_channel[i / 2] = pixel16;
+      }
+      else
+      {
+        // RCLCPP_WARN(node->get_logger(), "IR value above 511.");
+        nir_channel[i / 2] = 255;
+      }
+    }
+    std::vector<double> ndvi(mono_size);
+    for (std::size_t i = 0; i < mono_size; i++)
+    {
+      double red = static_cast<double>(red_channel[i]);
+      double nir = static_cast<double>(nir_channel[i]);
+      ndvi[i] = (nir - red) / (nir + red + 1e-10);
+    }
+    std::vector<uint8_t> ndvi_channel(mono_size);
+    for (std::size_t i = 0; i < mono_size; i++)
+    {
+      ndvi_channel[i] = static_cast<uint8_t>((ndvi[i] + 1) * 128);
+    }
+    printf("nir: max value: %d, min value: %d\n",
+      *std::max_element(nir_channel.begin(), nir_channel.end()),
+      *std::min_element(nir_channel.begin(), nir_channel.end()));
+    printf("red: max value: %d, min value: %d\n",
+      *std::max_element(red_channel.begin(), red_channel.end()),
+      *std::min_element(red_channel.begin(), red_channel.end()));
+    printf("ndvi: max value: %f, min value: %f\n",
+      *std::max_element(ndvi.begin(), ndvi.end()),
+      *std::min_element(ndvi.begin(), ndvi.end()));
 
-    // int stride = ir_image.get_stride_bytes();
-    // size_t size = ir_image.get_size();
-    // int ir_width = ir_image.get_width_pixels();
-    // int ir_height = ir_image.get_height_pixels();
-    // printf("width: %i, height: %i, stride: %i, size: %lu\n",
-    //   ir_width, ir_height, stride, size);
+    // calculate ExG
+    std::vector<double> exg(mono_size);
+    for (std::size_t i = 0; i < mono_size; i++)
+    {
+      exg[i] = 2.0 * color_vector[i * 4 + 1]  - color_vector[i * 4 + 2] - color_vector[i * 4];
+    }
+    std::vector<uint8_t> exg_channel(mono_size);
+    for (std::size_t i = 0; i < mono_size; i++)
+    {
+      exg_channel[i] = static_cast<uint8_t>(exg[i] + 128);
+    }
+    printf("exg: max value: %f, min value: %f\n",
+      *std::max_element(exg.begin(), exg.end()),
+      *std::min_element(exg.begin(), exg.end()));
 
-    // printf("first pixel value: %u, %u, %u, %u\n",
-    //   ir_buffer[500000], ir_buffer[500001], ir_buffer[500002], ir_buffer[500003]);
-    // printf("second pixel value: %u, %u, %u, %u\n",
-    //   ir_buffer[500004], ir_buffer[500005], ir_buffer[500006], ir_buffer[500007]);
-    // printf("first pixel value: %u, %u, %u, %u\n",
-    //   ir_vector[500000], ir_vector[500001], ir_vector[500002], ir_vector[500003]);
-    // printf("second pixel value: %u, %u, %u, %u\n",
-    //   ir_vector[500004], ir_vector[500005], ir_vector[500006], ir_vector[500007]);
+    // threshold image
+    std::vector<uint8_t> binary_image(mono_size);
+    for (std::size_t i = 0; i < mono_size; i++)
+    {
+      // if (ndvi[i] > 0.2)
+      // if (exg[i] > 10)
+      if (ndvi[i] > 0.2 && exg[i] > 10)
+      {
+        binary_image[i] = 255;
+      }
+      else
+      {
+        binary_image[i] = 0;
+      }
+    }
 
     // publish images
     sensor_msgs::msg::Image ros_image;
@@ -178,12 +231,20 @@ int main(int argc, char ** argv)
     ir_passive_publisher->publish(ros_image);
     ros_image.data = depth_vector;
     depth_publisher->publish(ros_image);
-    ros_image.encoding = "mono8";;
+    ros_image.encoding = "mono8";
     ros_image.width = color_image.get_width_pixels();
     ros_image.height = color_image.get_height_pixels();
     ros_image.step = color_image.get_width_pixels();
     ros_image.data = red_channel;
     red_publisher->publish(ros_image);
+    ros_image.data = nir_channel;
+    nir_publisher->publish(ros_image);
+    ros_image.data = ndvi_channel;
+    ndvi_publisher->publish(ros_image);
+    ros_image.data = exg_channel;
+    exg_publisher->publish(ros_image);
+    ros_image.data = binary_image;
+    binary_publisher->publish(ros_image);
 
     RCLCPP_INFO(node->get_logger(), "Published");
     rclcpp::spin_some(node);
