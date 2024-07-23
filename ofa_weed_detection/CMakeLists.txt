@@ -8,6 +8,8 @@ endif()
 # find dependencies
 set(THIS_PACKAGE_INCLUDE_DEPENDS
   orbbec_camera
+  rclcpp
+  cv_bridge
 )
 find_package(ament_cmake REQUIRED)
 foreach(Dependency IN ITEMS ${THIS_PACKAGE_INCLUDE_DEPENDS})
