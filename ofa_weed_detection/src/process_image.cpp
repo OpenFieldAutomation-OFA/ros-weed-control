@@ -143,25 +143,22 @@ int main(int argc, char ** argv)
     {
       red_channel[i] = color_vector[i * 4 + 2];
     }
-    std::vector<uint8_t> nir_channel(mono_size);
+    std::vector<uint16_t> nir_channel(mono_size);
     for (std::size_t i = 0; i < ir_passive_vector.size(); i += 2)
     {
-      uint16_t pixel16 = (static_cast<uint16_t>(ir_passive_vector[i + 1]) << 8) | ir_passive_vector[i];
-      if (pixel16 < 256)  // we assume a maximum passive ir value of 255 (even though much higher values are possible)
-      {
-        nir_channel[i / 2] = pixel16;
-      }
-      else
-      {
-        // RCLCPP_WARN(node->get_logger(), "IR value above 511.");
-        nir_channel[i / 2] = 255;
-      }
+      nir_channel[i / 2] = (static_cast<uint16_t>(ir_passive_vector[i + 1]) << 8) | ir_passive_vector[i];
+    }
+    uint16_t nir_max = *std::max_element(nir_channel.begin(), nir_channel.end());
+    std::vector<uint8_t> nir_channel_norm(mono_size);
+    for (std::size_t i = 0; i < mono_size; i++)
+    {
+      nir_channel_norm[i] = nir_channel[i] / (double)nir_max * 256;
     }
     std::vector<double> ndvi(mono_size);
     for (std::size_t i = 0; i < mono_size; i++)
     {
       double red = static_cast<double>(red_channel[i]);
-      double nir = static_cast<double>(nir_channel[i]);
+      double nir = static_cast<double>(nir_channel_norm[i]);
       ndvi[i] = (nir - red) / (nir + red + 1e-10);
     }
     std::vector<uint8_t> ndvi_channel(mono_size);
@@ -170,8 +167,8 @@ int main(int argc, char ** argv)
       ndvi_channel[i] = static_cast<uint8_t>((ndvi[i] + 1) * 128);
     }
     printf("nir: max value: %d, min value: %d\n",
-      *std::max_element(nir_channel.begin(), nir_channel.end()),
-      *std::min_element(nir_channel.begin(), nir_channel.end()));
+      *std::max_element(nir_channel_norm.begin(), nir_channel_norm.end()),
+      *std::min_element(nir_channel_norm.begin(), nir_channel_norm.end()));
     printf("red: max value: %d, min value: %d\n",
       *std::max_element(red_channel.begin(), red_channel.end()),
       *std::min_element(red_channel.begin(), red_channel.end()));
@@ -183,7 +180,7 @@ int main(int argc, char ** argv)
     std::vector<double> exg(mono_size);
     for (std::size_t i = 0; i < mono_size; i++)
     {
-      exg[i] = 2.0 * color_vector[i * 4 + 1]  - color_vector[i * 4 + 2] - color_vector[i * 4];
+      exg[i] = 2 * color_vector[i * 4 + 1]  - color_vector[i * 4 + 2] - color_vector[i * 4];
     }
     std::vector<uint8_t> exg_channel(mono_size);
     for (std::size_t i = 0; i < mono_size; i++)
@@ -198,9 +195,9 @@ int main(int argc, char ** argv)
     std::vector<uint8_t> binary_image(mono_size);
     for (std::size_t i = 0; i < mono_size; i++)
     {
-      // if (ndvi[i] > 0.2)
-      // if (exg[i] > 10)
-      if (ndvi[i] > 0.2 && exg[i] > 10)
+      // if (ndvi[i] > -0.1)
+      // if (exg[i] >= 10)
+      if (ndvi[i] > -0.1 && exg[i] > 10)
       {
         binary_image[i] = 255;
       }
@@ -237,7 +234,7 @@ int main(int argc, char ** argv)
     ros_image.step = color_image.get_width_pixels();
     ros_image.data = red_channel;
     red_publisher->publish(ros_image);
-    ros_image.data = nir_channel;
+    ros_image.data = nir_channel_norm;
     nir_publisher->publish(ros_image);
     ros_image.data = ndvi_channel;
     ndvi_publisher->publish(ros_image);
