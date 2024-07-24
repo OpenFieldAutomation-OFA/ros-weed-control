@@ -2,13 +2,22 @@
 #include <k4a/k4a.hpp>
 #include <chrono>
 #include <string>
+#include <fcntl.h>
+#include <termios.h>
 
 #include <cv_bridge/cv_bridge.h>
 #include <opencv2/opencv.hpp>
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/image.hpp"
 
-#define SAVE_IMAGES false
+#define SAVE_IMAGES true
+
+// Function to send command to the Arduino
+void send_command(int serial_port, const std::string& command)
+{
+    write(serial_port, command.c_str(), command.length());
+    write(serial_port, "\n", 1); // Send newline character
+}
 
 cv::Mat plotHistogram(const cv::Mat& image, int histSize = 256, int histWidth = 512, int histHeight = 400) {
     // Check if the input image is a single-channel 8-bit image
@@ -49,6 +58,8 @@ int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
   auto node = rclcpp::Node::make_shared("image_publisher");
+
+  // create image publishers
   auto color_publisher = node->create_publisher<sensor_msgs::msg::Image>("color_image", 10);
   auto depth_publisher = node->create_publisher<sensor_msgs::msg::Image>("depth_image", 10);
   auto ir_active_publisher = node->create_publisher<sensor_msgs::msg::Image>("ir_active_image", 10);
@@ -63,10 +74,60 @@ int main(int argc, char ** argv)
   auto combined_binary_publisher = node->create_publisher<sensor_msgs::msg::Image>("combined_binary_image", 10);
   auto clean_binary_publisher = node->create_publisher<sensor_msgs::msg::Image>("clean_binary_image", 10);
   auto components_publisher = node->create_publisher<sensor_msgs::msg::Image>("components_image", 10);
+  
+  // open serial comm to arduino
+  const char* arduino = "/dev/ttyACM0";
+  int serial_port = open(arduino, O_RDWR);
+  if (serial_port < 0) {
+    RCLCPP_ERROR(
+      node->get_logger(),
+      "Error %i from opening Arduino port: %s", errno, strerror(errno));
+    return 0;
+  }
+  termios tty;
+  memset(&tty, 0, sizeof(tty));
+  if (tcgetattr(serial_port, &tty) != 0) {
+    RCLCPP_ERROR(
+      node->get_logger(),
+      "Error %i from tcgetattr: %s", errno, strerror(errno));
+      close(serial_port);
+    return 0;
+  }
+  cfsetispeed(&tty, B9600);  // set baud rate
+  cfsetospeed(&tty, B9600);  // set baud rate
+  tty.c_cflag &= ~PARENB; // No parity bit
+  tty.c_cflag &= ~CSTOPB; // One stop bit
+  tty.c_cflag &= ~CSIZE;
+  tty.c_cflag |= CS8; // 8 data bits
+  tty.c_cflag &= ~CRTSCTS; // No hardware flow control
+  tty.c_cflag |= CREAD | CLOCAL; // Enable read and ignore control lines
+  tty.c_lflag &= ~ICANON; // Disable canonical mode
+  tty.c_lflag &= ~ECHO; // Disable echo
+  tty.c_lflag &= ~ECHOE; // Disable erasure
+  tty.c_lflag &= ~ECHONL; // Disable new-line echo
+  tty.c_lflag &= ~ISIG; // Disable interpretation of INTR, QUIT and SUSP
+  tty.c_iflag &= ~(IXON | IXOFF | IXANY); // Disable XON/XOFF flow control
+  tty.c_iflag &= ~(IGNBRK | BRKINT | PARMRK | ISTRIP | INLCR | IGNCR | ICRNL); // Disable special handling of received bytes
+  tty.c_oflag &= ~OPOST; // Disable output processing
+  tty.c_oflag &= ~ONLCR; // Disable conversion of newline to carriage return/line feed
+  tty.c_cc[VTIME] = 0;
+  tty.c_cc[VMIN] = 0;
+  if (tcsetattr(serial_port, TCSANOW, &tty) != 0) {
+    RCLCPP_ERROR(
+      node->get_logger(),
+      "Error %i from tcsetattr: %s", errno, strerror(errno));
+      close(serial_port);
+    return 0;
+  }
+  
+  // turn off leds and set brightness to maximum
+  send_command(serial_port, "OFF");
+  send_command(serial_port, "BRIGHTNESS 255");
+  
   // open the first plugged in Kinect device
   k4a::device device = k4a::device::open(K4A_DEVICE_DEFAULT);
 
-  // set color controls (mostly same as defaults)
+  // set color controls (mostly same as camera defaults)
   device.set_color_control(K4A_COLOR_CONTROL_EXPOSURE_TIME_ABSOLUTE,
     K4A_COLOR_CONTROL_MODE_MANUAL, 20000);
   device.set_color_control(K4A_COLOR_CONTROL_BRIGHTNESS,
@@ -217,7 +278,14 @@ int main(int argc, char ** argv)
     cv::Mat bgr_mat;
     cv::cvtColor(color_mat, bgr_mat, cv::COLOR_BGRA2BGR);
     cv::Mat nir_normalized;
-    cv::normalize(ir_passive_mat, nir_normalized, 0, 255, cv::NORM_MINMAX, CV_8UC1);
+    // cv::normalize(ir_passive_mat, nir_normalized, 0, 255, cv::NORM_MINMAX, CV_8UC1);
+    // use CLAHE for NIR normalization
+    double clip_limit = 2.0;
+    cv::Size tile_grid_size = cv::Size(8, 8);
+    cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(clip_limit, tile_grid_size);
+    clahe->apply(ir_passive_mat, nir_normalized);
+    cv::normalize(nir_normalized, nir_normalized, 0, 255, cv::NORM_MINMAX, CV_8UC1);
+
 
     if (SAVE_IMAGES)
     {
@@ -361,6 +429,7 @@ int main(int argc, char ** argv)
 
 
   device.stop_cameras();
+  close(serial_port);
 
   rclcpp::shutdown();
   return 0;
