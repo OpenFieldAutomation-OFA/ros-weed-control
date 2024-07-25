@@ -34,9 +34,12 @@ cv::Mat plotHistogram(const cv::Mat& image, int histSize = 256, int histWidth = 
     // Compute the histogram
     cv::Mat hist;
     cv::calcHist(&image, 1, 0, cv::Mat(), hist, 1, &histSize, &histRange, uniform, accumulate);
+    // hist.convertTo(hist, CV_32F);
 
     // Normalize the histogram
     cv::Mat histNorm;
+    // cv::divide(100, hist, histNorm);
+    // histNorm.convertTo(histNorm, CV_8UC1);
     cv::normalize(hist, histNorm, 0, histHeight, cv::NORM_MINMAX);
 
     // Create an image to display the histogram
@@ -63,14 +66,13 @@ int main(int argc, char ** argv)
   auto color_publisher = node->create_publisher<sensor_msgs::msg::Image>("color_image", 10);
   auto depth_publisher = node->create_publisher<sensor_msgs::msg::Image>("depth_image", 10);
   auto ir_active_publisher = node->create_publisher<sensor_msgs::msg::Image>("ir_active_image", 10);
-  auto ir_passive_publisher = node->create_publisher<sensor_msgs::msg::Image>("ir_passive_image", 10);
   auto red_publisher = node->create_publisher<sensor_msgs::msg::Image>("red_image", 10);
+  auto green_publisher = node->create_publisher<sensor_msgs::msg::Image>("green_image", 10);
+  auto blue_publisher = node->create_publisher<sensor_msgs::msg::Image>("blue_image", 10);
   auto nir_publisher = node->create_publisher<sensor_msgs::msg::Image>("nir_image", 10);
-  auto ndvi_publisher = node->create_publisher<sensor_msgs::msg::Image>("ndvi_image", 10);
   auto exg_publisher = node->create_publisher<sensor_msgs::msg::Image>("exg_image", 10);
   auto exg_binary_publisher = node->create_publisher<sensor_msgs::msg::Image>("exg_binary_image", 10);
-  auto ndvi_binary_publisher = node->create_publisher<sensor_msgs::msg::Image>("ndvi_binary_image", 10);
-  auto hist_publisher = node->create_publisher<sensor_msgs::msg::Image>("hist_image", 10);
+  auto nir_binary_publisher = node->create_publisher<sensor_msgs::msg::Image>("nir_binary_image", 10);
   auto combined_binary_publisher = node->create_publisher<sensor_msgs::msg::Image>("combined_binary_image", 10);
   auto clean_binary_publisher = node->create_publisher<sensor_msgs::msg::Image>("clean_binary_image", 10);
   auto components_publisher = node->create_publisher<sensor_msgs::msg::Image>("components_image", 10);
@@ -123,13 +125,13 @@ int main(int argc, char ** argv)
   // turn off leds and set brightness to maximum
   send_command(serial_port, "OFF");
   send_command(serial_port, "BRIGHTNESS 255");
-  
+
   // open the first plugged in Kinect device
   k4a::device device = k4a::device::open(K4A_DEVICE_DEFAULT);
 
   // set color controls (mostly same as camera defaults)
   device.set_color_control(K4A_COLOR_CONTROL_EXPOSURE_TIME_ABSOLUTE,
-    K4A_COLOR_CONTROL_MODE_MANUAL, 20000);
+    K4A_COLOR_CONTROL_MODE_AUTO, 0);
   device.set_color_control(K4A_COLOR_CONTROL_BRIGHTNESS,
     K4A_COLOR_CONTROL_MODE_MANUAL, 10);
   device.set_color_control(K4A_COLOR_CONTROL_CONTRAST,
@@ -152,29 +154,32 @@ int main(int argc, char ** argv)
   config_active.color_resolution = K4A_COLOR_RESOLUTION_2160P;
   config_active.depth_mode = K4A_DEPTH_MODE_WFOV_UNBINNED;
   config_active.synchronized_images_only = true;
-  k4a_device_configuration_t config_passive = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
-  config_passive.depth_mode = K4A_DEPTH_MODE_PASSIVE_IR;
+  // k4a_device_configuration_t config_passive = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
+  // config_passive.depth_mode = K4A_DEPTH_MODE_PASSIVE_IR;
 
   k4a_calibration_t calibration = device.get_calibration(config_active.depth_mode, config_active.color_resolution);
   k4a::transformation transformation(calibration);
 
   k4a::capture capture_active = k4a::capture::create();
-  k4a::capture capture_passive = k4a::capture::create();
+  // k4a::capture capture_passive = k4a::capture::create();
 
-  rclcpp::WallRate loop_rate(0.2);
-  while (rclcpp::ok()) {
-    // capture in passive mode
-    device.start_cameras(&config_passive);
-    device.get_capture(&capture_passive);
-    k4a::image ir_passive_image = capture_passive.get_ir_image();
-    device.stop_cameras();
-
-    // capture in active mode
+  // rclcpp::WallRate loop_rate(0.2);
+  // while (rclcpp::ok()) {
+    send_command(serial_port, "COLOR 255,255,150");
     device.start_cameras(&config_active);
+    
+    // wait for auto exposure to stabilize
+    for (int i = 0; i < 20; i++)
+    {
+      device.get_capture(&capture_active);
+    }
+
+    // get images
     device.get_capture(&capture_active);
     k4a::image depth_image = capture_active.get_depth_image();
     k4a::image color_image = capture_active.get_color_image();
     k4a::image ir_active_image = capture_active.get_ir_image();
+    send_command(serial_port, "OFF");
     device.stop_cameras();
     
     printf("color image %i, %i, %li\n",
@@ -189,12 +194,8 @@ int main(int argc, char ** argv)
       ir_active_image.get_width_pixels(),
       ir_active_image.get_height_pixels(),
       ir_active_image.get_size());
-    printf("passive ir %i, %i, %li\n",
-      ir_passive_image.get_width_pixels(),
-      ir_passive_image.get_height_pixels(),
-      ir_passive_image.get_size());
     
-    // transform depth and ir images to camera viewpoint
+    // transform depth and ir image to camera viewpoint
     ir_active_image = k4a::image::create_from_buffer(
       K4A_IMAGE_FORMAT_CUSTOM16,
       ir_active_image.get_width_pixels(),
@@ -208,28 +209,11 @@ int main(int argc, char ** argv)
     std::pair<k4a::image, k4a::image> transformed = transformation.depth_image_to_color_camera_custom(
       depth_image,
       ir_active_image,
-      K4A_TRANSFORMATION_INTERPOLATION_TYPE_NEAREST,
-      0
-    );
-    ir_active_image = transformed.second;
-    ir_passive_image = k4a::image::create_from_buffer(
-      K4A_IMAGE_FORMAT_CUSTOM16,
-      ir_passive_image.get_width_pixels(),
-      ir_passive_image.get_height_pixels(),
-      ir_passive_image.get_stride_bytes(),
-      ir_passive_image.get_buffer(),
-      ir_passive_image.get_size(),
-      [](void *, void *) {},
-      NULL
-    );
-    transformed = transformation.depth_image_to_color_camera_custom(
-      depth_image,
-      ir_passive_image,
       K4A_TRANSFORMATION_INTERPOLATION_TYPE_LINEAR,
       0
     );
     depth_image = transformed.first;
-    ir_passive_image = transformed.second;
+    ir_active_image = transformed.second;
 
     // buffer data to cv2
     cv::Mat color_mat(
@@ -251,18 +235,6 @@ int main(int argc, char ** argv)
       CV_16UC1,
       depth_vector.data()
     );
-    uint8_t *ir_passive_buffer = ir_passive_image.get_buffer();
-    std::vector<uint16_t> ir_passive_vector(mono_size);
-    for (std::size_t i = 0; i < mono_size; i++)
-    {
-      ir_passive_vector[i] = static_cast<uint16_t>(ir_passive_buffer[2 * i] | (ir_passive_buffer[2 * i + 1] << 8));
-    }
-    cv::Mat ir_passive_mat(
-      ir_passive_image.get_height_pixels(),
-      ir_passive_image.get_width_pixels(),
-      CV_16UC1,
-      ir_passive_vector.data()
-    );
     uint8_t *ir_active_buffer = ir_active_image.get_buffer();
     std::vector<uint16_t> ir_active_vector(mono_size);
     for (std::size_t i = 0; i < mono_size; i++)
@@ -278,13 +250,8 @@ int main(int argc, char ** argv)
     cv::Mat bgr_mat;
     cv::cvtColor(color_mat, bgr_mat, cv::COLOR_BGRA2BGR);
     cv::Mat nir_normalized;
-    // cv::normalize(ir_passive_mat, nir_normalized, 0, 255, cv::NORM_MINMAX, CV_8UC1);
-    // use CLAHE for NIR normalization
-    double clip_limit = 2.0;
-    cv::Size tile_grid_size = cv::Size(8, 8);
-    cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(clip_limit, tile_grid_size);
-    clahe->apply(ir_passive_mat, nir_normalized);
-    cv::normalize(nir_normalized, nir_normalized, 0, 255, cv::NORM_MINMAX, CV_8UC1);
+    cv::min(ir_active_mat, 2048, ir_active_mat); // remove outliers (reflections, saturated pixels)
+    cv::normalize(ir_active_mat, nir_normalized, 0, 255, cv::NORM_MINMAX, CV_8UC1);
 
 
     if (SAVE_IMAGES)
@@ -294,7 +261,7 @@ int main(int argc, char ** argv)
       cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/ir.png", nir_normalized);
     }
 
-    // calculate NDVI
+    // calculate ExG
     std::vector<cv::Mat> bgr_channels;
     cv::split(bgr_mat, bgr_channels);
     cv::Mat blue_channel = bgr_channels[0];
@@ -304,35 +271,24 @@ int main(int argc, char ** argv)
     blue_channel.convertTo(blue_channel_float, CV_32F);
     green_channel.convertTo(green_channel_float, CV_32F);
     red_channel.convertTo(red_channel_float, CV_32F);
-    nir_normalized.convertTo(nir_float, CV_32F);
-    cv::Mat ndvi;
-    cv::divide((nir_float - red_channel_float), (nir_float + red_channel_float), ndvi);
-    cv::Mat ndvi_normalized;  // only used to display
-    cv::normalize(ndvi, ndvi_normalized, 0, 255, cv::NORM_MINMAX, CV_8UC1);
-
-    // calculate ExG
     cv::Mat exg = 2 * green_channel_float - red_channel_float - blue_channel_float;
     cv::Mat exg_normalized;  // only used to display
     cv::normalize(exg, exg_normalized, 0, 255, cv::NORM_MINMAX, CV_8UC1);
 
     // remove some noise
-    cv::GaussianBlur(ndvi, ndvi, cv::Size(15, 15), 0);
+    cv::GaussianBlur(nir_normalized, nir_normalized, cv::Size(15, 15), 0);
     cv::GaussianBlur(exg, exg, cv::Size(15, 15), 0);
 
-    // draw histogram
-    cv::Mat hist = plotHistogram(exg_normalized);
-
     // threshold
-    double exg_threshold = 0;
-    double ndvi_threshold = -0.2;
+    double exg_threshold = -20;
+    double nir_threshold = 100;
     cv::Mat exg_binary;
     cv::threshold(exg, exg_binary, exg_threshold, 255, cv::THRESH_BINARY);
     exg_binary.convertTo(exg_binary, CV_8UC1);
-    cv::Mat ndvi_binary;
-    cv::threshold(ndvi, ndvi_binary, ndvi_threshold, 255, cv::THRESH_BINARY);
-    ndvi_binary.convertTo(ndvi_binary, CV_8UC1);
+    cv::Mat nir_binary;
+    cv::threshold(nir_normalized, nir_binary, nir_threshold, 255, cv::THRESH_BINARY);
     cv::Mat combined_binary;
-    cv::bitwise_and(exg_binary, ndvi_binary, combined_binary);
+    cv::bitwise_and(exg_binary, nir_binary, combined_binary);
     // threshold_value = cv::threshold(ndvi_normalized, binary, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
     // printf("otsus value: %f\n", threshold_value);
 
@@ -340,12 +296,13 @@ int main(int argc, char ** argv)
     cv::Mat clean_binary;
     cv::Mat kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(10, 10));
     cv::morphologyEx(combined_binary, clean_binary, cv::MORPH_OPEN, kernel);
-    cv::morphologyEx(combined_binary, clean_binary, cv::MORPH_CLOSE, kernel);
+    kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(20, 20));
+    cv::morphologyEx(combined_binary, clean_binary, cv::MORPH_DILATE, kernel);
 
     // seperate components
     cv::Mat labels, stats, centroids;
     int connectivity = 8;
-    int num_components = cv::connectedComponentsWithStats(combined_binary, labels, stats, centroids, connectivity);
+    int num_components = cv::connectedComponentsWithStats(clean_binary, labels, stats, centroids, connectivity);
 
     // display results
     std::vector<cv::Vec3b> colors(num_components);
@@ -357,22 +314,25 @@ int main(int argc, char ** argv)
 
     int min_area = 1000;
     for (int i = 1; i < num_components; i++) {
-        cv::Rect bounding_box = cv::Rect(stats.at<int>(i, cv::CC_STAT_LEFT),
-                                        stats.at<int>(i, cv::CC_STAT_TOP),
-                                        stats.at<int>(i, cv::CC_STAT_WIDTH),
-                                        stats.at<int>(i, cv::CC_STAT_HEIGHT));
-        // don't consider small components
-        int area = stats.at<int>(i, cv::CC_STAT_AREA);
-        if (area >= min_area) {
-          components.setTo(
-            cv::Vec3b(rand() % 256, rand() % 256, rand() % 256),
-            labels == i
-          );
-          cv::Point centroid(cvRound(centroids.at<double>(i, 0)), cvRound(centroids.at<double>(i, 1)));
-          std::cout << "Component " << i << ": Area = " << area << ", Centroid = " << centroid << std::endl;
-          cv::rectangle(components, bounding_box, cv::Scalar(0, 255, 0), 5);
-          cv::circle(components, centroid, 10, cv::Scalar(0, 0, 255), 10);
-        }
+      cv::Rect bounding_box = cv::Rect(stats.at<int>(i, cv::CC_STAT_LEFT),
+                                      stats.at<int>(i, cv::CC_STAT_TOP),
+                                      stats.at<int>(i, cv::CC_STAT_WIDTH),
+                                      stats.at<int>(i, cv::CC_STAT_HEIGHT));
+      // don't consider small components
+      int area = stats.at<int>(i, cv::CC_STAT_AREA);
+      if (area >= min_area) {
+        components.setTo(
+          cv::Vec3b(rand() % 256, rand() % 256, rand() % 256),
+          labels == i
+        );
+        cv::Point centroid(cvRound(centroids.at<double>(i, 0)), cvRound(centroids.at<double>(i, 1)));
+        std::cout << "Component " << i << ": Area = " << area << ", Centroid = " << centroid << std::endl;
+        cv::rectangle(components, bounding_box, cv::Scalar(0, 255, 0), 5);
+        cv::circle(components, centroid, 10, cv::Scalar(0, 0, 255), 10);
+
+
+
+      }
     }
 
     // publish images
@@ -384,32 +344,29 @@ int main(int argc, char ** argv)
     ir_active_publisher->publish(
       *cv_bridge::CvImage(header, "mono16", ir_active_mat).toImageMsg().get()
     );
-    ir_passive_publisher->publish(
-      *cv_bridge::CvImage(header, "mono16", ir_passive_mat).toImageMsg().get()
-    );
     depth_publisher->publish(
       *cv_bridge::CvImage(header, "mono16", depth_mat).toImageMsg().get()
     );
     red_publisher->publish(
       *cv_bridge::CvImage(header, "mono8", red_channel).toImageMsg().get()
     );
+    green_publisher->publish(
+      *cv_bridge::CvImage(header, "mono8", green_channel).toImageMsg().get()
+    );
+    blue_publisher->publish(
+      *cv_bridge::CvImage(header, "mono8", blue_channel).toImageMsg().get()
+    );
     nir_publisher->publish(
       *cv_bridge::CvImage(header, "mono8", nir_normalized).toImageMsg().get()
-    );
-    ndvi_publisher->publish(
-      *cv_bridge::CvImage(header, "mono8", ndvi_normalized).toImageMsg().get()
     );
     exg_publisher->publish(
       *cv_bridge::CvImage(header, "mono8", exg_normalized).toImageMsg().get()
     );
-    hist_publisher->publish(
-      *cv_bridge::CvImage(header, "mono8", hist).toImageMsg().get()
-    );
     exg_binary_publisher->publish(
       *cv_bridge::CvImage(header, "mono8", exg_binary).toImageMsg().get()
     );
-    ndvi_binary_publisher->publish(
-      *cv_bridge::CvImage(header, "mono8", ndvi_binary).toImageMsg().get()
+    nir_binary_publisher->publish(
+      *cv_bridge::CvImage(header, "mono8", nir_binary).toImageMsg().get()
     );
     combined_binary_publisher->publish(
       *cv_bridge::CvImage(header, "mono8", combined_binary).toImageMsg().get()
@@ -422,9 +379,9 @@ int main(int argc, char ** argv)
     );
 
     RCLCPP_INFO(node->get_logger(), "Published");
-    rclcpp::spin_some(node);
-    loop_rate.sleep();
-  }
+  //   rclcpp::spin_some(node);
+  //   loop_rate.sleep();
+  // }
 
 
 
