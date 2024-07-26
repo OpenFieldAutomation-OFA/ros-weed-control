@@ -10,7 +10,6 @@
    <xacro:include filename="ofa_robot_description.urdf.xacro" />
 
   <!-- Import materials and inertia macros -->
-  <xacro:include filename="inertia.urdf.xacro" />
   <xacro:include filename="materials.urdf.xacro" />
 
   <!-- Import ros2_control description -->
