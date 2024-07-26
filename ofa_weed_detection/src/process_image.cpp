@@ -7,10 +7,32 @@
 
 #include <cv_bridge/cv_bridge.h>
 #include <opencv2/opencv.hpp>
+#include <pcl/io/pcd_io.h>
+#include <pcl/point_types.h>
+#include <pcl/segmentation/extract_clusters.h>
+#include <pcl/search/kdtree.h>
+
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/image.hpp"
 
 #define SAVE_IMAGES true
+
+struct PointXYZHash {
+    std::size_t operator()(const pcl::PointXYZ& point) const {
+        std::size_t hx = std::hash<int>()(static_cast<int>(point.x));
+        std::size_t hy = std::hash<int>()(static_cast<int>(point.y));
+        std::size_t hz = std::hash<int>()(static_cast<int>(point.z));
+        return hx ^ (hy << 1) ^ (hz << 2);
+    }
+};
+struct PointXYZEqual {
+    bool operator()(const pcl::PointXYZ& p1, const pcl::PointXYZ& p2) const {
+        float epsilon = 2;
+        return (std::abs(p1.x - p2.x) < epsilon) &&
+               (std::abs(p1.y - p2.y) < epsilon) &&
+               (std::abs(p1.z - p2.z) < epsilon);
+    }
+};
 
 // Function to send command to the Arduino
 void send_command(int serial_port, const std::string& command)
@@ -65,7 +87,7 @@ int main(int argc, char ** argv)
   // create image publishers
   auto color_publisher = node->create_publisher<sensor_msgs::msg::Image>("color_image", 10);
   auto depth_publisher = node->create_publisher<sensor_msgs::msg::Image>("depth_image", 10);
-  auto ir_active_publisher = node->create_publisher<sensor_msgs::msg::Image>("ir_active_image", 10);
+  auto hist_publisher = node->create_publisher<sensor_msgs::msg::Image>("hist_image", 10);  auto ir_active_publisher = node->create_publisher<sensor_msgs::msg::Image>("ir_active_image", 10);
   auto red_publisher = node->create_publisher<sensor_msgs::msg::Image>("red_image", 10);
   auto green_publisher = node->create_publisher<sensor_msgs::msg::Image>("green_image", 10);
   auto blue_publisher = node->create_publisher<sensor_msgs::msg::Image>("blue_image", 10);
@@ -168,7 +190,7 @@ int main(int argc, char ** argv)
     send_command(serial_port, "COLOR 255,255,150");
     device.start_cameras(&config_active);
     
-    // wait for auto exposure to stabilize
+    // wait for auto exposure to settle
     for (int i = 0; i < 20; i++)
     {
       device.get_capture(&capture_active);
@@ -252,7 +274,15 @@ int main(int argc, char ** argv)
     cv::Mat nir_normalized;
     cv::min(ir_active_mat, 2048, ir_active_mat); // remove outliers (reflections, saturated pixels)
     cv::normalize(ir_active_mat, nir_normalized, 0, 255, cv::NORM_MINMAX, CV_8UC1);
+    cv::Mat depth_normalized;
+    cv::min(depth_mat, 600, depth_mat);
+    cv::max(depth_mat, 300, depth_mat);
+    cv::normalize(depth_mat, depth_normalized, 0, 255, cv::NORM_MINMAX, CV_8UC1);
 
+    cv::Scalar mean, stddev;
+    cv::meanStdDev(depth_mat, mean, stddev);
+    printf("mean: %f, std: %f\n", mean[0], stddev[0]);
+    cv::Mat hist = plotHistogram(depth_normalized);
 
     if (SAVE_IMAGES)
     {
@@ -281,7 +311,7 @@ int main(int argc, char ** argv)
 
     // threshold
     double exg_threshold = -20;
-    double nir_threshold = 100;
+    double nir_threshold = 80;
     cv::Mat exg_binary;
     cv::threshold(exg, exg_binary, exg_threshold, 255, cv::THRESH_BINARY);
     exg_binary.convertTo(exg_binary, CV_8UC1);
@@ -292,48 +322,170 @@ int main(int argc, char ** argv)
     // threshold_value = cv::threshold(ndvi_normalized, binary, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
     // printf("otsus value: %f\n", threshold_value);
 
-    // morphological transforms
-    cv::Mat clean_binary;
-    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(10, 10));
-    cv::morphologyEx(combined_binary, clean_binary, cv::MORPH_OPEN, kernel);
-    kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(20, 20));
-    cv::morphologyEx(combined_binary, clean_binary, cv::MORPH_DILATE, kernel);
+    // // convert to point cloud
+    // k4a::image point_cloud_image = transformation.depth_image_to_point_cloud(depth_image, K4A_CALIBRATION_TYPE_COLOR);
+    // int16_t *point_cloud_image_data = (int16_t *)(void *)point_cloud_image.get_buffer();
 
-    // seperate components
-    cv::Mat labels, stats, centroids;
-    int connectivity = 8;
-    int num_components = cv::connectedComponentsWithStats(clean_binary, labels, stats, centroids, connectivity);
-
-    // display results
-    std::vector<cv::Vec3b> colors(num_components);
-    colors[0] = cv::Vec3b(0, 0, 0); // Background color
-    for (int i = 1; i < num_components; i++) {
-        colors[i] = cv::Vec3b(rand() % 256, rand() % 256, rand() % 256);
-    }
-    cv::Mat components = cv::Mat::zeros(combined_binary.size(), CV_8UC3);
-
-    int min_area = 1000;
-    for (int i = 1; i < num_components; i++) {
-      cv::Rect bounding_box = cv::Rect(stats.at<int>(i, cv::CC_STAT_LEFT),
-                                      stats.at<int>(i, cv::CC_STAT_TOP),
-                                      stats.at<int>(i, cv::CC_STAT_WIDTH),
-                                      stats.at<int>(i, cv::CC_STAT_HEIGHT));
-      // don't consider small components
-      int area = stats.at<int>(i, cv::CC_STAT_AREA);
-      if (area >= min_area) {
-        components.setTo(
-          cv::Vec3b(rand() % 256, rand() % 256, rand() % 256),
-          labels == i
+    std::unordered_set<pcl::PointXYZ, PointXYZHash, PointXYZEqual> uniquePoints;
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
+    for (int row = 0; row < combined_binary.rows; row++)
+    {
+      for (int col = 0; col < combined_binary.cols; col++)
+      {
+        
+        if ((int)combined_binary.at<uchar>(row, col) == 0) continue;
+        // int k = i * combined_binary.cols + j;
+        // int16_t x = point_cloud_image_data[3 * k + 0];
+        // int16_t y = point_cloud_image_data[3 * k + 1];
+        // int16_t z = point_cloud_image_data[3 * k + 2];
+        // if (z == 0) continue;
+        // pcl::PointXYZ point;
+        // point.x = x;
+        // point.y = y;
+        // point.z = z;
+        k4a_float3_t point3d;
+        k4a_float2_t point2d;
+        point2d.xy.x = col;
+        point2d.xy.y = row;
+        int valid;
+        k4a_calibration_2d_to_3d(
+          &calibration,
+          &point2d,
+          depth_mat.at<uint16_t>(row, col),
+          K4A_CALIBRATION_TYPE_COLOR,
+          K4A_CALIBRATION_TYPE_COLOR,
+          &point3d,
+          &valid
         );
-        cv::Point centroid(cvRound(centroids.at<double>(i, 0)), cvRound(centroids.at<double>(i, 1)));
-        std::cout << "Component " << i << ": Area = " << area << ", Centroid = " << centroid << std::endl;
-        cv::rectangle(components, bounding_box, cv::Scalar(0, 255, 0), 5);
-        cv::circle(components, centroid, 10, cv::Scalar(0, 0, 255), 10);
+        pcl::PointXYZ point;
+        point.x = point3d.xyz.x;
+        point.y = point3d.xyz.y;
+        point.z = point3d.xyz.z;
+        if (uniquePoints.find(point) == uniquePoints.end()) {
+          uniquePoints.insert(point);
+          cloud->points.push_back(point);
+        }
 
+        int k = row * combined_binary.rows + col;
 
-
+        if (k < 300000)
+        {
+          k4a_float2_t point2d2;
+          k4a_calibration_3d_to_2d(
+            &calibration,
+            &point3d,
+            K4A_CALIBRATION_TYPE_COLOR,
+            K4A_CALIBRATION_TYPE_COLOR,
+            &point2d2,
+            &valid
+          );
+          int image_x = std::round(point2d2.xy.x);
+          int image_y = std::round(point2d2.xy.y);
+          printf("position: %d, %d, 3d point: %f, %f, %f, reprojected: %d, %d\n",
+            row, col, point3d.xyz.x, point3d.xyz.y, point3d.xyz.z, image_y, image_x);
+        }
       }
     }
+    cloud->width = cloud->points.size();
+    cloud->height = 1; // Unorganized point cloud
+    cloud->is_dense = true;
+
+    printf("size: %d\n", cloud->width);
+
+    printf("start\n");
+
+    // cluster cloud
+    pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>);
+    tree->setInputCloud(cloud);
+    pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
+    ec.setClusterTolerance(10); // Set the distance tolerance
+    ec.setMinClusterSize(1000);    // Set the minimum number of points in a cluster
+    ec.setMaxClusterSize(100000);  // Set the maximum number of points in a cluster
+    ec.setSearchMethod(tree);
+    ec.setInputCloud(cloud);
+    std::vector<pcl::PointIndices> cluster_indices;
+    ec.extract(cluster_indices);
+
+    printf("done\n");
+
+    // project clusters back
+    cv::Mat components = cv::Mat::zeros(combined_binary.size(), CV_8UC3);
+    for (const auto& indices : cluster_indices) {
+      uint8_t r = 255 * (rand() / (1.0 + RAND_MAX));
+      uint8_t g = 255 * (rand() / (1.0 + RAND_MAX));
+      uint8_t b = 255 * (rand() / (1.0 + RAND_MAX));
+      for (const auto& idx : indices.indices) {
+        k4a_float3_t point3d;
+        k4a_float2_t point2d;
+        point3d.xyz.x = cloud->points[idx].x;
+        point3d.xyz.y = cloud->points[idx].y;
+        point3d.xyz.z = cloud->points[idx].z;
+        int valid = 0;
+        k4a_calibration_3d_to_2d(
+          &calibration,
+          &point3d,
+          K4A_CALIBRATION_TYPE_COLOR,
+          K4A_CALIBRATION_TYPE_COLOR,
+          &point2d,
+          &valid
+        );
+        int row = std::round(point2d.xy.y);
+        int col = std::round(point2d.xy.x);
+
+        if (row > components.rows || col > components.cols || row < 0 || col < 0)
+        {
+          printf("wtf: %d, %d\n", row, col);
+          continue;
+        }
+        components.at<cv::Vec3b>(row, col)[0] = r; 
+        components.at<cv::Vec3b>(row, col)[1] = g; 
+        components.at<cv::Vec3b>(row, col)[2] = b; 
+        // printf("x: %f, y: %f\n", image_point.xy.x, image_point.xy.y);
+      }
+    }
+
+    // morphological transforms
+    // cv::Mat clean_binary;
+    // cv::Mat kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(10, 10));
+    // cv::morphologyEx(combined_binary, clean_binary, cv::MORPH_OPEN, kernel);
+    // kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(20, 20));
+    // cv::morphologyEx(combined_binary, clean_binary, cv::MORPH_DILATE, kernel);
+
+    // // seperate components
+    // cv::Mat labels, stats, centroids;
+    // int connectivity = 8;
+    // int num_components = cv::connectedComponentsWithStats(clean_binary, labels, stats, centroids, connectivity);
+
+    // // display results
+    // std::vector<cv::Vec3b> colors(num_components);
+    // colors[0] = cv::Vec3b(0, 0, 0); // Background color
+    // for (int i = 1; i < num_components; i++) {
+    //     colors[i] = cv::Vec3b(rand() % 256, rand() % 256, rand() % 256);
+    // }
+    // cv::Mat components = cv::Mat::zeros(combined_binary.size(), CV_8UC3);
+
+    // int min_area = 1000;
+    // for (int i = 1; i < num_components; i++) {
+    //   cv::Rect bounding_box = cv::Rect(stats.at<int>(i, cv::CC_STAT_LEFT),
+    //                                   stats.at<int>(i, cv::CC_STAT_TOP),
+    //                                   stats.at<int>(i, cv::CC_STAT_WIDTH),
+    //                                   stats.at<int>(i, cv::CC_STAT_HEIGHT));
+    //   // don't consider small components
+    //   int area = stats.at<int>(i, cv::CC_STAT_AREA);
+    //   if (area >= min_area) {
+    //     components.setTo(
+    //       cv::Vec3b(rand() % 256, rand() % 256, rand() % 256),
+    //       labels == i
+    //     );
+    //     cv::Point centroid(cvRound(centroids.at<double>(i, 0)), cvRound(centroids.at<double>(i, 1)));
+    //     std::cout << "Component " << i << ": Area = " << area << ", Centroid = " << centroid << std::endl;
+    //     cv::rectangle(components, bounding_box, cv::Scalar(0, 255, 0), 5);
+    //     cv::circle(components, centroid, 10, cv::Scalar(0, 0, 255), 10);
+
+
+
+    //   }
+    // }
 
     // publish images
     std_msgs::msg::Header header;
@@ -341,11 +493,14 @@ int main(int argc, char ** argv)
     color_publisher->publish(
       *cv_bridge::CvImage(header, "bgr8", bgr_mat).toImageMsg().get()
     );
+    hist_publisher->publish(
+      *cv_bridge::CvImage(header, "mono8", hist).toImageMsg().get()
+    );
     ir_active_publisher->publish(
       *cv_bridge::CvImage(header, "mono16", ir_active_mat).toImageMsg().get()
     );
     depth_publisher->publish(
-      *cv_bridge::CvImage(header, "mono16", depth_mat).toImageMsg().get()
+      *cv_bridge::CvImage(header, "mono8", depth_normalized).toImageMsg().get()
     );
     red_publisher->publish(
       *cv_bridge::CvImage(header, "mono8", red_channel).toImageMsg().get()
@@ -371,9 +526,9 @@ int main(int argc, char ** argv)
     combined_binary_publisher->publish(
       *cv_bridge::CvImage(header, "mono8", combined_binary).toImageMsg().get()
     );
-    clean_binary_publisher->publish(
-      *cv_bridge::CvImage(header, "mono8", clean_binary).toImageMsg().get()
-    );
+    // clean_binary_publisher->publish(
+    //   *cv_bridge::CvImage(header, "mono8", clean_binary).toImageMsg().get()
+    // );
     components_publisher->publish(
       *cv_bridge::CvImage(header, "rgb8", components).toImageMsg().get()
     );

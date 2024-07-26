@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.8)
 project(ofa_weed_detection)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic)
+  add_compile_options(-Wall -Wextra)
 endif()
 
 # find dependencies
@@ -10,10 +10,11 @@ set(THIS_PACKAGE_INCLUDE_DEPENDS
   orbbec_camera
   rclcpp
   cv_bridge
+  PCL
 )
 find_package(ament_cmake REQUIRED)
 foreach(Dependency IN ITEMS ${THIS_PACKAGE_INCLUDE_DEPENDS})
-  find_package(${Dependency} REQUIRED)
+  find_package(${Dependency} REQUIRED QUIET)
 endforeach()
 
 # get build platform
@@ -35,7 +36,11 @@ ament_target_dependencies(
   process_image
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
-target_link_libraries(process_image ${CMAKE_CURRENT_SOURCE_DIR}/lib/${HOST_PLATFORM}/libk4a.so)
+target_link_libraries(
+  process_image
+  ${CMAKE_CURRENT_SOURCE_DIR}/lib/${HOST_PLATFORM}/libk4a.so
+  ${PCL_LIBRARIES}
+)
 
 ## INSTALL
 install(
