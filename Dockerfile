@@ -79,6 +79,7 @@ RUN apt-get update \
     gdb \
     liblapack-dev \
     libpcl-dev \
+    nvidia-cuda-toolkit \
     ros-$ROS_DISTRO-urdf-launch \
     ros-$ROS_DISTRO-rqt-graph \
     ros-$ROS_DISTRO-turtlesim \

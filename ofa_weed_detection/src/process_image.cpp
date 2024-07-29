@@ -13,6 +13,9 @@
 #include <pcl/search/kdtree.h>
 #include <pcl/filters/voxel_grid.h>
 
+#include "cuda_runtime.h"
+#include "cuCluster/cudaCluster.h"
+
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/image.hpp"
 
@@ -299,7 +302,7 @@ int main(int argc, char ** argv)
     // threshold_value = cv::threshold(ndvi_normalized, binary, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
     // printf("otsus value: %f\n", threshold_value);
 
-    int distance = 20;  // distance in mm between two points that will be connected
+    int distance = 10;  // distance in mm between two points that will be connected
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
     for (int row = 0; row < combined_binary.rows; row++)
@@ -327,24 +330,6 @@ int main(int argc, char ** argv)
         // we scale the z dimension such that only points with adjacent depth values are connected
         point.z = point3d.xyz.z * (distance - 1);
         cloud->points.push_back(point);
-
-        // int k = row * combined_binary.rows + col;
-        // if (k < 300000)
-        // {
-        //   k4a_float2_t point2d2;
-        //   k4a_calibration_3d_to_2d(
-        //     &calibration,
-        //     &point3d,
-        //     K4A_CALIBRATION_TYPE_COLOR,
-        //     K4A_CALIBRATION_TYPE_COLOR,
-        //     &point2d2,
-        //     &valid
-        //   );
-        //   int image_x = std::round(point2d2.xy.x);
-        //   int image_y = std::round(point2d2.xy.y);
-        //   printf("position: %d, %d, 3d point: %f, %f, %f, reprojected: %d, %d\n",
-        //     row, col, point3d.xyz.x, point3d.xyz.y, point3d.xyz.z, image_y, image_x);
-        // }
       }
     }
     cloud->width = cloud->points.size();
@@ -363,17 +348,62 @@ int main(int argc, char ** argv)
 
     // cluster cloud
     printf("Clustering cloud\n");
+    auto t1 = std::chrono::high_resolution_clock::now();
     pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>);
     tree->setInputCloud(cloud_filtered);
     pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
-    ec.setClusterTolerance(20); // Set the distance tolerance
+    ec.setClusterTolerance(distance); // Set the distance tolerance
     ec.setMinClusterSize(100);    // Set the minimum number of points in a cluster
     ec.setMaxClusterSize(1000000);  // Set the maximum number of points in a cluster
     ec.setSearchMethod(tree);
     ec.setInputCloud(cloud_filtered);
     std::vector<pcl::PointIndices> cluster_indices;
     ec.extract(cluster_indices);
-    printf("Finished clustering\n");
+    auto t2 = std::chrono::high_resolution_clock::now();
+    auto ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
+    printf("Finished clustering in %ld ms\n", ms_int.count());
+
+
+    // EXPERIMENTAL
+    printf("Clustering cloud on gpu\n");
+    cudaStream_t stream = NULL;
+    cudaStreamCreate(&stream);
+
+    float *inputEC = NULL;
+    unsigned int sizeEC = cloud->size();
+    cudaMallocManaged(&inputEC, sizeof(float) * 4 * sizeEC, cudaMemAttachHost);
+    cudaStreamAttachMemAsync (stream, inputEC);
+    cudaMemcpyAsync(inputEC, cloud->points.data(), sizeof(float) * 4 * sizeEC, cudaMemcpyHostToDevice, stream);
+    cudaStreamSynchronize(stream);
+
+    float *outputEC = NULL;
+    cudaMallocManaged(&outputEC, sizeof(float) * 4 * sizeEC, cudaMemAttachHost);
+    cudaStreamAttachMemAsync (stream, outputEC);
+    cudaMemcpyAsync(outputEC, cloud->points.data(), sizeof(float) * 4 * sizeEC, cudaMemcpyHostToDevice, stream);
+    cudaStreamSynchronize(stream);
+
+    unsigned int *indexEC = NULL;
+    cudaMallocManaged(&indexEC, sizeof(float) * 4 * sizeEC, cudaMemAttachHost);
+    cudaStreamAttachMemAsync (stream, indexEC);
+    cudaMemsetAsync(indexEC, 0, sizeof(float) * 4 * sizeEC, stream);
+    cudaStreamSynchronize(stream);
+
+    extractClusterParam_t ecp;
+    ecp.minClusterSize = 100;
+    ecp.maxClusterSize = 1000000;
+    ecp.voxelX = 100.0;
+    ecp.voxelY = 100.0;
+    ecp.voxelZ = 100.0;
+    ecp.countThreshold = 20;
+    cudaExtractCluster cudaec(stream);
+    cudaec.set(ecp);
+    t1 = std::chrono::high_resolution_clock::now();
+    cudaec.extract(inputEC, sizeEC, outputEC, indexEC);
+    cudaStreamSynchronize(stream);
+    t2 = std::chrono::high_resolution_clock::now();
+    ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
+    printf("Finished clustering in %ld ms\n", ms_int.count());
+
 
     // project clusters back
     cv::Mat components = cv::Mat::zeros(combined_binary.size(), CV_8UC3);
