@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(ofa_weed_detection CUDA CXX)
+project(ofa_weed_detection)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra)
@@ -11,7 +11,6 @@ set(THIS_PACKAGE_INCLUDE_DEPENDS
   rclcpp
   cv_bridge
   PCL
-  CUDA
 )
 find_package(ament_cmake REQUIRED)
 foreach(Dependency IN ITEMS ${THIS_PACKAGE_INCLUDE_DEPENDS})
@@ -23,12 +22,8 @@ if (${CMAKE_HOST_SYSTEM_PROCESSOR} STREQUAL x86_64)
   set(HOST_PLATFORM x64)
 elseif (${CMAKE_HOST_SYSTEM_PROCESSOR} STREQUAL aarch64)
   set(HOST_PLATFORM arm64)
-  if (NOT ${CMAKE_HOST_SYSTEM_VERSION} STREQUAL 5.15.136-tegra)
-    # libcudacluster.so in arm64 folder is for jp6.x
-    message(FATAL_ERROR "Jetpack version not supported" )
-  endif ()
 else ()
-  message(FATAL_ERROR "Host platform not supported")
+  message(FATAL_ERROR "Host platform not supported" )
 endif ()
 
 ## COMPILE
@@ -44,7 +39,6 @@ ament_target_dependencies(
 target_link_libraries(
   process_image
   ${CMAKE_CURRENT_SOURCE_DIR}/lib/${HOST_PLATFORM}/libk4a.so
-  ${CMAKE_CURRENT_SOURCE_DIR}/lib/${HOST_PLATFORM}/libcudacluster.so
   ${PCL_LIBRARIES}
 )
 
