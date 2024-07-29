@@ -11,28 +11,12 @@
 #include <pcl/point_types.h>
 #include <pcl/segmentation/extract_clusters.h>
 #include <pcl/search/kdtree.h>
+#include <pcl/filters/voxel_grid.h>
 
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/image.hpp"
 
 #define SAVE_IMAGES true
-
-struct PointXYZHash {
-    std::size_t operator()(const pcl::PointXYZ& point) const {
-        std::size_t hx = std::hash<int>()(static_cast<int>(point.x));
-        std::size_t hy = std::hash<int>()(static_cast<int>(point.y));
-        std::size_t hz = std::hash<int>()(static_cast<int>(point.z));
-        return hx ^ (hy << 1) ^ (hz << 2);
-    }
-};
-struct PointXYZEqual {
-    bool operator()(const pcl::PointXYZ& p1, const pcl::PointXYZ& p2) const {
-        float epsilon = 2;
-        return (std::abs(p1.x - p2.x) < epsilon) &&
-               (std::abs(p1.y - p2.y) < epsilon) &&
-               (std::abs(p1.z - p2.z) < epsilon);
-    }
-};
 
 // Function to send command to the Arduino
 void send_command(int serial_port, const std::string& command)
@@ -284,13 +268,6 @@ int main(int argc, char ** argv)
     printf("mean: %f, std: %f\n", mean[0], stddev[0]);
     cv::Mat hist = plotHistogram(depth_normalized);
 
-    if (SAVE_IMAGES)
-    {
-      cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/color.png", bgr_mat);
-      cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/depth.png", depth_mat);
-      cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/ir.png", nir_normalized);
-    }
-
     // calculate ExG
     std::vector<cv::Mat> bgr_channels;
     cv::split(bgr_mat, bgr_channels);
@@ -322,27 +299,14 @@ int main(int argc, char ** argv)
     // threshold_value = cv::threshold(ndvi_normalized, binary, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
     // printf("otsus value: %f\n", threshold_value);
 
-    // // convert to point cloud
-    // k4a::image point_cloud_image = transformation.depth_image_to_point_cloud(depth_image, K4A_CALIBRATION_TYPE_COLOR);
-    // int16_t *point_cloud_image_data = (int16_t *)(void *)point_cloud_image.get_buffer();
+    int distance = 20;  // distance in mm between two points that will be connected
 
-    std::unordered_set<pcl::PointXYZ, PointXYZHash, PointXYZEqual> uniquePoints;
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
     for (int row = 0; row < combined_binary.rows; row++)
     {
       for (int col = 0; col < combined_binary.cols; col++)
       {
-        
-        if ((int)combined_binary.at<uchar>(row, col) == 0) continue;
-        // int k = i * combined_binary.cols + j;
-        // int16_t x = point_cloud_image_data[3 * k + 0];
-        // int16_t y = point_cloud_image_data[3 * k + 1];
-        // int16_t z = point_cloud_image_data[3 * k + 2];
-        // if (z == 0) continue;
-        // pcl::PointXYZ point;
-        // point.x = x;
-        // point.y = y;
-        // point.z = z;
+        if ((int)combined_binary.at<uint8_t>(row, col) == 0) continue;
         k4a_float3_t point3d;
         k4a_float2_t point2d;
         point2d.xy.x = col;
@@ -360,53 +324,56 @@ int main(int argc, char ** argv)
         pcl::PointXYZ point;
         point.x = point3d.xyz.x;
         point.y = point3d.xyz.y;
-        point.z = point3d.xyz.z;
-        if (uniquePoints.find(point) == uniquePoints.end()) {
-          uniquePoints.insert(point);
-          cloud->points.push_back(point);
-        }
+        // we scale the z dimension such that only points with adjacent depth values are connected
+        point.z = point3d.xyz.z * (distance - 1);
+        cloud->points.push_back(point);
 
-        int k = row * combined_binary.rows + col;
-
-        if (k < 300000)
-        {
-          k4a_float2_t point2d2;
-          k4a_calibration_3d_to_2d(
-            &calibration,
-            &point3d,
-            K4A_CALIBRATION_TYPE_COLOR,
-            K4A_CALIBRATION_TYPE_COLOR,
-            &point2d2,
-            &valid
-          );
-          int image_x = std::round(point2d2.xy.x);
-          int image_y = std::round(point2d2.xy.y);
-          printf("position: %d, %d, 3d point: %f, %f, %f, reprojected: %d, %d\n",
-            row, col, point3d.xyz.x, point3d.xyz.y, point3d.xyz.z, image_y, image_x);
-        }
+        // int k = row * combined_binary.rows + col;
+        // if (k < 300000)
+        // {
+        //   k4a_float2_t point2d2;
+        //   k4a_calibration_3d_to_2d(
+        //     &calibration,
+        //     &point3d,
+        //     K4A_CALIBRATION_TYPE_COLOR,
+        //     K4A_CALIBRATION_TYPE_COLOR,
+        //     &point2d2,
+        //     &valid
+        //   );
+        //   int image_x = std::round(point2d2.xy.x);
+        //   int image_y = std::round(point2d2.xy.y);
+        //   printf("position: %d, %d, 3d point: %f, %f, %f, reprojected: %d, %d\n",
+        //     row, col, point3d.xyz.x, point3d.xyz.y, point3d.xyz.z, image_y, image_x);
+        // }
       }
     }
     cloud->width = cloud->points.size();
     cloud->height = 1; // Unorganized point cloud
     cloud->is_dense = true;
+    printf("Point cloud size: %d\n", cloud->width);
 
-    printf("size: %d\n", cloud->width);
+    // downsample cloud
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::VoxelGrid<pcl::PointXYZ> sor;
+    sor.setInputCloud(cloud);
+    sor.setLeafSize(0.5f, 0.5f, 5.0f);
+    sor.filter(*cloud_filtered);
 
-    printf("start\n");
+    printf("Filtered point cloud size: %d\n", cloud_filtered->width);
 
     // cluster cloud
+    printf("Clustering cloud\n");
     pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>);
-    tree->setInputCloud(cloud);
+    tree->setInputCloud(cloud_filtered);
     pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
-    ec.setClusterTolerance(10); // Set the distance tolerance
-    ec.setMinClusterSize(1000);    // Set the minimum number of points in a cluster
-    ec.setMaxClusterSize(100000);  // Set the maximum number of points in a cluster
+    ec.setClusterTolerance(20); // Set the distance tolerance
+    ec.setMinClusterSize(100);    // Set the minimum number of points in a cluster
+    ec.setMaxClusterSize(1000000);  // Set the maximum number of points in a cluster
     ec.setSearchMethod(tree);
-    ec.setInputCloud(cloud);
+    ec.setInputCloud(cloud_filtered);
     std::vector<pcl::PointIndices> cluster_indices;
     ec.extract(cluster_indices);
-
-    printf("done\n");
+    printf("Finished clustering\n");
 
     // project clusters back
     cv::Mat components = cv::Mat::zeros(combined_binary.size(), CV_8UC3);
@@ -417,9 +384,9 @@ int main(int argc, char ** argv)
       for (const auto& idx : indices.indices) {
         k4a_float3_t point3d;
         k4a_float2_t point2d;
-        point3d.xyz.x = cloud->points[idx].x;
-        point3d.xyz.y = cloud->points[idx].y;
-        point3d.xyz.z = cloud->points[idx].z;
+        point3d.xyz.x = cloud_filtered->points[idx].x;
+        point3d.xyz.y = cloud_filtered->points[idx].y;
+        point3d.xyz.z = cloud_filtered->points[idx].z / (distance - 1);
         int valid = 0;
         k4a_calibration_3d_to_2d(
           &calibration,
@@ -486,6 +453,14 @@ int main(int argc, char ** argv)
 
     //   }
     // }
+
+    if (SAVE_IMAGES)
+    {
+      cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/color.png", bgr_mat);
+      cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/depth.png", depth_mat);
+      cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/ir.png", nir_normalized);
+      cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/components.png", components);
+    }
 
     // publish images
     std_msgs::msg::Header header;
