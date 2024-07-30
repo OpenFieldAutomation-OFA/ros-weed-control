@@ -50,7 +50,7 @@ def generate_launch_description():
         [
             FindPackageShare("ofa_moveit_config"),
             "config",
-            "ros2_controllers.yaml",
+            "ros2_controllers_read.yaml",
         ]
     )
     rviz_config_file = PathJoinSubstitution(
