@@ -69,11 +69,13 @@ int main(int argc, char ** argv)
 
   // get parameters
   double cluster_distance;
+  double scale_z;
   double exg_threshold;
   double nir_threshold;
   bool save_images;
   int dilation_size;
-  node->get_parameter("cluster_distance", cluster_distance);  // tolerance in mm for pcl clustering
+  node->get_parameter("cluster_distance", cluster_distance);  // tolerance in mm for point cloud clustering
+  node->get_parameter("scale_z", scale_z);  // scales depth value in point cloud
   node->get_parameter("dilation_size", dilation_size);  // dilation kernel size
   node->get_parameter("exg_threshold", exg_threshold);  // excess green threshold
   node->get_parameter("nir_threshold", nir_threshold);  // nir threshold
@@ -185,7 +187,7 @@ int main(int argc, char ** argv)
 
   // rclcpp::WallRate loop_rate(0.2);
   // while (rclcpp::ok()) {
-    send_command(serial_port, "COLOR 255,255,150");
+    send_command(serial_port, "COLOR 255,255,128");
     device.start_cameras(&config_active);
     
     // wait for auto exposure to settle
@@ -229,7 +231,7 @@ int main(int argc, char ** argv)
     std::pair<k4a::image, k4a::image> transformed = transformation.depth_image_to_color_camera_custom(
       depth_image,
       ir_active_image,
-      K4A_TRANSFORMATION_INTERPOLATION_TYPE_LINEAR,
+      K4A_TRANSFORMATION_INTERPOLATION_TYPE_NEAREST,
       0
     );
     depth_image = transformed.first;
@@ -273,8 +275,6 @@ int main(int argc, char ** argv)
     cv::min(ir_active_mat, 2048, ir_active_mat); // remove outliers (reflections, saturated pixels)
     cv::normalize(ir_active_mat, nir_normalized, 0, 255, cv::NORM_MINMAX, CV_8UC1);
     cv::Mat depth_normalized;
-    cv::min(depth_mat, 600, depth_mat);
-    cv::max(depth_mat, 300, depth_mat);
     cv::normalize(depth_mat, depth_normalized, 0, 255, cv::NORM_MINMAX, CV_8UC1);
 
     cv::Scalar mean, stddev;
@@ -317,6 +317,7 @@ int main(int argc, char ** argv)
       for (int col = 0; col < combined_binary.cols; col++)
       {
         if ((int)combined_binary.at<uint8_t>(row, col) == 0) continue;
+        if ((int)depth_mat.at<uint16_t>(row, col) == 0) continue;
         k4a_float3_t point3d;
         k4a_float2_t point2d;
         point2d.xy.x = col;
@@ -335,7 +336,7 @@ int main(int argc, char ** argv)
         point.x = point3d.xyz.x;
         point.y = point3d.xyz.y;
         // we scale the z dimension such that only points with adjacent depth values are connected
-        point.z = point3d.xyz.z * (cluster_distance - 1);
+        point.z = point3d.xyz.z * scale_z;
         cloud->points.push_back(point);
       }
     }
@@ -381,7 +382,7 @@ int main(int argc, char ** argv)
         k4a_float2_t point2d;
         point3d.xyz.x = cloud_filtered->points[idx].x;
         point3d.xyz.y = cloud_filtered->points[idx].y;
-        point3d.xyz.z = cloud_filtered->points[idx].z / (cluster_distance - 1);
+        point3d.xyz.z = cloud_filtered->points[idx].z / scale_z;
         int valid = 0;
         k4a_calibration_3d_to_2d(
           &calibration,
@@ -399,6 +400,9 @@ int main(int argc, char ** argv)
           printf("wtf: %d, %d\n", row, col);
           continue;
         }
+        // cv::Point projected(col, row);
+        // cv::circle(components3d, projected, 2, cv::Scalar(r, g, b), 2);
+
         components3d.at<cv::Vec3b>(row, col)[0] = r; 
         components3d.at<cv::Vec3b>(row, col)[1] = g; 
         components3d.at<cv::Vec3b>(row, col)[2] = b; 
@@ -406,6 +410,8 @@ int main(int argc, char ** argv)
       }
     }
 
+    printf("Start 2d version\n");
+    t1 = std::chrono::high_resolution_clock::now();
     // morphological transforms
     cv::Mat clean_binary;
     // cv::Mat kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(10, 10));
@@ -417,6 +423,9 @@ int main(int argc, char ** argv)
     cv::Mat labels, stats, centroids;
     int connectivity = 8;
     int num_components = cv::connectedComponentsWithStats(clean_binary, labels, stats, centroids, connectivity);
+    t2 = std::chrono::high_resolution_clock::now();
+    ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
+    printf("Finished 2d in %ld ms\n", ms_int.count());
 
     // display results
     std::vector<cv::Vec3b> colors(num_components);
@@ -440,7 +449,7 @@ int main(int argc, char ** argv)
           labels == i
         );
         cv::Point centroid(cvRound(centroids.at<double>(i, 0)), cvRound(centroids.at<double>(i, 1)));
-        std::cout << "Component " << i << ": Area = " << area << ", Centroid = " << centroid << std::endl;
+        // std::cout << "Component " << i << ": Area = " << area << ", Centroid = " << centroid << std::endl;
         cv::rectangle(components, bounding_box, cv::Scalar(0, 255, 0), 5);
         cv::circle(components, centroid, 10, cv::Scalar(0, 0, 255), 10);
 
@@ -456,6 +465,7 @@ int main(int argc, char ** argv)
       cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/ir.png", nir_normalized);
       cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/components.png", components);
       cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/components3d.png", components3d);
+      cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/combined_binary.png", combined_binary);
     }
 
     // publish images
