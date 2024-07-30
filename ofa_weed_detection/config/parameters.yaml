@@ -1,0 +1,7 @@
+/ofa/weed_detection:
+  ros__parameters:
+    cluster_distance: 5.0
+    exg_threshold: -20.0
+    nir_threshold: 80.0
+    save_images: true
+    dilation_size: 10

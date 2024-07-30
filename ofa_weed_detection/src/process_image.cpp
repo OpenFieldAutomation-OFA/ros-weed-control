@@ -16,8 +16,6 @@
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/image.hpp"
 
-#define SAVE_IMAGES true
-
 // Function to send command to the Arduino
 void send_command(int serial_port, const std::string& command)
 {
@@ -66,7 +64,22 @@ cv::Mat plotHistogram(const cv::Mat& image, int histSize = 256, int histWidth = 
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
-  auto node = rclcpp::Node::make_shared("image_publisher");
+  auto node = rclcpp::Node::make_shared("weed_detection",
+    rclcpp::NodeOptions().automatically_declare_parameters_from_overrides(true));
+
+  // get parameters
+  double cluster_distance;
+  double exg_threshold;
+  double nir_threshold;
+  bool save_images;
+  int dilation_size;
+  node->get_parameter("cluster_distance", cluster_distance);  // tolerance in mm for pcl clustering
+  node->get_parameter("dilation_size", dilation_size);  // dilation kernel size
+  node->get_parameter("exg_threshold", exg_threshold);  // excess green threshold
+  node->get_parameter("nir_threshold", nir_threshold);  // nir threshold
+  node->get_parameter("save_images", save_images);  // nir threshold
+
+  printf("c: %f, e: %f, n: %f", cluster_distance, exg_threshold, nir_threshold);
 
   // create image publishers
   auto color_publisher = node->create_publisher<sensor_msgs::msg::Image>("color_image", 10);
@@ -82,6 +95,7 @@ int main(int argc, char ** argv)
   auto combined_binary_publisher = node->create_publisher<sensor_msgs::msg::Image>("combined_binary_image", 10);
   auto clean_binary_publisher = node->create_publisher<sensor_msgs::msg::Image>("clean_binary_image", 10);
   auto components_publisher = node->create_publisher<sensor_msgs::msg::Image>("components_image", 10);
+  auto components3d_publisher = node->create_publisher<sensor_msgs::msg::Image>("components3d_image", 10);
   
   // open serial comm to arduino
   const char* arduino = "/dev/ttyACM0";
@@ -287,8 +301,6 @@ int main(int argc, char ** argv)
     cv::GaussianBlur(exg, exg, cv::Size(15, 15), 0);
 
     // threshold
-    double exg_threshold = -20;
-    double nir_threshold = 80;
     cv::Mat exg_binary;
     cv::threshold(exg, exg_binary, exg_threshold, 255, cv::THRESH_BINARY);
     exg_binary.convertTo(exg_binary, CV_8UC1);
@@ -298,8 +310,6 @@ int main(int argc, char ** argv)
     cv::bitwise_and(exg_binary, nir_binary, combined_binary);
     // threshold_value = cv::threshold(ndvi_normalized, binary, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
     // printf("otsus value: %f\n", threshold_value);
-
-    int distance = 20;  // distance in mm between two points that will be connected
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
     for (int row = 0; row < combined_binary.rows; row++)
@@ -325,26 +335,8 @@ int main(int argc, char ** argv)
         point.x = point3d.xyz.x;
         point.y = point3d.xyz.y;
         // we scale the z dimension such that only points with adjacent depth values are connected
-        point.z = point3d.xyz.z * (distance - 1);
+        point.z = point3d.xyz.z * (cluster_distance - 1);
         cloud->points.push_back(point);
-
-        // int k = row * combined_binary.rows + col;
-        // if (k < 300000)
-        // {
-        //   k4a_float2_t point2d2;
-        //   k4a_calibration_3d_to_2d(
-        //     &calibration,
-        //     &point3d,
-        //     K4A_CALIBRATION_TYPE_COLOR,
-        //     K4A_CALIBRATION_TYPE_COLOR,
-        //     &point2d2,
-        //     &valid
-        //   );
-        //   int image_x = std::round(point2d2.xy.x);
-        //   int image_y = std::round(point2d2.xy.y);
-        //   printf("position: %d, %d, 3d point: %f, %f, %f, reprojected: %d, %d\n",
-        //     row, col, point3d.xyz.x, point3d.xyz.y, point3d.xyz.z, image_y, image_x);
-        // }
       }
     }
     cloud->width = cloud->points.size();
@@ -356,27 +348,30 @@ int main(int argc, char ** argv)
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::VoxelGrid<pcl::PointXYZ> sor;
     sor.setInputCloud(cloud);
-    sor.setLeafSize(0.5f, 0.5f, 5.0f);
+    sor.setLeafSize(1.0, 1.0, 1.0);
     sor.filter(*cloud_filtered);
 
     printf("Filtered point cloud size: %d\n", cloud_filtered->width);
 
     // cluster cloud
     printf("Clustering cloud\n");
+    auto t1 = std::chrono::high_resolution_clock::now();
     pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>);
     tree->setInputCloud(cloud_filtered);
     pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
-    ec.setClusterTolerance(20); // Set the distance tolerance
-    ec.setMinClusterSize(100);    // Set the minimum number of points in a cluster
+    ec.setClusterTolerance(cluster_distance); // Set the distance tolerance
+    ec.setMinClusterSize(20);    // Set the minimum number of points in a cluster
     ec.setMaxClusterSize(1000000);  // Set the maximum number of points in a cluster
     ec.setSearchMethod(tree);
     ec.setInputCloud(cloud_filtered);
     std::vector<pcl::PointIndices> cluster_indices;
     ec.extract(cluster_indices);
-    printf("Finished clustering\n");
+    auto t2 = std::chrono::high_resolution_clock::now();
+    auto ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
+    printf("Finished clustering in %ld ms\n", ms_int.count());
 
     // project clusters back
-    cv::Mat components = cv::Mat::zeros(combined_binary.size(), CV_8UC3);
+    cv::Mat components3d = cv::Mat::zeros(combined_binary.size(), CV_8UC3);
     for (const auto& indices : cluster_indices) {
       uint8_t r = 255 * (rand() / (1.0 + RAND_MAX));
       uint8_t g = 255 * (rand() / (1.0 + RAND_MAX));
@@ -386,7 +381,7 @@ int main(int argc, char ** argv)
         k4a_float2_t point2d;
         point3d.xyz.x = cloud_filtered->points[idx].x;
         point3d.xyz.y = cloud_filtered->points[idx].y;
-        point3d.xyz.z = cloud_filtered->points[idx].z / (distance - 1);
+        point3d.xyz.z = cloud_filtered->points[idx].z / (cluster_distance - 1);
         int valid = 0;
         k4a_calibration_3d_to_2d(
           &calibration,
@@ -399,67 +394,68 @@ int main(int argc, char ** argv)
         int row = std::round(point2d.xy.y);
         int col = std::round(point2d.xy.x);
 
-        if (row > components.rows || col > components.cols || row < 0 || col < 0)
+        if (row > components3d.rows || col > components3d.cols || row < 0 || col < 0)
         {
           printf("wtf: %d, %d\n", row, col);
           continue;
         }
-        components.at<cv::Vec3b>(row, col)[0] = r; 
-        components.at<cv::Vec3b>(row, col)[1] = g; 
-        components.at<cv::Vec3b>(row, col)[2] = b; 
+        components3d.at<cv::Vec3b>(row, col)[0] = r; 
+        components3d.at<cv::Vec3b>(row, col)[1] = g; 
+        components3d.at<cv::Vec3b>(row, col)[2] = b; 
         // printf("x: %f, y: %f\n", image_point.xy.x, image_point.xy.y);
       }
     }
 
     // morphological transforms
-    // cv::Mat clean_binary;
+    cv::Mat clean_binary;
     // cv::Mat kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(10, 10));
     // cv::morphologyEx(combined_binary, clean_binary, cv::MORPH_OPEN, kernel);
-    // kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(20, 20));
-    // cv::morphologyEx(combined_binary, clean_binary, cv::MORPH_DILATE, kernel);
+    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(dilation_size, dilation_size));
+    cv::morphologyEx(combined_binary, clean_binary, cv::MORPH_DILATE, kernel);
 
-    // // seperate components
-    // cv::Mat labels, stats, centroids;
-    // int connectivity = 8;
-    // int num_components = cv::connectedComponentsWithStats(clean_binary, labels, stats, centroids, connectivity);
+    // seperate components
+    cv::Mat labels, stats, centroids;
+    int connectivity = 8;
+    int num_components = cv::connectedComponentsWithStats(clean_binary, labels, stats, centroids, connectivity);
 
-    // // display results
-    // std::vector<cv::Vec3b> colors(num_components);
-    // colors[0] = cv::Vec3b(0, 0, 0); // Background color
-    // for (int i = 1; i < num_components; i++) {
-    //     colors[i] = cv::Vec3b(rand() % 256, rand() % 256, rand() % 256);
-    // }
-    // cv::Mat components = cv::Mat::zeros(combined_binary.size(), CV_8UC3);
+    // display results
+    std::vector<cv::Vec3b> colors(num_components);
+    colors[0] = cv::Vec3b(0, 0, 0); // Background color
+    for (int i = 1; i < num_components; i++) {
+        colors[i] = cv::Vec3b(rand() % 256, rand() % 256, rand() % 256);
+    }
+    cv::Mat components = cv::Mat::zeros(combined_binary.size(), CV_8UC3);
 
-    // int min_area = 1000;
-    // for (int i = 1; i < num_components; i++) {
-    //   cv::Rect bounding_box = cv::Rect(stats.at<int>(i, cv::CC_STAT_LEFT),
-    //                                   stats.at<int>(i, cv::CC_STAT_TOP),
-    //                                   stats.at<int>(i, cv::CC_STAT_WIDTH),
-    //                                   stats.at<int>(i, cv::CC_STAT_HEIGHT));
-    //   // don't consider small components
-    //   int area = stats.at<int>(i, cv::CC_STAT_AREA);
-    //   if (area >= min_area) {
-    //     components.setTo(
-    //       cv::Vec3b(rand() % 256, rand() % 256, rand() % 256),
-    //       labels == i
-    //     );
-    //     cv::Point centroid(cvRound(centroids.at<double>(i, 0)), cvRound(centroids.at<double>(i, 1)));
-    //     std::cout << "Component " << i << ": Area = " << area << ", Centroid = " << centroid << std::endl;
-    //     cv::rectangle(components, bounding_box, cv::Scalar(0, 255, 0), 5);
-    //     cv::circle(components, centroid, 10, cv::Scalar(0, 0, 255), 10);
+    int min_area = 1000;
+    for (int i = 1; i < num_components; i++) {
+      cv::Rect bounding_box = cv::Rect(stats.at<int>(i, cv::CC_STAT_LEFT),
+                                      stats.at<int>(i, cv::CC_STAT_TOP),
+                                      stats.at<int>(i, cv::CC_STAT_WIDTH),
+                                      stats.at<int>(i, cv::CC_STAT_HEIGHT));
+      // don't consider small components
+      int area = stats.at<int>(i, cv::CC_STAT_AREA);
+      if (area >= min_area) {
+        components.setTo(
+          cv::Vec3b(rand() % 256, rand() % 256, rand() % 256),
+          labels == i
+        );
+        cv::Point centroid(cvRound(centroids.at<double>(i, 0)), cvRound(centroids.at<double>(i, 1)));
+        std::cout << "Component " << i << ": Area = " << area << ", Centroid = " << centroid << std::endl;
+        cv::rectangle(components, bounding_box, cv::Scalar(0, 255, 0), 5);
+        cv::circle(components, centroid, 10, cv::Scalar(0, 0, 255), 10);
 
 
 
-    //   }
-    // }
+      }
+    }
 
-    if (SAVE_IMAGES)
+    if (save_images)
     {
       cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/color.png", bgr_mat);
-      cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/depth.png", depth_mat);
+      cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/depth.png", depth_normalized);
       cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/ir.png", nir_normalized);
       cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/components.png", components);
+      cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/components3d.png", components3d);
     }
 
     // publish images
@@ -501,10 +497,13 @@ int main(int argc, char ** argv)
     combined_binary_publisher->publish(
       *cv_bridge::CvImage(header, "mono8", combined_binary).toImageMsg().get()
     );
-    // clean_binary_publisher->publish(
-    //   *cv_bridge::CvImage(header, "mono8", clean_binary).toImageMsg().get()
-    // );
+    clean_binary_publisher->publish(
+      *cv_bridge::CvImage(header, "mono8", clean_binary).toImageMsg().get()
+    );
     components_publisher->publish(
+      *cv_bridge::CvImage(header, "rgb8", components).toImageMsg().get()
+    );
+    components3d_publisher->publish(
       *cv_bridge::CvImage(header, "rgb8", components).toImageMsg().get()
     );
 
