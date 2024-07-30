@@ -63,27 +63,27 @@ int main(int argc, char* argv[])
   moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
 
   // Create ground collision box
-  moveit_msgs::msg::CollisionObject collision_object;
-  collision_object.header.frame_id = move_group.getPlanningFrame();
-  collision_object.id = "ground";
-  shape_msgs::msg::SolidPrimitive primitive;
-  primitive.type = primitive.BOX;
-  primitive.dimensions.resize(3);
-  primitive.dimensions[primitive.BOX_X] = 2.0;
-  primitive.dimensions[primitive.BOX_Y] = 2.0;
-  primitive.dimensions[primitive.BOX_Z] = 1.0;
-  geometry_msgs::msg::Pose ground_pose;
-  ground_pose.orientation.w = 1.0;
-  ground_pose.position.x = 0.0;
-  ground_pose.position.y = 0.0;
-  ground_pose.position.z = -0.5;
-  collision_object.primitives.push_back(primitive);
-  collision_object.primitive_poses.push_back(ground_pose);
-  collision_object.operation = collision_object.ADD;
-  std::vector<moveit_msgs::msg::CollisionObject> collision_objects;
-  collision_objects.push_back(collision_object);
-  RCLCPP_INFO(LOGGER, "Add ground into the world");
-  planning_scene_interface.addCollisionObjects(collision_objects);
+  // moveit_msgs::msg::CollisionObject collision_object;
+  // collision_object.header.frame_id = move_group.getPlanningFrame();
+  // collision_object.id = "ground";
+  // shape_msgs::msg::SolidPrimitive primitive;
+  // primitive.type = primitive.BOX;
+  // primitive.dimensions.resize(3);
+  // primitive.dimensions[primitive.BOX_X] = 2.0;
+  // primitive.dimensions[primitive.BOX_Y] = 2.0;
+  // primitive.dimensions[primitive.BOX_Z] = 1.0;
+  // geometry_msgs::msg::Pose ground_pose;
+  // ground_pose.orientation.w = 1.0;
+  // ground_pose.position.x = 0.0;
+  // ground_pose.position.y = 0.0;
+  // ground_pose.position.z = -0.5;
+  // collision_object.primitives.push_back(primitive);
+  // collision_object.primitive_poses.push_back(ground_pose);
+  // collision_object.operation = collision_object.ADD;
+  // std::vector<moveit_msgs::msg::CollisionObject> collision_objects;
+  // collision_objects.push_back(collision_object);
+  // RCLCPP_INFO(LOGGER, "Add ground into the world");
+  // planning_scene_interface.addCollisionObjects(collision_objects);
 
 
   // auto t1 = std::chrono::high_resolution_clock::now();
@@ -103,7 +103,7 @@ int main(int argc, char* argv[])
     std::vector<double> joint_values = node->get_position(i);
     move_group.setJointValueTarget(joint_values);
     move_group.move();
-    rclcpp::sleep_for(std::chrono::milliseconds(1000));
+    rclcpp::sleep_for(std::chrono::milliseconds(3000));
   }
 
   // // set position goal (left position)

@@ -31,7 +31,8 @@
     <xacro:property name="attachment_off" value="${0.06+0.002}" />
 
     <!-- Distance between ground and top of axis -->
-    <xacro:property name="height" value="${0.68}" />
+    <!-- Real height is lower but we leave some leeway -->
+    <xacro:property name="height" value="${0.75}" />
 
     <!-- Distance between motor and tube -->
     <xacro:property name="tube_off" value="${0.01}" />
@@ -66,14 +67,14 @@
 
     <!-- Tube dimensions -->
     <xacro:property name="arm_r" value="${0.045/2}" />
-    <xacro:property name="arm1_l" value="0.368" />
-    <xacro:property name="arm2_l" value="0.17" />
+    <xacro:property name="arm1_l" value="0.362" />
+    <xacro:property name="arm2_l" value="0.161" />
 
     <!-- End effector dimensions -->
     <xacro:property name="end_base_r" value="0.013" />
-    <xacro:property name="end_base_l" value="0.15" />
+    <xacro:property name="end_base_l" value="0.16" />
     <xacro:property name="end_tip_r" value="0.003" />
-    <xacro:property name="end_tip_l" value="0.05" />
+    <xacro:property name="end_tip_l" value="0.034" />
 
     <joint name="base_joint" type="fixed">
       <origin xyz="0 0 ${height}" rpy="0 0 0" />
