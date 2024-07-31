@@ -7,14 +7,14 @@ endif()
 
 # find dependencies
 set(THIS_PACKAGE_INCLUDE_DEPENDS
-  orbbec_camera
+  # orbbec_camera
   rclcpp
   cv_bridge
-  PCL
 )
 find_package(ament_cmake REQUIRED)
+find_package(PCL REQUIRED QUIET)
 foreach(Dependency IN ITEMS ${THIS_PACKAGE_INCLUDE_DEPENDS})
-  find_package(${Dependency} REQUIRED QUIET)
+  find_package(${Dependency} REQUIRED)
 endforeach()
 
 # get build platform

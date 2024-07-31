@@ -12,6 +12,8 @@
 #include <pcl/segmentation/extract_clusters.h>
 #include <pcl/search/kdtree.h>
 #include <pcl/filters/voxel_grid.h>
+#include <pcl/common/centroid.h>
+#include <pcl/ml/kmeans.h>
 
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/image.hpp"
@@ -70,12 +72,14 @@ int main(int argc, char ** argv)
   // get parameters
   double cluster_distance;
   double scale_z;
+  int split_size;
   double exg_threshold;
   double nir_threshold;
   bool save_images;
   int dilation_size;
   node->get_parameter("cluster_distance", cluster_distance);  // tolerance in mm for point cloud clustering
   node->get_parameter("scale_z", scale_z);  // scales depth value in point cloud
+  node->get_parameter("split_size", split_size);  // dilation kernel size
   node->get_parameter("dilation_size", dilation_size);  // dilation kernel size
   node->get_parameter("exg_threshold", exg_threshold);  // excess green threshold
   node->get_parameter("nir_threshold", nir_threshold);  // nir threshold
@@ -361,7 +365,7 @@ int main(int argc, char ** argv)
     tree->setInputCloud(cloud_filtered);
     pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
     ec.setClusterTolerance(cluster_distance); // Set the distance tolerance
-    ec.setMinClusterSize(20);    // Set the minimum number of points in a cluster
+    ec.setMinClusterSize(100);    // Set the minimum number of points in a cluster
     ec.setMaxClusterSize(1000000);  // Set the maximum number of points in a cluster
     ec.setSearchMethod(tree);
     ec.setInputCloud(cloud_filtered);
@@ -373,16 +377,42 @@ int main(int argc, char ** argv)
 
     // project clusters back
     cv::Mat components3d = cv::Mat::zeros(combined_binary.size(), CV_8UC3);
+    std::vector<std::vector<std::vector<float>>> positions;  // 3d coordinate(s) for each plant
+    
     for (const auto& indices : cluster_indices) {
+      pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZ>);
+      pcl::Kmeans kmeans(indices.indices.size(), 3);
+      // int k = std::min(indices.indices.size() / split_size + 1, static_cast<unsigned long>(20));
+      int k = indices.indices.size() / split_size + 1;
+      printf("Cluster size: %ld\n", indices.indices.size());
+      // printf("Split: %d\n", k);
+      kmeans.setClusterSize(k);
+
       uint8_t r = 255 * (rand() / (1.0 + RAND_MAX));
       uint8_t g = 255 * (rand() / (1.0 + RAND_MAX));
       uint8_t b = 255 * (rand() / (1.0 + RAND_MAX));
+
+      int min_row = combined_binary.rows;
+      int min_col = combined_binary.cols;
+      int max_row = 0;
+      int max_col = 0;
+
       for (const auto& idx : indices.indices) {
+        cloud_filtered->points[idx].z /= scale_z;
+
+        cloud_cluster->push_back((*cloud_filtered)[idx]);
+        
+        std::vector<float> data(3);
+        data[0] = cloud_filtered->points[idx].x;
+        data[1] = cloud_filtered->points[idx].y;
+        data[2] = cloud_filtered->points[idx].z;
+        kmeans.addDataPoint(data);
+
         k4a_float3_t point3d;
         k4a_float2_t point2d;
         point3d.xyz.x = cloud_filtered->points[idx].x;
         point3d.xyz.y = cloud_filtered->points[idx].y;
-        point3d.xyz.z = cloud_filtered->points[idx].z / scale_z;
+        point3d.xyz.z = cloud_filtered->points[idx].z;
         int valid = 0;
         k4a_calibration_3d_to_2d(
           &calibration,
@@ -394,12 +424,11 @@ int main(int argc, char ** argv)
         );
         int row = std::round(point2d.xy.y);
         int col = std::round(point2d.xy.x);
+        if (row > max_row) max_row = row;
+        if (row < min_row) min_row = row;
+        if (col > max_col) max_col = col;
+        if (col < min_col) min_col = col;
 
-        if (row > components3d.rows || col > components3d.cols || row < 0 || col < 0)
-        {
-          printf("wtf: %d, %d\n", row, col);
-          continue;
-        }
         // cv::Point projected(col, row);
         // cv::circle(components3d, projected, 2, cv::Scalar(r, g, b), 2);
 
@@ -408,15 +437,60 @@ int main(int argc, char ** argv)
         components3d.at<cv::Vec3b>(row, col)[2] = b; 
         // printf("x: %f, y: %f\n", image_point.xy.x, image_point.xy.y);
       }
+      cv::Rect bounding_box = cv::Rect(min_col, min_row, max_col - min_col, max_row - min_row);
+      cv::rectangle(components3d, bounding_box, cv::Scalar(0, 255, 0), 2);
+      
+      // positions
+      std::vector<std::vector<float>> centroids;
+      if (k == 1)
+      {
+        Eigen::Vector4f centroid;
+        pcl::compute3DCentroid(*cloud_cluster, centroid);
+        centroids.push_back({centroid[0], centroid[1], centroid[2]});
+      }
+      else
+      {
+        kmeans.kMeans();
+        std::vector<std::vector<float>> all_centroids = kmeans.get_centroids();
+        for (const std::vector<float> & centroid : all_centroids)
+        {          
+          if (!isnan(centroid[0]) && !isnan(centroid[1]) && !isnan(centroid[2]))
+          {
+            centroids.push_back(centroid);
+          }
+        }
+      }
+      positions.push_back(centroids);
+      printf("Centroid count: %ld\n", centroids.size());
+      for (const std::vector<float> & centroid : centroids)
+      {
+        printf("centroid %f: %f, %f\n",
+          centroid[0], centroid[1], centroid[2]);
+        k4a_float3_t point3d;
+        k4a_float2_t point2d;
+        point3d.xyz.x = centroid[0];
+        point3d.xyz.y = centroid[1];
+        point3d.xyz.z = centroid[2];
+        int valid = 0;
+        k4a_calibration_3d_to_2d(
+          &calibration,
+          &point3d,
+          K4A_CALIBRATION_TYPE_COLOR,
+          K4A_CALIBRATION_TYPE_COLOR,
+          &point2d,
+          &valid
+        );
+        int row = std::round(point2d.xy.y);
+        int col = std::round(point2d.xy.x);
+        cv::Point projected_centroid(col, row);
+        cv::circle(components3d, projected_centroid, 10, cv::Scalar(0, 0, 255), -1);      }
     }
 
     printf("Start 2d version\n");
     t1 = std::chrono::high_resolution_clock::now();
     // morphological transforms
     cv::Mat clean_binary;
-    // cv::Mat kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(10, 10));
-    // cv::morphologyEx(combined_binary, clean_binary, cv::MORPH_OPEN, kernel);
-    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(dilation_size, dilation_size));
+    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(dilation_size, dilation_size));
     cv::morphologyEx(combined_binary, clean_binary, cv::MORPH_DILATE, kernel);
 
     // seperate components
@@ -451,10 +525,7 @@ int main(int argc, char ** argv)
         cv::Point centroid(cvRound(centroids.at<double>(i, 0)), cvRound(centroids.at<double>(i, 1)));
         // std::cout << "Component " << i << ": Area = " << area << ", Centroid = " << centroid << std::endl;
         cv::rectangle(components, bounding_box, cv::Scalar(0, 255, 0), 5);
-        cv::circle(components, centroid, 10, cv::Scalar(0, 0, 255), 10);
-
-
-
+        cv::circle(components, centroid, 4, cv::Scalar(0, 0, 255), -1);
       }
     }
 

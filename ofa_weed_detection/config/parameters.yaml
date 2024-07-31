@@ -2,6 +2,7 @@
   ros__parameters:
     cluster_distance: 10.0
     scale_z: 2.0
+    split_size: 5000
     exg_threshold: -25.0
     nir_threshold: 80.0
     save_images: true
