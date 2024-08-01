@@ -43,17 +43,6 @@ ament_target_dependencies(
 )
 target_link_libraries(teknic_hardware PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/lib/${HOST_PLATFORM}/libsFoundation20.so)
 
-add_executable(disable src/disable.cpp)
-target_include_directories(disable PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>)
-target_compile_features(disable PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
-ament_target_dependencies(
-  disable
-  ${THIS_PACKAGE_INCLUDE_DEPENDS}
-)
-target_link_libraries(disable ${CMAKE_CURRENT_SOURCE_DIR}/lib/${HOST_PLATFORM}/libsFoundation20.so)
-
 # Causes the visibility macros to use dllexport rather than dllimport,
 # which is appropriate when building the dll but not consuming it.
 target_compile_definitions(${PROJECT_NAME} PUBLIC "TEKNIC_HARDWARE_BUILDING_DLL")
@@ -75,10 +64,6 @@ install(TARGETS teknic_hardware
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin
-)
-install(
-  TARGETS disable
-  DESTINATION lib/${PROJECT_NAME}
 )
 
 ## EXPORTS

@@ -11,6 +11,13 @@
 
 namespace teknic_hardware
 {
+TeknicSystemHardware::~TeknicSystemHardware()
+{
+  // If the controller manager is shutdown via Ctrl + C the on_deactivate methods won't be called.
+  // We therefore need to make sure to actually deactivate the communication
+  on_deactivate(rclcpp_lifecycle::State());
+}
+
 hardware_interface::CallbackReturn TeknicSystemHardware::on_init(
   const hardware_interface::HardwareInfo & info)
 {

@@ -22,6 +22,8 @@ class TeknicSystemHardware : public hardware_interface::SystemInterface
 {
 public:
   RCLCPP_SHARED_PTR_DEFINITIONS(TeknicSystemHardware);
+  
+  virtual ~TeknicSystemHardware();
 
   TEKNIC_HARDWARE_PUBLIC
   hardware_interface::CallbackReturn on_init(
