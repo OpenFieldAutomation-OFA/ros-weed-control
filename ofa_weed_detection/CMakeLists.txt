@@ -8,8 +8,10 @@ endif()
 # find dependencies
 set(THIS_PACKAGE_INCLUDE_DEPENDS
   # orbbec_camera
+  ofa_interfaces
   rclcpp
   cv_bridge
+  moveit_ros_planning_interface
 )
 find_package(ament_cmake REQUIRED)
 find_package(PCL REQUIRED QUIET)
@@ -27,24 +29,24 @@ else ()
 endif ()
 
 ## COMPILE
-add_executable(process_image src/process_image.cpp)
-target_include_directories(process_image PUBLIC
+add_executable(weed_control src/weed_control.cpp)
+target_include_directories(weed_control PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
-target_compile_features(process_image PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+target_compile_features(weed_control PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 ament_target_dependencies(
-  process_image
+  weed_control
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
 target_link_libraries(
-  process_image
+  weed_control
   ${CMAKE_CURRENT_SOURCE_DIR}/lib/${HOST_PLATFORM}/libk4a.so
   ${PCL_LIBRARIES}
 )
 
 ## INSTALL
 install(
-  TARGETS process_image
+  TARGETS weed_control
   DESTINATION lib/${PROJECT_NAME}
 )
 install(

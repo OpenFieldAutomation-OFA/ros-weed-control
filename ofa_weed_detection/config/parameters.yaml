@@ -1,4 +1,4 @@
-/ofa/weed_detection:
+/weed_control:
   ros__parameters:
     cluster_distance: 10.0
     scale_z: 2.0
