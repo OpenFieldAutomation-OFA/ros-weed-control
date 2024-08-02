@@ -29,24 +29,24 @@ else ()
 endif ()
 
 ## COMPILE
-add_executable(weed_control src/weed_control.cpp)
-target_include_directories(weed_control PUBLIC
+add_executable(weed_detection src/weed_detection.cpp)
+target_include_directories(weed_detection PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
-target_compile_features(weed_control PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+target_compile_features(weed_detection PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 ament_target_dependencies(
-  weed_control
+  weed_detection
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
 target_link_libraries(
-  weed_control
+  weed_detection
   ${CMAKE_CURRENT_SOURCE_DIR}/lib/${HOST_PLATFORM}/libk4a.so
   ${PCL_LIBRARIES}
 )
 
 ## INSTALL
 install(
-  TARGETS weed_control
+  TARGETS weed_detection
   DESTINATION lib/${PROJECT_NAME}
 )
 install(

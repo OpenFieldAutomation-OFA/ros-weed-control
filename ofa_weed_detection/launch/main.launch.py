@@ -116,11 +116,11 @@ def generate_launch_description():
             "parameters.yaml"
          ]
     )
-    weed_control_node = Node(
-        name="weed_control",
+    weed_detection_node = Node(
+        name="weed_detection",
         package="ofa_weed_detection",
-        executable="weed_control",
-        output="screen",
+        executable="weed_detection",
+        # output="screen",
         parameters=[
             moveit_config.robot_description,
             moveit_config.robot_description_semantic,
@@ -129,10 +129,10 @@ def generate_launch_description():
         ],
     )
     
-    delay_weed_control_node = RegisterEventHandler(
+    delay_weed_detection_node = RegisterEventHandler(
         event_handler=OnProcessExit(
             target_action=arm_controller_spawner,
-            on_exit=[weed_control_node],
+            on_exit=[weed_detection_node],
         )
     )
 
@@ -145,6 +145,6 @@ def generate_launch_description():
             ros2_control_node,
             joint_state_broadcaster_spawner,
             arm_controller_spawner,
-            delay_weed_control_node,
+            delay_weed_detection_node,
         ]
     )
