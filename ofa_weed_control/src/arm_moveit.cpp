@@ -98,49 +98,50 @@ int main(int argc, char* argv[])
   move_group.setMaxVelocityScalingFactor(1.0);
   move_group.setMaxAccelerationScalingFactor(1.0);
 
-  for (std::size_t i = 0; i < node->get_length(); i++)
-  {
-    std::vector<double> joint_values = node->get_position(i);
-    move_group.setJointValueTarget(joint_values);
-    move_group.move();
-    rclcpp::sleep_for(std::chrono::milliseconds(3000));
-  }
+  // for (std::size_t i = 0; i < node->get_length(); i++)
+  // {
+  //   std::vector<double> joint_values = node->get_position(i);
+  //   move_group.setJointValueTarget(joint_values);
+  //   move_group.move();
+  //   rclcpp::sleep_for(std::chrono::milliseconds(3000));
+  // }
 
-  // // set position goal (left position)
-  // geometry_msgs::msg::Pose target_pose;
-  // tf2::Quaternion q;
-  // q.setRPY(90 * M_PI / 180, 0, 0);
-  // // RCLCPP_INFO(LOGGER, "quaternion: %f %f %f %f", q.x(), q.y(), q.z(), q.w());
-  // target_pose.orientation.w = q.w();
-  // target_pose.orientation.x = q.x();
-  // target_pose.orientation.y = q.y();
-  // target_pose.orientation.z = q.z();
-  // target_pose.position.x = 0.0;
-  // target_pose.position.y = 0.1;
-  // target_pose.position.z = 0.05;
-  // // move_group.setPositionTarget(0.2, 0.1, 0.05);
+  // set position goal (left position)
+  // move_group.setPoseReferenceFrame("camera_color_frame");
+  geometry_msgs::msg::Pose target_pose;
+  tf2::Quaternion q;
+  q.setRPY(90 * M_PI / 180, 0, 0);
+  // RCLCPP_INFO(LOGGER, "quaternion: %f %f %f %f", q.x(), q.y(), q.z(), q.w());
+  target_pose.orientation.w = q.w();
+  target_pose.orientation.x = q.x();
+  target_pose.orientation.y = q.y();
+  target_pose.orientation.z = q.z();
+  target_pose.position.x = 0.0;
+  target_pose.position.y = 0.1;
+  target_pose.position.z = 0.5;
+  move_group.setPositionTarget(-0.45, -0.12, 0.17);
   // move_group.setPoseTarget(target_pose);
   // move_group.setGoalOrientationTolerance(90 * M_PI / 180);
 
-  // // plan and execute
-  // move_group.move();
+  // plan and execute
+  move_group.move();
 
-  // // set position goal (right position)
-  // q.setRPY(-90 * M_PI / 180, 0, 0);
-  // // RCLCPP_INFO(LOGGER, "quaternion: %f %f %f %f", q.x(), q.y(), q.z(), q.w());
-  // target_pose.orientation.w = q.w();
-  // target_pose.orientation.x = q.x();
-  // target_pose.orientation.y = q.y();
-  // target_pose.orientation.z = q.z();
-  // target_pose.position.x = -0.2;
-  // target_pose.position.y = -0.1;
-  // target_pose.position.z = 0.05;
-  // // move_group.setPositionTarget(-0.2, -0.1, 0.05);
+  // set position goal (right position)
+  q.setRPY(-90 * M_PI / 180, 0, 0);
+  // RCLCPP_INFO(LOGGER, "quaternion: %f %f %f %f", q.x(), q.y(), q.z(), q.w());
+  target_pose.orientation.w = q.w();
+  target_pose.orientation.x = q.x();
+  target_pose.orientation.y = q.y();
+  target_pose.orientation.z = q.z();
+  target_pose.position.x = -0.2;
+  target_pose.position.y = -0.1;
+  target_pose.position.z = 0.5;
+  move_group.setPositionTarget(0.1, 0.0, 0.6);
   // move_group.setPoseTarget(target_pose);
   // move_group.setGoalOrientationTolerance(90 * M_PI / 180);
 
-  // // plan and execute
-  // move_group.move();
+  // plan and execute
+  move_group.move();
 
   // Shutdown ROS
   rclcpp::shutdown();

@@ -20,10 +20,17 @@
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
 #include <tf2/LinearMath/Quaternion.h>
 
-#include "ofa_interfaces/action/weed_control.hpp"
-#include "rclcpp/rclcpp.hpp"
-#include "sensor_msgs/msg/image.hpp"
-#include "rclcpp_action/rclcpp_action.hpp"
+#include <geometry_msgs/msg/point_stamped.hpp>
+#include <geometry_msgs/msg/transform_stamped.hpp>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include <tf2/exceptions.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_ros/buffer.h>
+
+#include <ofa_interfaces/action/weed_control.hpp>
+#include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/image.hpp>
+#include <rclcpp_action/rclcpp_action.hpp>
 
 using WeedControl = ofa_interfaces::action::WeedControl;
 using GoalHandleWeedControl = rclcpp_action::ServerGoalHandle<WeedControl>;
@@ -89,6 +96,12 @@ public:
     // this->declare_parameter("save_images", false);
     // this->declare_parameter("dilation_size", 20);
 
+    // tf2 listener
+    tf_buffer_ =
+      std::make_unique<tf2_ros::Buffer>(this->get_clock());
+    tf_listener_ =
+      std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+
     using namespace std::placeholders;
 
     this->action_server_ = rclcpp_action::create_server<WeedControl>(
@@ -108,6 +121,9 @@ public:
   }
 
 private:
+  std::shared_ptr<tf2_ros::TransformListener> tf_listener_{nullptr};
+  std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
+
   rclcpp_action::Server<WeedControl>::SharedPtr action_server_;
 
   // publishers
@@ -276,6 +292,18 @@ private:
     RCLCPP_INFO(this->get_logger(), "Executing goal");
     auto result = std::make_shared<WeedControl::Result>();
 
+    // get transform
+    geometry_msgs::msg::TransformStamped t;
+    try {
+      t = tf_buffer_->lookupTransform(
+        "world", "camera_color_frame",
+        tf2::TimePointZero);
+    } catch (const tf2::TransformException & ex) {
+      RCLCPP_ERROR(
+        this->get_logger(), "Could not transform %s", ex.what());
+      return;
+    }
+
     // get parameters
     double cluster_distance = this->get_parameter("cluster_distance").as_double();  // tolerance in mm for point cloud clustering
     double scale_z = this->get_parameter("scale_z").as_double();;  // scales depth value in point cloud
@@ -312,15 +340,15 @@ private:
     send_command(arduino_port_, "OFF");
     device_.stop_cameras();
     
-    printf("color image %i, %i, %li\n",
+    RCLCPP_INFO(this->get_logger(), "color image %i, %i, %li\n",
       color_image.get_width_pixels(),
       color_image.get_height_pixels(),
       color_image.get_size());
-    printf("depth image %i, %i, %li\n",
+    RCLCPP_INFO(this->get_logger(), "depth image %i, %i, %li\n",
       depth_image.get_width_pixels(),
       depth_image.get_height_pixels(),
       depth_image.get_size());
-    printf("active ir %i, %i, %li\n",
+    RCLCPP_INFO(this->get_logger(), "active ir %i, %i, %li\n",
       ir_active_image.get_width_pixels(),
       ir_active_image.get_height_pixels(),
       ir_active_image.get_size());
@@ -387,7 +415,7 @@ private:
 
     cv::Scalar mean, stddev;
     cv::meanStdDev(depth_mat, mean, stddev);
-    printf("mean: %f, std: %f\n", mean[0], stddev[0]);
+    RCLCPP_INFO(this->get_logger(), "mean: %f, std: %f\n", mean[0], stddev[0]);
     cv::Mat hist = plotHistogram(depth_normalized);
 
     // calculate ExG
@@ -417,7 +445,7 @@ private:
     cv::Mat combined_binary;
     cv::bitwise_and(exg_binary, nir_binary, combined_binary);
     // threshold_value = cv::threshold(ndvi_normalized, binary, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
-    // printf("otsus value: %f\n", threshold_value);
+    // RCLCPP_INFO(this->get_logger(), "otsus value: %f\n", threshold_value);
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
     for (int row = 0; row < combined_binary.rows; row++)
@@ -451,7 +479,7 @@ private:
     cloud->width = cloud->points.size();
     cloud->height = 1; // Unorganized point cloud
     cloud->is_dense = true;
-    printf("Point cloud size: %d\n", cloud->width);
+    RCLCPP_INFO(this->get_logger(), "Point cloud size: %d\n", cloud->width);
 
     // downsample cloud
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>);
@@ -460,10 +488,10 @@ private:
     sor.setLeafSize(1.0, 1.0, 1.0);
     sor.filter(*cloud_filtered);
 
-    printf("Filtered point cloud size: %d\n", cloud_filtered->width);
+    RCLCPP_INFO(this->get_logger(), "Filtered point cloud size: %d\n", cloud_filtered->width);
 
     // cluster cloud
-    printf("Clustering cloud\n");
+    RCLCPP_INFO(this->get_logger(), "Clustering cloud\n");
     auto t1 = std::chrono::high_resolution_clock::now();
     pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>);
     tree->setInputCloud(cloud_filtered);
@@ -477,7 +505,7 @@ private:
     ec.extract(cluster_indices);
     auto t2 = std::chrono::high_resolution_clock::now();
     auto ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
-    printf("Finished clustering in %ld ms\n", ms_int.count());
+    RCLCPP_INFO(this->get_logger(), "Finished clustering in %ld ms\n", ms_int.count());
 
     // project clusters back
     cv::Mat components3d = cv::Mat::zeros(combined_binary.size(), CV_8UC3);
@@ -488,8 +516,8 @@ private:
       pcl::Kmeans kmeans(indices.indices.size(), 3);
       // int k = std::min(indices.indices.size() / split_size + 1, static_cast<unsigned long>(20));
       int k = indices.indices.size() / split_size + 1;
-      printf("Cluster size: %ld\n", indices.indices.size());
-      // printf("Split: %d\n", k);
+      RCLCPP_INFO(this->get_logger(), "Cluster size: %ld\n", indices.indices.size());
+      // RCLCPP_INFO(this->get_logger(), "Split: %d\n", k);
       kmeans.setClusterSize(k);
 
       uint8_t r = 255 * (rand() / (1.0 + RAND_MAX));
@@ -539,7 +567,7 @@ private:
         components3d.at<cv::Vec3b>(row, col)[0] = r; 
         components3d.at<cv::Vec3b>(row, col)[1] = g; 
         components3d.at<cv::Vec3b>(row, col)[2] = b; 
-        // printf("x: %f, y: %f\n", image_point.xy.x, image_point.xy.y);
+        // RCLCPP_INFO(this->get_logger(), "x: %f, y: %f\n", image_point.xy.x, image_point.xy.y);
       }
       cv::Rect bounding_box = cv::Rect(min_col, min_row, max_col - min_col, max_row - min_row);
       cv::rectangle(components3d, bounding_box, cv::Scalar(0, 255, 0), 2);
@@ -565,10 +593,10 @@ private:
         }
       }
       positions.push_back(centroids);
-      printf("Centroid count: %ld\n", centroids.size());
+      RCLCPP_INFO(this->get_logger(), "Centroid count: %ld\n", centroids.size());
       for (const std::vector<float> & centroid : centroids)
       {
-        printf("centroid %f: %f, %f\n",
+        RCLCPP_INFO(this->get_logger(), "centroid %f: %f, %f\n",
           centroid[0], centroid[1], centroid[2]);
         k4a_float3_t point3d;
         k4a_float2_t point2d;
@@ -590,11 +618,53 @@ private:
         cv::circle(components3d, projected_centroid, 10, cv::Scalar(0, 0, 255), -1);      }
     }
 
+    // move to targets
+    geometry_msgs::msg::PointStamped point_in_camera;
+    point_in_camera.header.frame_id = "camera_color_frame";
+    geometry_msgs::msg::PointStamped point_in_world;
+    for (const std::vector<std::vector<float>> & centroids : positions)
+    {
+      for (const std::vector<float> & centroid : centroids)
+      {
+        // transform to world frame
+        point_in_camera.point.x = centroid[0] / 1000;
+        point_in_camera.point.y = centroid[1] / 1000;
+        point_in_camera.point.z = centroid[2] / 1000;
+        RCLCPP_INFO(this->get_logger(), "Centroid in camera frame: [%.2f, %.2f, %.2f]",
+          point_in_camera.point.x,
+          point_in_camera.point.y,
+          point_in_camera.point.z);
+        tf2::doTransform(point_in_camera, point_in_world, t);
+        RCLCPP_INFO(this->get_logger(), "Centroid in world frame: [%.2f, %.2f, %.2f]",
+          point_in_world.point.x,
+          point_in_world.point.y,
+          point_in_world.point.z);
+
+        geometry_msgs::msg::Pose target_pose;
+        tf2::Quaternion q;
+        q.setRPY(90 * M_PI / 180, 0, 0);
+        // RCLCPP_INFO(LOGGER, "quaternion: %f %f %f %f", q.x(), q.y(), q.z(), q.w());
+        // target_pose.orientation.w = q.w();
+        // target_pose.orientation.x = q.x();
+        // target_pose.orientation.y = q.y();
+        // target_pose.orientation.z = q.z();
+        // target_pose.position.x = centroid[0];
+        // target_pose.position.y = centroid[1];
+        // target_pose.position.z = centroid[2];
+        move_group.setPositionTarget(point_in_world.point.x, point_in_world.point.y, point_in_world.point.z);
+        // move_group.setPoseTarget(target_pose);
+        // move_group.setGoalOrientationTolerance(90 * M_PI / 180);
+
+        // plan and execute
+        move_group.move();
+      }
+    }
+
     // std::vector<double> joint_values = {-0.028, -0.073, 1.040};
     // move_group.setJointValueTarget(joint_values);
     // move_group.move();
 
-    printf("Start 2d version\n");
+    RCLCPP_INFO(this->get_logger(), "Start 2d version\n");
     t1 = std::chrono::high_resolution_clock::now();
     // morphological transforms
     cv::Mat clean_binary;
@@ -607,7 +677,7 @@ private:
     int num_components = cv::connectedComponentsWithStats(clean_binary, labels, stats, centroids, connectivity);
     t2 = std::chrono::high_resolution_clock::now();
     ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
-    printf("Finished 2d in %ld ms\n", ms_int.count());
+    RCLCPP_INFO(this->get_logger(), "Finished 2d in %ld ms\n", ms_int.count());
 
     // display results
     std::vector<cv::Vec3b> colors(num_components);

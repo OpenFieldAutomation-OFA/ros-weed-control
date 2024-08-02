@@ -12,6 +12,9 @@ set(THIS_PACKAGE_INCLUDE_DEPENDS
   rclcpp
   cv_bridge
   moveit_ros_planning_interface
+  geometry_msgs
+  tf2
+  tf2_ros
 )
 find_package(ament_cmake REQUIRED)
 find_package(PCL REQUIRED QUIET)

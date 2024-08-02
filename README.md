@@ -61,6 +61,10 @@ The following steps describe the setup on a reComputer Industrial J40 flashed wi
     cd ros-weed-control/teknic_hardware/ExarKernelDriver
     sudo ./Install_DRV_SCRIPT.sh
     ```
+6. Install [jetson-stats](https://rnext.it/jetson_stats/) (for monitoring).
+    ```bash
+    sudo pip3 install -U jetson-stats
+    ```
 7. Reboot.
     ```bash
     sudo reboot
