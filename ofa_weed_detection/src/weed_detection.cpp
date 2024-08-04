@@ -320,6 +320,7 @@ private:
     RCLCPP_INFO(this->get_logger(), "Planning frame: %s", move_group.getPlanningFrame().c_str());
     move_group.setMaxVelocityScalingFactor(1.0);
     move_group.setMaxAccelerationScalingFactor(1.0);
+    move_group.setPlanningTime(0.2);  // planning failed if it takes longer
 
   // rclcpp::WallRate loop_rate(0.2);
   // while (rclcpp::ok()) {
@@ -630,12 +631,12 @@ private:
         point_in_camera.point.x = centroid[0] / 1000;
         point_in_camera.point.y = centroid[1] / 1000;
         point_in_camera.point.z = centroid[2] / 1000;
-        RCLCPP_INFO(this->get_logger(), "Centroid in camera frame: [%.2f, %.2f, %.2f]",
+        RCLCPP_INFO(this->get_logger(), "Centroid in camera frame: [%f, %f, %f]",
           point_in_camera.point.x,
           point_in_camera.point.y,
           point_in_camera.point.z);
         tf2::doTransform(point_in_camera, point_in_world, t);
-        RCLCPP_INFO(this->get_logger(), "Centroid in world frame: [%.2f, %.2f, %.2f]",
+        RCLCPP_INFO(this->get_logger(), "Centroid in world frame: [%f, %f, %f]",
           point_in_world.point.x,
           point_in_world.point.y,
           point_in_world.point.z);
@@ -655,8 +656,19 @@ private:
         // move_group.setPoseTarget(target_pose);
         // move_group.setGoalOrientationTolerance(90 * M_PI / 180);
 
+        auto const [success, plan] = [&move_group]{
+          moveit::planning_interface::MoveGroupInterface::Plan msg;
+          auto const ok = static_cast<bool>(move_group.plan(msg));
+          return std::make_pair(ok, msg);
+        }();
+        if(success) {
+          move_group.execute(plan);
+        } else {
+          RCLCPP_ERROR(this->get_logger(), "Planning failed!");
+        }
+
         // plan and execute
-        move_group.move();
+        // move_group.move();
       }
     }
 

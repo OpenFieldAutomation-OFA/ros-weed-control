@@ -43,7 +43,7 @@ def generate_launch_description():
     move_group_node = Node(
         package="moveit_ros_move_group",
         executable="move_group",
-        output="screen",
+        output="log",
         parameters=[moveit_config.to_dict()],
     )
 
@@ -72,7 +72,7 @@ def generate_launch_description():
         package="robot_state_publisher",
         executable="robot_state_publisher",
         name="robot_state_publisher",
-        output="both",
+        output="log",
         parameters=[moveit_config.robot_description],
     )
 
@@ -88,7 +88,7 @@ def generate_launch_description():
         package="controller_manager",
         executable="ros2_control_node",
         parameters=[ros2_controllers_path],
-        output="both",
+        output="log",
         remappings=[
             ("~/robot_description", "/robot_description"),
         ],
@@ -120,7 +120,7 @@ def generate_launch_description():
         name="weed_detection",
         package="ofa_weed_detection",
         executable="weed_detection",
-        # output="screen",
+        output="log",
         parameters=[
             moveit_config.robot_description,
             moveit_config.robot_description_semantic,
