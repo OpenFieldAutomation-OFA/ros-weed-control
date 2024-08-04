@@ -15,7 +15,8 @@ The following steps describe the setup on a reComputer Industrial J40 flashed wi
 1. [Maximize Performance](https://wiki.seeedstudio.com/reComputer_Industrial_J40_J30_Hardware_Interfaces_Usage/#max-performance-on-recomputer-industrial) of the Jetson.
     ```bash
     sudo nvpmodel -m 0
-    sudo jetson_clocks
+    echo -e '[Unit]\nDescription=Jetson Clocks\nAfter=nvpmodel.service\n\n[Service]\nType=oneshot\nExecStart=/bin/bash -c /usr/bin/jetson_clocks\n\n[Install]\nWantedBy=multi-user.target' | sudo tee /etc/systemd/system/jetson-clocks.service
+    sudo systemctl enable jetson-clocks
     ```
 2. Install [Docker Engine](https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository).
     ```bash

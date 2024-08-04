@@ -619,7 +619,17 @@ private:
         cv::circle(components3d, projected_centroid, 10, cv::Scalar(0, 0, 255), -1);      }
     }
 
+    positions = {{
+      {-0.099923, 0.160443, 0.440226},
+      {-0.190837, 0.208831, 0.468308},
+      {-0.226890, 0.205576, 0.468410},
+      {-0.303177, 0.180674, 0.445802},
+      {0.25362, 0.082166, 0.325752},
+      {-0.031142, 0.034656, 0.323150},
+    }};
+
     // move to targets
+    t1 = std::chrono::high_resolution_clock::now();
     geometry_msgs::msg::PointStamped point_in_camera;
     point_in_camera.header.frame_id = "camera_color_frame";
     geometry_msgs::msg::PointStamped point_in_world;
@@ -628,9 +638,12 @@ private:
       for (const std::vector<float> & centroid : centroids)
       {
         // transform to world frame
-        point_in_camera.point.x = centroid[0] / 1000;
-        point_in_camera.point.y = centroid[1] / 1000;
-        point_in_camera.point.z = centroid[2] / 1000;
+        // point_in_camera.point.x = centroid[0] / 1000;
+        // point_in_camera.point.y = centroid[1] / 1000;
+        // point_in_camera.point.z = centroid[2] / 1000;
+        point_in_camera.point.x = centroid[0];
+        point_in_camera.point.y = centroid[1];
+        point_in_camera.point.z = centroid[2];
         RCLCPP_INFO(this->get_logger(), "Centroid in camera frame: [%f, %f, %f]",
           point_in_camera.point.x,
           point_in_camera.point.y,
@@ -643,18 +656,26 @@ private:
 
         geometry_msgs::msg::Pose target_pose;
         tf2::Quaternion q;
-        q.setRPY(90 * M_PI / 180, 0, 0);
+        // make sure arm is always correctly positioned
+        if (point_in_world.point.y < 0)
+        {
+          q.setRPY(-90 * M_PI / 180, 0, 0);
+        }
+        else
+        {
+          q.setRPY(90 * M_PI / 180, 0, 0);
+        }
         // RCLCPP_INFO(LOGGER, "quaternion: %f %f %f %f", q.x(), q.y(), q.z(), q.w());
-        // target_pose.orientation.w = q.w();
-        // target_pose.orientation.x = q.x();
-        // target_pose.orientation.y = q.y();
-        // target_pose.orientation.z = q.z();
-        // target_pose.position.x = centroid[0];
-        // target_pose.position.y = centroid[1];
-        // target_pose.position.z = centroid[2];
-        move_group.setPositionTarget(point_in_world.point.x, point_in_world.point.y, point_in_world.point.z);
-        // move_group.setPoseTarget(target_pose);
-        // move_group.setGoalOrientationTolerance(90 * M_PI / 180);
+        target_pose.orientation.w = q.w();
+        target_pose.orientation.x = q.x();
+        target_pose.orientation.y = q.y();
+        target_pose.orientation.z = q.z();
+        target_pose.position.x = point_in_world.point.x;
+        target_pose.position.y = point_in_world.point.y;
+        target_pose.position.z = point_in_world.point.z;
+        // move_group.setPositionTarget(point_in_world.point.x, point_in_world.point.y, point_in_world.point.z);
+        move_group.setPoseTarget(target_pose);
+        move_group.setGoalOrientationTolerance(45 * M_PI / 180);
 
         auto const [success, plan] = [&move_group]{
           moveit::planning_interface::MoveGroupInterface::Plan msg;
@@ -671,6 +692,9 @@ private:
         // move_group.move();
       }
     }
+    t2 = std::chrono::high_resolution_clock::now();
+    ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
+    RCLCPP_INFO(this->get_logger(), "Finished movement in %ld ms\n", ms_int.count());
 
     // std::vector<double> joint_values = {-0.028, -0.073, 1.040};
     // move_group.setJointValueTarget(joint_values);
