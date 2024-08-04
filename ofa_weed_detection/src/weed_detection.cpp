@@ -38,8 +38,8 @@ using GoalHandleWeedControl = rclcpp_action::ServerGoalHandle<WeedControl>;
 // Function to send command to the Arduino
 void send_command(int arduino_port_, const std::string& command)
 {
-    write(arduino_port_, command.c_str(), command.length());
-    write(arduino_port_, "\n", 1); // Send newline character
+  write(arduino_port_, command.c_str(), command.length());
+  write(arduino_port_, "\n", 1); // Send newline character
 }
 
 cv::Mat plotHistogram(const cv::Mat& image, int histSize = 256, int histWidth = 512, int histHeight = 400) {
@@ -88,14 +88,6 @@ public:
   : Node("weed_control_action_server",
     rclcpp::NodeOptions().automatically_declare_parameters_from_overrides(true))
   {
-    // this->declare_parameter("cluster_distance", 10.0);
-    // this->declare_parameter("scale_z", 2.0);
-    // this->declare_parameter("split_size", 5000);
-    // this->declare_parameter("exg_threshold", -25.0);
-    // this->declare_parameter("nir_threshold", 80.0);
-    // this->declare_parameter("save_images", false);
-    // this->declare_parameter("dilation_size", 20);
-
     // tf2 listener
     tf_buffer_ =
       std::make_unique<tf2_ros::Buffer>(this->get_clock());
@@ -118,6 +110,11 @@ public:
     this->create_publishers();
     this->init_camera();    
     RCLCPP_INFO(this->get_logger(), "Node initialized");
+  }
+
+  ~WeedControlActionServer()
+  {
+    close(arduino_port_);
   }
 
 private:
@@ -304,6 +301,94 @@ private:
       return;
     }
 
+    // init movegroup
+    moveit::planning_interface::MoveGroupInterface move_group(this->shared_from_this(), "arm");
+    RCLCPP_INFO(this->get_logger(), "Planning frame: %s", move_group.getPlanningFrame().c_str());
+    move_group.setMaxVelocityScalingFactor(0.1);
+    move_group.setMaxAccelerationScalingFactor(0.1);
+    move_group.setPlanningTime(0.2);
+
+    // move to first position
+    move_group.setJointValueTarget({-0.25, 0.6, 0});
+    move_group.move();
+
+    std::vector<std::vector<std::vector<float>>> positions = process_image();  
+    // positions = {{{}}};
+
+    // move to targets
+    geometry_msgs::msg::PointStamped point_in_camera;
+    point_in_camera.header.frame_id = "camera_color_frame";
+    geometry_msgs::msg::PointStamped point_in_world;
+    for (const std::vector<std::vector<float>> & centroids : positions)
+    {
+      for (const std::vector<float> & centroid : centroids)
+      {
+        // transform to world frame
+        point_in_camera.point.x = centroid[0] / 1000;
+        point_in_camera.point.y = centroid[1] / 1000;
+        point_in_camera.point.z = centroid[2] / 1000 + 0.01;
+        RCLCPP_INFO(this->get_logger(), "Centroid in camera frame: [%f, %f, %f]",
+          point_in_camera.point.x,
+          point_in_camera.point.y,
+          point_in_camera.point.z);
+        tf2::doTransform(point_in_camera, point_in_world, t);
+        RCLCPP_INFO(this->get_logger(), "Centroid in world frame: [%f, %f, %f]",
+          point_in_world.point.x,
+          point_in_world.point.y,
+          point_in_world.point.z);
+
+        geometry_msgs::msg::Pose target_pose;
+        tf2::Quaternion q;
+        // make sure arm is correctly positioned
+        if (point_in_world.point.y < 0)
+        {
+          q.setRPY(-90 * M_PI / 180, 0, 0);
+        }
+        else
+        {
+          q.setRPY(90 * M_PI / 180, 0, 0);
+        }
+        // RCLCPP_INFO(LOGGER, "quaternion: %f %f %f %f", q.x(), q.y(), q.z(), q.w());
+        target_pose.orientation.w = q.w();
+        target_pose.orientation.x = q.x();
+        target_pose.orientation.y = q.y();
+        target_pose.orientation.z = q.z();
+        target_pose.position.x = point_in_world.point.x;
+        target_pose.position.y = point_in_world.point.y;
+        target_pose.position.z = point_in_world.point.z;
+        // move_group.setPositionTarget(point_in_world.point.x, point_in_world.point.y, point_in_world.point.z);
+        move_group.setPoseTarget(target_pose);
+        move_group.setGoalOrientationTolerance(45 * M_PI / 180);
+
+        auto const [success, plan] = [&move_group]{
+          moveit::planning_interface::MoveGroupInterface::Plan msg;
+          auto const ok = static_cast<bool>(move_group.plan(msg));
+          return std::make_pair(ok, msg);
+        }();
+        if(success) {
+          move_group.execute(plan);
+        } else {
+          RCLCPP_ERROR(this->get_logger(), "Planning failed!");
+        }
+
+        break;
+      }
+      break;
+    }
+
+    // move to home
+    // move_group.setNamedTarget("home");
+    // move_group.move();
+
+    // Check if goal is done
+    if (rclcpp::ok()) {
+      goal_handle->succeed(result);
+      RCLCPP_INFO(this->get_logger(), "Goal succeeded");
+    }
+  }
+
+  std::vector<std::vector<std::vector<float>>> process_image()
+  {
     // get parameters
     double cluster_distance = this->get_parameter("cluster_distance").as_double();  // tolerance in mm for point cloud clustering
     double scale_z = this->get_parameter("scale_z").as_double();;  // scales depth value in point cloud
@@ -313,17 +398,6 @@ private:
     bool save_images = this->get_parameter("save_images").as_bool();  // dilation kernel size
     int dilation_size = this->get_parameter("dilation_size").as_int();;  // dilation kernel size
 
-    RCLCPP_INFO(this->get_logger(), "c: %f, e: %f, n: %f", cluster_distance, exg_threshold, nir_threshold);
-
-    // init movegroup
-    moveit::planning_interface::MoveGroupInterface move_group(this->shared_from_this(), "arm");
-    RCLCPP_INFO(this->get_logger(), "Planning frame: %s", move_group.getPlanningFrame().c_str());
-    move_group.setMaxVelocityScalingFactor(1.0);
-    move_group.setMaxAccelerationScalingFactor(1.0);
-    move_group.setPlanningTime(0.2);  // planning failed if it takes longer
-
-  // rclcpp::WallRate loop_rate(0.2);
-  // while (rclcpp::ok()) {
     send_command(arduino_port_, "COLOR 255,255,128");
     device_.start_cameras(&config_);
     
@@ -619,86 +693,7 @@ private:
         cv::circle(components3d, projected_centroid, 10, cv::Scalar(0, 0, 255), -1);      }
     }
 
-    positions = {{
-      {-0.099923, 0.160443, 0.440226},
-      {-0.190837, 0.208831, 0.468308},
-      {-0.226890, 0.205576, 0.468410},
-      {-0.303177, 0.180674, 0.445802},
-      {0.25362, 0.082166, 0.325752},
-      {-0.031142, 0.034656, 0.323150},
-    }};
 
-    // move to targets
-    t1 = std::chrono::high_resolution_clock::now();
-    geometry_msgs::msg::PointStamped point_in_camera;
-    point_in_camera.header.frame_id = "camera_color_frame";
-    geometry_msgs::msg::PointStamped point_in_world;
-    for (const std::vector<std::vector<float>> & centroids : positions)
-    {
-      for (const std::vector<float> & centroid : centroids)
-      {
-        // transform to world frame
-        // point_in_camera.point.x = centroid[0] / 1000;
-        // point_in_camera.point.y = centroid[1] / 1000;
-        // point_in_camera.point.z = centroid[2] / 1000;
-        point_in_camera.point.x = centroid[0];
-        point_in_camera.point.y = centroid[1];
-        point_in_camera.point.z = centroid[2];
-        RCLCPP_INFO(this->get_logger(), "Centroid in camera frame: [%f, %f, %f]",
-          point_in_camera.point.x,
-          point_in_camera.point.y,
-          point_in_camera.point.z);
-        tf2::doTransform(point_in_camera, point_in_world, t);
-        RCLCPP_INFO(this->get_logger(), "Centroid in world frame: [%f, %f, %f]",
-          point_in_world.point.x,
-          point_in_world.point.y,
-          point_in_world.point.z);
-
-        geometry_msgs::msg::Pose target_pose;
-        tf2::Quaternion q;
-        // make sure arm is always correctly positioned
-        if (point_in_world.point.y < 0)
-        {
-          q.setRPY(-90 * M_PI / 180, 0, 0);
-        }
-        else
-        {
-          q.setRPY(90 * M_PI / 180, 0, 0);
-        }
-        // RCLCPP_INFO(LOGGER, "quaternion: %f %f %f %f", q.x(), q.y(), q.z(), q.w());
-        target_pose.orientation.w = q.w();
-        target_pose.orientation.x = q.x();
-        target_pose.orientation.y = q.y();
-        target_pose.orientation.z = q.z();
-        target_pose.position.x = point_in_world.point.x;
-        target_pose.position.y = point_in_world.point.y;
-        target_pose.position.z = point_in_world.point.z;
-        // move_group.setPositionTarget(point_in_world.point.x, point_in_world.point.y, point_in_world.point.z);
-        move_group.setPoseTarget(target_pose);
-        move_group.setGoalOrientationTolerance(45 * M_PI / 180);
-
-        auto const [success, plan] = [&move_group]{
-          moveit::planning_interface::MoveGroupInterface::Plan msg;
-          auto const ok = static_cast<bool>(move_group.plan(msg));
-          return std::make_pair(ok, msg);
-        }();
-        if(success) {
-          move_group.execute(plan);
-        } else {
-          RCLCPP_ERROR(this->get_logger(), "Planning failed!");
-        }
-
-        // plan and execute
-        // move_group.move();
-      }
-    }
-    t2 = std::chrono::high_resolution_clock::now();
-    ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
-    RCLCPP_INFO(this->get_logger(), "Finished movement in %ld ms\n", ms_int.count());
-
-    // std::vector<double> joint_values = {-0.028, -0.073, 1.040};
-    // move_group.setJointValueTarget(joint_values);
-    // move_group.move();
 
     RCLCPP_INFO(this->get_logger(), "Start 2d version\n");
     t1 = std::chrono::high_resolution_clock::now();
@@ -803,20 +798,10 @@ private:
     );
 
     RCLCPP_INFO(this->get_logger(), "Published");
-  //   rclcpp::spin_some(node);
-  //   loop_rate.sleep();
-  // }
 
+    device_.stop_cameras();
 
-
-  device_.stop_cameras();
-  close(arduino_port_);
-
-    // Check if goal is done
-    if (rclcpp::ok()) {
-      goal_handle->succeed(result);
-      RCLCPP_INFO(this->get_logger(), "Goal succeeded");
-    }
+    return positions;
   }
 
 };

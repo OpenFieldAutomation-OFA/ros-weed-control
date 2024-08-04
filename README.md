@@ -15,10 +15,13 @@ The following steps describe the setup on a reComputer Industrial J40 flashed wi
 1. [Maximize Performance](https://wiki.seeedstudio.com/reComputer_Industrial_J40_J30_Hardware_Interfaces_Usage/#max-performance-on-recomputer-industrial) of the Jetson.
     ```bash
     sudo nvpmodel -m 0
-    echo -e '[Unit]\nDescription=Jetson Clocks\nAfter=nvpmodel.service\n\n[Service]\nType=oneshot\nExecStart=/bin/bash -c /usr/bin/jetson_clocks\n\n[Install]\nWantedBy=multi-user.target' | sudo tee /etc/systemd/system/jetson-clocks.service
-    sudo systemctl enable jetson-clocks
+    sudo jetson_clocks  # This command has to be run after each reboot
     ```
-2. Install [Docker Engine](https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository).
+2. Install [jetson-stats](https://rnext.it/jetson_stats/) (for monitoring).
+    ```bash
+    sudo pip3 install -U jetson-stats
+    ```
+3. Install [Docker Engine](https://docs.docker.com/engine/install/ubuntu/#install-using-the-repository).
     ```bash
     # Add Docker's official GPG key:
     sudo apt-get update
@@ -36,25 +39,25 @@ The following steps describe the setup on a reComputer Industrial J40 flashed wi
 
     sudo apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
     ```
-3. Add your user to the `docker` group.
+4. Add your user to the `docker` group.
     ```bash
     sudo usermod -aG docker $USER
     ```
-4. Install the udev rules for the Orbbec Femto Bolt.
+5. Install the udev rules for the Orbbec Femto Bolt.
     ```bash
     echo 'SUBSYSTEMS=="usb", ATTRS{idVendor}=="2bc5", ATTRS{idProduct}=="066b", MODE:="0666",  OWNER:="root", GROUP:="video", SYMLINK+="Femto Bolt"' | sudo tee /etc/udev/rules.d/99-obsensor-libusb.rules
     sudo udevadm control --reload-rules && sudo udevadm trigger
     ```
-5. Enable the SocketCAN interface on boot.
+6. Enable the SocketCAN interface on boot.
     ```bash
     sudo systemctl enable systemd-networkd
     echo -e '[Match]\nName=can0\n[CAN]\nBitRate=1M' | sudo tee /etc/systemd/network/80-can.network
     ```
-6. Clone this repo.
+7. Clone this repo.
     ```bash
     git clone https://github.com/OpenFieldAutomation-OFA/ros-weed-control-ros.git
     ```
-7. Install the SC4-Hub USB Driver.
+8. Install the SC4-Hub USB Driver.
     ```bash
     # Fix linux headers symlink
     sudo ln -sf /usr/src/linux-headers-5.15.136-tegra-ubuntu22.04_aarch64/3rdparty/canonical/linux-jammy/kernel-source /lib/modules/5.15.136-tegra/build
@@ -62,11 +65,7 @@ The following steps describe the setup on a reComputer Industrial J40 flashed wi
     cd ros-weed-control/teknic_hardware/ExarKernelDriver
     sudo ./Install_DRV_SCRIPT.sh
     ```
-6. Install [jetson-stats](https://rnext.it/jetson_stats/) (for monitoring).
-    ```bash
-    sudo pip3 install -U jetson-stats
-    ```
-7. Reboot.
+9. Reboot.
     ```bash
     sudo reboot
     ```

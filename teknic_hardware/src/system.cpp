@@ -147,6 +147,9 @@ hardware_interface::CallbackReturn TeknicSystemHardware::on_cleanup(
       "Caught error: addr=%d, err=0x%08x\nmsg=%s\n", theErr.TheAddr, theErr.ErrorCode, theErr.ErrorMsg);
     return hardware_interface::CallbackReturn::FAILURE;
   }
+
+  RCLCPP_INFO(rclcpp::get_logger("TeknicSystemHardware"), "Communication closed");
+
   return hardware_interface::CallbackReturn::SUCCESS;
 }
 
