@@ -64,7 +64,6 @@ bool CanSocket::connect(std::string can_itf, const std::vector<canid_t> & can_id
 
 bool CanSocket::disconnect()
 {
-  std::this_thread::sleep_for(std::chrono::microseconds(500));
   if (close(socket_) < 0)
   {
     RCLCPP_ERROR(

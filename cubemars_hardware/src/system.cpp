@@ -8,6 +8,12 @@
 
 namespace cubemars_hardware
 {
+CubeMarsSystemHardware::~CubeMarsSystemHardware()
+{
+  // If the controller manager is shutdown via Ctrl + C
+  on_cleanup(rclcpp_lifecycle::State());
+}
+
 hardware_interface::CallbackReturn CubeMarsSystemHardware::on_init(
   const hardware_interface::HardwareInfo & info)
 {
