@@ -36,11 +36,12 @@ Joint:
 - `can_id`: CAN ID of the actuator
 - `pole_pairs`: Pole pairs. Used for unit conversion
 - `gear_ratio`: Gear ratio. Used for unit conversion
-- `kt`: Torque constent. Used to convert current to torque
+- `kt`: Torque constant. Used to convert current to torque
+- `trq_limit`: OPTIONAL. Torque limit. If the limit is reached the corresponding motor is disabled.
 - `enc_off`: OPTIONAL. Encoder offset in rad. (see explanation below)
 - `vel_limit`: OPTIONAL. Velocity limit in rad/s. (see explanation below)
 - `acc_limit`: OPTIONAL. Acceleration limit in rad/s^2. (see explanation below)
-- `read_only`: OPTIONAL. If set to 1, will regularly print the current position and not write commands to motor.
+- `read_only`: OPTIONAL. If set to 1, the current position is logged and no commands are sent to the motors.
 
 ## Encoder Offset
 For single-encoder motors there will most likely be an offset between your origin and the zero of the encoder after shutting the motor off and on. You can compensate for this offset by using `enc_off`. Note that in order for `enc_off` to work properly, the motor has to be very close to the origin on startup, otherwise the encoder value will wrap around.

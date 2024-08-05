@@ -41,7 +41,7 @@ hardware_interface::CallbackReturn CubeMarsSystemHardware::on_init(
   hw_commands_velocities_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
   hw_commands_accelerations_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
   hw_commands_efforts_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
-  control_mode_.resize(info_.joints.size(), control_mode_t::UNDEFINED);
+  control_mode_.resize(info_.joints.size(), control_mode_t::DISABLED);
 
   for (const hardware_interface::ComponentInfo & joint : info_.joints)
   {
@@ -55,21 +55,21 @@ hardware_interface::CallbackReturn CubeMarsSystemHardware::on_init(
       double erpm_conversion = std::stoi(joint.parameters.at("pole_pairs")) * 
         std::stoi(joint.parameters.at("gear_ratio")) * 60 / (2 * M_PI);
       erpm_conversions_.emplace_back(erpm_conversion);
-      
+
       if (joint.parameters.count("acc_limit") != 0 &&
         joint.parameters.count("vel_limit") != 0)
       {
         std::pair<int32_t, int32_t> limits;
         limits.first = std::stoi(joint.parameters.at("vel_limit")) / 10 * erpm_conversion;
         limits.second = std::stoi(joint.parameters.at("acc_limit")) / 10 * erpm_conversion;
-        if (std::abs(limits.first) >= 32767)
+        if (limits.first >= 32767 || limits.first <= 0)
         {
           RCLCPP_ERROR(
             rclcpp::get_logger("CubeMarsSystemHardware"),
-            "velocity limit is over maximal allowed value of 32767: %d", limits.first);
+            "velocity limit is not in range 0-32767: %d", limits.first);
           return hardware_interface::CallbackReturn::ERROR;
         }
-        if (limits.second >= 32767 || limits.second < 0)
+        if (limits.second >= 32767 || limits.second <= 0)
         {
           RCLCPP_ERROR(
             rclcpp::get_logger("CubeMarsSystemHardware"),
@@ -82,24 +82,6 @@ hardware_interface::CallbackReturn CubeMarsSystemHardware::on_init(
       {
         limits_.emplace_back(std::make_pair(0, 0));
       }
-
-      if (joint.parameters.count("enc_off") != 0)
-      {
-        enc_offs_.emplace_back(std::stod(joint.parameters.at("enc_off")));
-      }
-      else
-      {
-        enc_offs_.emplace_back(0);
-      }
-
-      if (joint.parameters.count("read_only") != 0 && std::stoi(joint.parameters.at("read_only")) == 1)
-      {
-        read_only_.emplace_back(true);
-      }
-      else
-      {
-        read_only_.emplace_back(false);
-      }
     }
     else
     {
@@ -107,6 +89,33 @@ hardware_interface::CallbackReturn CubeMarsSystemHardware::on_init(
         rclcpp::get_logger("CubeMarsSystemHardware"),
         "Missing parameters in URDF for %s", joint.name.c_str());
       return hardware_interface::CallbackReturn::ERROR;
+    }
+
+    if (joint.parameters.count("enc_off") != 0)
+    {
+      enc_offs_.emplace_back(std::stod(joint.parameters.at("enc_off")));
+    }
+    else
+    {
+      enc_offs_.emplace_back(0);
+    }
+
+    if (joint.parameters.count("trq_limit") != 0 && std::stod(joint.parameters.at("trq_limit")) > 0)
+    {
+      trq_limits_.emplace_back(std::stod(joint.parameters.at("trq_limit")));
+    }
+    else
+    {
+      trq_limits_.emplace_back(0);
+    }
+
+    if (joint.parameters.count("read_only") != 0 && std::stoi(joint.parameters.at("read_only")) == 1)
+    {
+      read_only_.emplace_back(true);
+    }
+    else
+    {
+      read_only_.emplace_back(false);
     }
   }
 
@@ -182,6 +191,8 @@ hardware_interface::return_type CubeMarsSystemHardware::prepare_command_mode_swi
   stop_modes_.clear();
   start_modes_.clear();
 
+  stop_modes_.resize(info_.joints.size(), false);
+
   // Define allowed combination of command interfaces
   std::unordered_set<std::string> eff {"effort"};
   std::unordered_set<std::string> vel {"velocity"};
@@ -191,7 +202,6 @@ hardware_interface::return_type CubeMarsSystemHardware::prepare_command_mode_swi
   for (std::size_t i = 0; i < info_.joints.size(); i++)
   {
     // find stop modes
-    stop_modes_.push_back(false);
     for (std::string key : stop_interfaces)
     {
       RCLCPP_INFO(rclcpp::get_logger("CubeMarsSystemHardware"), "stop interface: %s", key.c_str());
@@ -235,7 +245,7 @@ hardware_interface::return_type CubeMarsSystemHardware::prepare_command_mode_swi
     {
       if (stop_modes_[i])
       {
-        start_modes_.push_back(UNDEFINED);
+        start_modes_.push_back(DISABLED);
       }
       else
       {
@@ -260,23 +270,9 @@ hardware_interface::return_type CubeMarsSystemHardware::perform_command_mode_swi
   {
     if (stop_modes_[i])
     {
-      switch (control_mode_[i])
-      {
-        case CURRENT_LOOP:
-          hw_commands_efforts_[i] = std::numeric_limits<double>::quiet_NaN();
-          break;
-        case SPEED_LOOP:
-          hw_commands_velocities_[i] = std::numeric_limits<double>::quiet_NaN();
-          break;
-        case POSITION_LOOP:
-          hw_commands_positions_[i] = std::numeric_limits<double>::quiet_NaN();
-          break;
-        case POSITION_SPEED_LOOP:
-          hw_commands_positions_[i] = std::numeric_limits<double>::quiet_NaN();
-          break;
-        case UNDEFINED:
-          return hardware_interface::return_type::ERROR;
-      }
+      hw_commands_efforts_[i] = std::numeric_limits<double>::quiet_NaN();
+      hw_commands_velocities_[i] = std::numeric_limits<double>::quiet_NaN();
+      hw_commands_positions_[i] = std::numeric_limits<double>::quiet_NaN();
     }
     // switch control mode
     control_mode_[i] = start_modes_[i];
@@ -371,8 +367,17 @@ hardware_interface::return_type CubeMarsSystemHardware::read(
       // Unit conversions
       hw_states_positions_[i] = hw_states_positions_[i] * 0.1 * M_PI / 180 - enc_offs_[i];
       hw_states_velocities_[i] = hw_states_velocities_[i] * 10 / erpm_conversions_[i];
-      hw_states_efforts_[i] = hw_states_efforts_[i] * 0.01 * torque_constants_[i];
+      hw_states_efforts_[i] = hw_states_efforts_[i] * 0.01 * torque_constants_[i] *
+        std::stoi(info_.joints[i].parameters.at("gear_ratio"));
       hw_states_temperatures_[i] = read_data[6];
+      if (trq_limits_[i] != 0 && hw_states_efforts_[i] > trq_limits_[i])
+      {
+        RCLCPP_ERROR(rclcpp::get_logger("CubeMarsSystemHardware"),
+          "Joint %lu reached maximum torque and is getting disabled.", i);
+        
+        // disable motor
+        control_mode_[i] = DISABLED;
+      }
       if (read_only_[i])
       {
         // RCLCPP_INFO(
@@ -400,11 +405,12 @@ hardware_interface::return_type CubeMarsSystemHardware::write(
     {
       switch (control_mode_[i])
       {
-        case UNDEFINED:
-          // RCLCPP_INFO(
-          //   rclcpp::get_logger("CubeMarsSystemHardware"),
-          //   "Nothing is using the hardware interface!");
-          return hardware_interface::return_type::OK;
+        case DISABLED:
+        {
+          uint8_t data[4] = {0, 0, 0, 0};
+          can_.write_message(can_ids_[i] | CURRENT_LOOP << 8, data, 4);
+          break;
+        }
         case CURRENT_LOOP:
         {
           if (!std::isnan(hw_commands_efforts_[i]))
