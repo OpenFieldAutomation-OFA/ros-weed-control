@@ -289,6 +289,17 @@ private:
     RCLCPP_INFO(this->get_logger(), "Executing goal");
     auto result = std::make_shared<WeedControl::Result>();
 
+    // init movegroup
+    moveit::planning_interface::MoveGroupInterface move_group(this->shared_from_this(), "arm");
+    RCLCPP_INFO(this->get_logger(), "Planning frame: %s", move_group.getPlanningFrame().c_str());
+    move_group.setMaxVelocityScalingFactor(0.1);
+    move_group.setMaxAccelerationScalingFactor(0.1);
+    move_group.setPlanningTime(0.2);
+
+    // move to first position
+    move_group.setJointValueTarget({-0.25, 0.8, 0});
+    move_group.move();
+
     // get transform
     geometry_msgs::msg::TransformStamped t;
     try {
@@ -300,17 +311,6 @@ private:
         this->get_logger(), "Could not transform %s", ex.what());
       return;
     }
-
-    // init movegroup
-    moveit::planning_interface::MoveGroupInterface move_group(this->shared_from_this(), "arm");
-    RCLCPP_INFO(this->get_logger(), "Planning frame: %s", move_group.getPlanningFrame().c_str());
-    move_group.setMaxVelocityScalingFactor(0.1);
-    move_group.setMaxAccelerationScalingFactor(0.1);
-    move_group.setPlanningTime(0.2);
-
-    // move to first position
-    move_group.setJointValueTarget({-0.25, 0.6, 0});
-    move_group.move();
 
     std::vector<std::vector<std::vector<float>>> positions = process_image();  
     // positions = {{{}}};
@@ -326,7 +326,7 @@ private:
         // transform to world frame
         point_in_camera.point.x = centroid[0] / 1000;
         point_in_camera.point.y = centroid[1] / 1000;
-        point_in_camera.point.z = centroid[2] / 1000 + 0.01;
+        point_in_camera.point.z = centroid[2] / 1000;
         RCLCPP_INFO(this->get_logger(), "Centroid in camera frame: [%f, %f, %f]",
           point_in_camera.point.x,
           point_in_camera.point.y,
@@ -336,6 +336,8 @@ private:
           point_in_world.point.x,
           point_in_world.point.y,
           point_in_world.point.z);
+        
+        if (point_in_world.point.x < -0.56) continue;
 
         geometry_msgs::msg::Pose target_pose;
         tf2::Quaternion q;
@@ -355,7 +357,7 @@ private:
         target_pose.orientation.z = q.z();
         target_pose.position.x = point_in_world.point.x;
         target_pose.position.y = point_in_world.point.y;
-        target_pose.position.z = point_in_world.point.z;
+        target_pose.position.z = point_in_world.point.z + 0.02;
         // move_group.setPositionTarget(point_in_world.point.x, point_in_world.point.y, point_in_world.point.z);
         move_group.setPoseTarget(target_pose);
         move_group.setGoalOrientationTolerance(45 * M_PI / 180);
@@ -371,14 +373,16 @@ private:
           RCLCPP_ERROR(this->get_logger(), "Planning failed!");
         }
 
-        break;
+        rclcpp::sleep_for(std::chrono::seconds(1));
+
+        // break;
       }
-      break;
+      // break;
     }
 
     // move to home
-    // move_group.setNamedTarget("home");
-    // move_group.move();
+    move_group.setNamedTarget("home");
+    move_group.move();
 
     // Check if goal is done
     if (rclcpp::ok()) {
@@ -743,6 +747,12 @@ private:
       cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/color.png", bgr_mat);
       cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/depth.png", depth_normalized);
       cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/ir.png", nir_normalized);
+      cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/ir_binary.png", nir_binary);
+      cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/red.png", red_channel);
+      cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/green.png", green_channel);
+      cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/blue.png", blue_channel);
+      cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/exg.png", exg_normalized);
+      cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/exg_binary.png", exg_binary);
       cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/components.png", components);
       cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/components3d.png", components3d);
       cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/combined_binary.png", combined_binary);
@@ -794,7 +804,7 @@ private:
       *cv_bridge::CvImage(header, "rgb8", components).toImageMsg().get()
     );
     components3d_publisher_->publish(
-      *cv_bridge::CvImage(header, "rgb8", components).toImageMsg().get()
+      *cv_bridge::CvImage(header, "rgb8", components3d).toImageMsg().get()
     );
 
     RCLCPP_INFO(this->get_logger(), "Published");

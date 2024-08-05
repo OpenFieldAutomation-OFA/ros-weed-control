@@ -42,7 +42,7 @@
     <xacro:property name="motor_h" value="0.05025" />
 
     <!-- Offset between center of motor and center of carriage in x-direction -->
-    <xacro:property name="motor_off" value="${0.0026}" />
+    <xacro:property name="motor_off" value="${-0.0026}" />
 
     <!-- Camera enclosure dimensions -->
     <xacro:property name="camera_shield_w" value="0.12" />
@@ -51,8 +51,8 @@
     <xacro:property name="camera_shield_wall" value="0.002" />
 
     <!-- Offset between camera enclosure and motor center -->
-    <xacro:property name="camera_shield_off_x" value="${motor_h/2+0.04355}" />
-    <xacro:property name="camera_shield_off_y" value="${0.044}" />
+    <xacro:property name="camera_shield_off_x" value="${-motor_h/2-0.04355}" />
+    <xacro:property name="camera_shield_off_y" value="-0.044" />
 
     <!-- Camera dimensions -->
     <xacro:property name="camera_w" value="0.11526" />
@@ -67,7 +67,7 @@
 
     <!-- Tube dimensions -->
     <xacro:property name="arm_r" value="${0.045/2}" />
-    <xacro:property name="arm1_l" value="0.362" />
+    <xacro:property name="arm1_l" value="${0.451-2*motor_r}" />
     <xacro:property name="arm2_l" value="0.161" />
 
     <!-- End effector dimensions -->
@@ -125,7 +125,7 @@
     </link>
 
     <joint name="joint1" type="prismatic">
-      <origin xyz="${-axis_l/2+carriage_off-motor_off} 0 ${-axis_h-attachment_off}" rpy="0 0 0" />
+      <origin xyz="${-axis_l/2+carriage_off+motor_off} 0 ${-axis_h-attachment_off}" rpy="0 0 0" />
       <parent link="base_link" />
       <child link="link1" />
       <axis xyz="-1 0 0" />
@@ -150,7 +150,7 @@
     </link>
 
     <joint name="camera_shield_joint" type="fixed">
-      <origin xyz="${-camera_shield_off_x-camera_shield_l/2} ${-camera_shield_off_y} ${attachment_off}" rpy="0 0 0" />
+      <origin xyz="${camera_shield_off_x-camera_shield_l/2} ${camera_shield_off_y} ${attachment_off}" rpy="0 0 0" />
       <parent link="link1" />
       <child link="camera_shield_link" />
     </joint>
@@ -185,7 +185,7 @@
     </link>
 
     <joint name="camera_joint" type="fixed">
-      <origin xyz="0 ${-camera_off_y} ${-camera_off_z}" rpy="0 0 0" />
+      <origin xyz="0 ${camera_off_y} ${-camera_off_z}" rpy="0 0 0" />
       <parent link="camera_shield_link" />
       <child link="camera_link" />
     </joint>

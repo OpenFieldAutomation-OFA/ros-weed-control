@@ -110,38 +110,38 @@ int main(int argc, char* argv[])
   // move_group.setPoseReferenceFrame("camera_color_frame");
   geometry_msgs::msg::Pose target_pose;
   tf2::Quaternion q;
-  q.setRPY(90 * M_PI / 180, 0, 0);
-  // RCLCPP_INFO(LOGGER, "quaternion: %f %f %f %f", q.x(), q.y(), q.z(), q.w());
-  target_pose.orientation.w = q.w();
-  target_pose.orientation.x = q.x();
-  target_pose.orientation.y = q.y();
-  target_pose.orientation.z = q.z();
-  target_pose.position.x = 0.0;
-  target_pose.position.y = 0.1;
-  target_pose.position.z = 0.5;
-  move_group.setPositionTarget(-0.45, -0.12, 0.17);
-  // move_group.setPoseTarget(target_pose);
-  // move_group.setGoalOrientationTolerance(90 * M_PI / 180);
-
-  // plan and execute
-  move_group.move();
-
-  // set position goal (right position)
   q.setRPY(-90 * M_PI / 180, 0, 0);
   // RCLCPP_INFO(LOGGER, "quaternion: %f %f %f %f", q.x(), q.y(), q.z(), q.w());
   target_pose.orientation.w = q.w();
   target_pose.orientation.x = q.x();
   target_pose.orientation.y = q.y();
   target_pose.orientation.z = q.z();
-  target_pose.position.x = -0.2;
-  target_pose.position.y = -0.1;
-  target_pose.position.z = 0.5;
-  move_group.setPositionTarget(0.1, 0.0, 0.6);
-  // move_group.setPoseTarget(target_pose);
-  // move_group.setGoalOrientationTolerance(90 * M_PI / 180);
+  target_pose.position.x = -0.388586;
+  target_pose.position.y = -0.117280;
+  target_pose.position.z = 0.062998 + 0.0;
+  // move_group.setPositionTarget(-0.552716, -0.116621, 0.062975);
+  move_group.setPoseTarget(target_pose);
+  move_group.setGoalOrientationTolerance(45 * M_PI / 180);
 
   // plan and execute
   move_group.move();
+
+  // set position goal (right position)
+  // q.setRPY(-90 * M_PI / 180, 0, 0);
+  // // RCLCPP_INFO(LOGGER, "quaternion: %f %f %f %f", q.x(), q.y(), q.z(), q.w());
+  // target_pose.orientation.w = q.w();
+  // target_pose.orientation.x = q.x();
+  // target_pose.orientation.y = q.y();
+  // target_pose.orientation.z = q.z();
+  // target_pose.position.x = -0.2;
+  // target_pose.position.y = -0.1;
+  // target_pose.position.z = 0.5;
+  // move_group.setPositionTarget(0.1, 0.0, 0.6);
+  // // move_group.setPoseTarget(target_pose);
+  // // move_group.setGoalOrientationTolerance(90 * M_PI / 180);
+
+  // // plan and execute
+  // move_group.move();
 
   // Shutdown ROS
   rclcpp::shutdown();

@@ -12,10 +12,9 @@ Even though Docker handles most of our setup, certain things still have to be co
 
 The following steps describe the setup on a reComputer Industrial J40 flashed with JetPack 6.0. If you use different hardware you will have to figure out how to reproduce the setup yourself.
 
-1. [Maximize Performance](https://wiki.seeedstudio.com/reComputer_Industrial_J40_J30_Hardware_Interfaces_Usage/#max-performance-on-recomputer-industrial) of the Jetson.
+1. Enable the [maximum power mode](https://wiki.seeedstudio.com/reComputer_Industrial_J40_J30_Hardware_Interfaces_Usage/#max-performance-on-recomputer-industrial).
     ```bash
     sudo nvpmodel -m 0
-    sudo jetson_clocks  # This command has to be run after each reboot
     ```
 2. Install [jetson-stats](https://rnext.it/jetson_stats/) (for monitoring).
     ```bash
