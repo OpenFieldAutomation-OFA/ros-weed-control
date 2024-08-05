@@ -78,6 +78,8 @@ private:
 
   std::vector<double> counts_conversions_;
   std::vector<int> homing_;
+  std::vector<double> peak_torques_;
+  std::vector<double> feed_constants_;
   std::vector<bool> read_only_;
 
   double count = 0;

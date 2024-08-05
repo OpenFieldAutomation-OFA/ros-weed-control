@@ -79,13 +79,24 @@ hardware_interface::CallbackReturn TeknicSystemHardware::on_init(
       return hardware_interface::CallbackReturn::ERROR;
     }
 
-    if (joint.parameters.count("feed_constant") != 0)
+    if (joint.parameters.count("feed_constant") != 0 && std::stod(joint.parameters.at("feed_constant")) > 0)
     {
       counts_conversions_.emplace_back(1 / std::stod(joint.parameters.at("feed_constant")));
+      feed_constants_.emplace_back(std::stod(joint.parameters.at("feed_constant")));
     }
     else
     {
       counts_conversions_.emplace_back(1 / (2 * M_PI));
+      feed_constants_.emplace_back(0);
+    }
+
+    if (joint.parameters.count("peak_torque") != 0 && std::stod(joint.parameters.at("peak_torque")) > 0)
+    {
+      peak_torques_.emplace_back(std::stod(joint.parameters.at("peak_torque")));
+    }
+    else
+    {
+      peak_torques_.emplace_back(0);
     }
 
     if (joint.parameters.count("read_only") != 0 && std::stoi(joint.parameters.at("read_only")) == 1)
@@ -163,7 +174,7 @@ TeknicSystemHardware::export_state_interfaces()
       info_.joints[i].name, hardware_interface::HW_IF_POSITION, &hw_states_positions_[i]));
     state_interfaces.emplace_back(hardware_interface::StateInterface(
       info_.joints[i].name, hardware_interface::HW_IF_VELOCITY, &hw_states_velocities_[i]));
-    if (info_.joints[i].parameters.count("peak_torque") != 0)
+    if (peak_torques_[i] != 0)
     {
       state_interfaces.emplace_back(hardware_interface::StateInterface(
         info_.joints[i].name, hardware_interface::HW_IF_EFFORT, &hw_states_efforts_[i]));
@@ -194,6 +205,8 @@ hardware_interface::return_type TeknicSystemHardware::prepare_command_mode_switc
   stop_modes_.clear();
   start_modes_.clear();
 
+  stop_modes_.resize(info_.joints.size(), false);
+
   // Define allowed combination of command interfaces
   std::unordered_set<std::string> vel {"velocity"};
   std::unordered_set<std::string> pos {"position"};
@@ -202,7 +215,6 @@ hardware_interface::return_type TeknicSystemHardware::prepare_command_mode_switc
   for (std::size_t i = 0; i < info_.joints.size(); i++)
   {
     // find stop modes
-    stop_modes_.push_back(false);
     for (std::string key : stop_interfaces)
     {
       RCLCPP_INFO(rclcpp::get_logger("CubeMarsSystemHardware"), "stop interface: %s", key.c_str());
@@ -260,17 +272,8 @@ hardware_interface::return_type TeknicSystemHardware::perform_command_mode_switc
   {
     if (stop_modes_[i])
     {
-      switch (control_mode_[i])
-      {
-        case SPEED_LOOP:
-          hw_commands_velocities_[i] = std::numeric_limits<double>::quiet_NaN();
-          break;
-        case POSITION_LOOP:
-          hw_commands_positions_[i] = std::numeric_limits<double>::quiet_NaN();
-          break;
-        case UNDEFINED:
-          return hardware_interface::return_type::ERROR;
-      }
+      hw_commands_velocities_[i] = std::numeric_limits<double>::quiet_NaN();
+      hw_commands_positions_[i] = std::numeric_limits<double>::quiet_NaN();
     }
     // switch control mode
     control_mode_[i] = start_modes_[i];
@@ -453,15 +456,13 @@ hardware_interface::return_type TeknicSystemHardware::read(
       hw_states_positions_[i] = inode.Motion.PosnMeasured.Value() / counts_conversions_[i];
       inode.Motion.VelMeasured.Refresh();
       hw_states_velocities_[i] = inode.Motion.VelMeasured.Value() / counts_conversions_[i];
-      if (info_.joints[i].parameters.count("peak_torque") != 0)
+      if (peak_torques_[i] != 0)
       {
         inode.Motion.TrqMeasured.Refresh();
-        double torque = inode.Motion.TrqMeasured.Value() / 100 *
-          std::stod(info_.joints[i].parameters.at("peak_torque"));
-        if (info_.joints[i].parameters.count("feed_constant") != 0)
+        double torque = inode.Motion.TrqMeasured.Value() / 100 * peak_torques_[i];
+        if (feed_constants_[i] != 0)
         {
-          hw_states_efforts_[i] = torque * 2 * M_PI /
-            std::stod(info_.joints[i].parameters.at("feed_constant"));
+          hw_states_efforts_[i] = torque * 2 * M_PI / feed_constants_[i];
         }
         else
         {
@@ -507,10 +508,12 @@ hardware_interface::return_type TeknicSystemHardware::write(
         switch (control_mode_[i])
         {
           case UNDEFINED:
+          {
             // RCLCPP_INFO(
             //   rclcpp::get_logger("TeknicSystemHardware"),
             //   "Nothing is using the hardware interface!");
-            return hardware_interface::return_type::OK;
+            break;
+          }
           case SPEED_LOOP:
           {
             if (!std::isnan(hw_commands_velocities_[i]))
