@@ -37,7 +37,7 @@ Joint:
 - `pole_pairs`: Pole pairs. Used for unit conversion
 - `gear_ratio`: Gear ratio. Used for unit conversion
 - `kt`: Torque constant. Used to convert current to torque
-- `trq_limit`: OPTIONAL. Torque limit. If the limit is reached the corresponding motor is disabled.
+- `trq_limit`: OPTIONAL. Torque limit. If the limit is reached the motor is disabled and the hardware interface is shutdown.
 - `enc_off`: OPTIONAL. Encoder offset in rad. (see explanation below)
 - `vel_limit`: OPTIONAL. Velocity limit in rad/s. (see explanation below)
 - `acc_limit`: OPTIONAL. Acceleration limit in rad/s^2. (see explanation below)

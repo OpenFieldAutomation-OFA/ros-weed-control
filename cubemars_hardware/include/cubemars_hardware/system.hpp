@@ -96,7 +96,7 @@ private:
     SPEED_LOOP = 3,
     POSITION_LOOP = 4,
     POSITION_SPEED_LOOP = 6,
-    DISABLED = 10
+    UNDEFINED
   };
 
   // command mode switch variables

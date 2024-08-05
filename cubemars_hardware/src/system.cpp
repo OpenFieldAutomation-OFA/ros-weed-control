@@ -41,7 +41,7 @@ hardware_interface::CallbackReturn CubeMarsSystemHardware::on_init(
   hw_commands_velocities_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
   hw_commands_accelerations_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
   hw_commands_efforts_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
-  control_mode_.resize(info_.joints.size(), control_mode_t::DISABLED);
+  control_mode_.resize(info_.joints.size(), control_mode_t::UNDEFINED);
 
   for (const hardware_interface::ComponentInfo & joint : info_.joints)
   {
@@ -245,7 +245,7 @@ hardware_interface::return_type CubeMarsSystemHardware::prepare_command_mode_swi
     {
       if (stop_modes_[i])
       {
-        start_modes_.push_back(DISABLED);
+        start_modes_.push_back(UNDEFINED);
       }
       else
       {
@@ -373,10 +373,13 @@ hardware_interface::return_type CubeMarsSystemHardware::read(
       if (trq_limits_[i] != 0 && hw_states_efforts_[i] > trq_limits_[i])
       {
         RCLCPP_ERROR(rclcpp::get_logger("CubeMarsSystemHardware"),
-          "Joint %lu reached maximum torque and is getting disabled.", i);
+          "Joint %lu went over torque limit.", i);
         
         // disable motor
-        control_mode_[i] = DISABLED;
+        uint8_t data[4] = {0, 0, 0, 0};
+        can_.write_message(can_ids_[i] | CURRENT_LOOP << 8, data, 4);
+        
+        return hardware_interface::return_type::ERROR;
       }
       if (read_only_[i])
       {
@@ -405,11 +408,12 @@ hardware_interface::return_type CubeMarsSystemHardware::write(
     {
       switch (control_mode_[i])
       {
-        case DISABLED:
+        case UNDEFINED:
         {
-          uint8_t data[4] = {0, 0, 0, 0};
-          can_.write_message(can_ids_[i] | CURRENT_LOOP << 8, data, 4);
-          break;
+            // RCLCPP_INFO(
+            //   rclcpp::get_logger("CubeMarsSystemHardware"),
+            //   "Nothing is using the hardware interface!");
+            break;
         }
         case CURRENT_LOOP:
         {
