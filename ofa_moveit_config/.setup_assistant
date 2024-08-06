@@ -1,7 +1,7 @@
 moveit_setup_assistant_config:
   urdf:
-    package: ofa_description
-    relative_path: urdf/ofa_robot.urdf.xacro
+    package: ofa_moveit_config
+    relative_path: config/ofa_robot.urdf.xacro
   srdf:
     relative_path: config/ofa_robot.srdf
   package_settings:

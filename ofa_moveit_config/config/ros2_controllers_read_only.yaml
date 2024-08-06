@@ -3,12 +3,12 @@ controller_manager:
   ros__parameters:
     update_rate: 5  # Hz
 
-    ofa_robot_controller:
-      type: joint_trajectory_controller/JointTrajectoryController
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
 
 ofa_robot_controller:
   ros__parameters:
-    type: joint_state_broadcaster/JointStateBroadcaster
+    type: joint_trajectory_controller/JointTrajectoryController
     
     joints:
       - joint1
@@ -18,4 +18,4 @@ ofa_robot_controller:
       - position
     state_interfaces:
       - position
-      # - velocity
+      - velocity

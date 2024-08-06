@@ -300,8 +300,8 @@ private:
     // move to first position
     move_group.setJointValueTarget({-0.25, 0.8, 0});
     move_group.move();
-    move_group.setJointValueTarget({-0, 0.8, 0});
-    move_group.move();
+    // move_group.setJointValueTarget({-0, 0.8, 0});
+    // move_group.move();
 
     // get transform
     geometry_msgs::msg::TransformStamped t;
@@ -372,6 +372,7 @@ private:
         }();
         if(success) {
           move_group.execute(plan);
+          RCLCPP_INFO(this->get_logger(), "what the hell");
         } else {
           RCLCPP_ERROR(this->get_logger(), "Planning failed!");
         }
@@ -405,7 +406,7 @@ private:
     bool save_images = this->get_parameter("save_images").as_bool();  // dilation kernel size
     int dilation_size = this->get_parameter("dilation_size").as_int();;  // dilation kernel size
 
-    send_command(arduino_port_, "COLOR 255,255,128");
+    // send_command(arduino_port_, "COLOR 255,255,128");
     device_.start_cameras(&config_);
     
     // wait for auto exposure to settle
@@ -747,18 +748,18 @@ private:
 
     if (save_images)
     {
-      cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/color.png", bgr_mat);
-      cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/depth.png", depth_normalized);
-      cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/ir.png", nir_normalized);
-      cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/ir_binary.png", nir_binary);
-      cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/red.png", red_channel);
-      cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/green.png", green_channel);
-      cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/blue.png", blue_channel);
-      cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/exg.png", exg_normalized);
-      cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/exg_binary.png", exg_binary);
-      cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/components.png", components);
-      cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/components3d.png", components3d);
-      cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/combined_binary.png", combined_binary);
+      cv::imwrite("/home/ubuntu/overlay/src/ofa_weed_detection/images/color.png", bgr_mat);
+      cv::imwrite("/home/ubuntu/overlay/src/ofa_weed_detection/images/depth.png", depth_normalized);
+      cv::imwrite("/home/ubuntu/overlay/src/ofa_weed_detection/images/ir.png", nir_normalized);
+      cv::imwrite("/home/ubuntu/overlay/src/ofa_weed_detection/images/ir_binary.png", nir_binary);
+      cv::imwrite("/home/ubuntu/overlay/src/ofa_weed_detection/images/red.png", red_channel);
+      cv::imwrite("/home/ubuntu/overlay/src/ofa_weed_detection/images/green.png", green_channel);
+      cv::imwrite("/home/ubuntu/overlay/src/ofa_weed_detection/images/blue.png", blue_channel);
+      cv::imwrite("/home/ubuntu/overlay/src/ofa_weed_detection/images/exg.png", exg_normalized);
+      cv::imwrite("/home/ubuntu/overlay/src/ofa_weed_detection/images/exg_binary.png", exg_binary);
+      cv::imwrite("/home/ubuntu/overlay/src/ofa_weed_detection/images/components.png", components);
+      cv::imwrite("/home/ubuntu/overlay/src/ofa_weed_detection/images/components3d.png", components3d);
+      cv::imwrite("/home/ubuntu/overlay/src/ofa_weed_detection/images/combined_binary.png", combined_binary);
     }
 
     // publish images

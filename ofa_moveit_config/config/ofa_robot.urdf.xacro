@@ -9,10 +9,10 @@
   <xacro:property name="joint_limits" value="${xacro.load_yaml(joint_limits_file)['joint_limits']}"/>
 
   <!-- Import ofa_robot urdf file -->
-  <xacro:include filename="ofa_robot_description.urdf.xacro" />
+  <xacro:include filename="$(find ofa_moveit_config)/urdf/ofa_robot_description.urdf.xacro" />
 
   <!-- Import control_xacro -->
-  <xacro:include filename="ofa_robot.ros2_control.xacro" />
+  <xacro:include filename="$(find ofa_moveit_config)/ros2_control/ofa_robot.ros2_control.xacro" />
   
   
   <xacro:ofa_robot_ros2_control use_mock_hardware="$(arg use_mock_hardware)" read_only="$(arg read_only)" />

@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.8)
 project(ofa_weed_detection)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra)
+  add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
 # find dependencies
@@ -15,9 +15,9 @@ set(THIS_PACKAGE_INCLUDE_DEPENDS
   geometry_msgs
   tf2
   tf2_ros
+  PCL
 )
 find_package(ament_cmake REQUIRED)
-find_package(PCL REQUIRED QUIET)
 foreach(Dependency IN ITEMS ${THIS_PACKAGE_INCLUDE_DEPENDS})
   find_package(${Dependency} REQUIRED)
 endforeach()
@@ -41,11 +41,7 @@ ament_target_dependencies(
   weed_detection
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
-target_link_libraries(
-  weed_detection
-  ${CMAKE_CURRENT_SOURCE_DIR}/lib/${HOST_PLATFORM}/libk4a.so
-  ${PCL_LIBRARIES}
-)
+target_link_libraries(weed_detection ${CMAKE_CURRENT_SOURCE_DIR}/lib/${HOST_PLATFORM}/libk4a.so)
 
 ## INSTALL
 install(

@@ -33,7 +33,7 @@ def generate_launch_description():
     moveit_config = (
         MoveItConfigsBuilder("ofa_robot", package_name="ofa_moveit_config")
         .robot_description(mappings=mappings)
-        .planning_pipelines(pipelines=["ompl"])
+        # .planning_pipelines(pipelines=["ompl"])
         .to_moveit_configs()
     )
 
