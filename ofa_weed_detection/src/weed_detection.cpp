@@ -299,6 +299,8 @@ private:
     // move to first position
     move_group.setJointValueTarget({-0.25, 0.8, 0});
     move_group.move();
+    move_group.setJointValueTarget({-0, 0.8, 0});
+    move_group.move();
 
     // get transform
     geometry_msgs::msg::TransformStamped t;
