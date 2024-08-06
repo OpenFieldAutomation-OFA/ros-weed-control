@@ -22,10 +22,10 @@
           }
       }
   },
-  "workspaceFolder": "/home/ros/overlay",
-  "workspaceMount": "source=${localWorkspaceFolder},target=/home/ros/overlay/src,type=bind",
+  "workspaceFolder": "/home/ubuntu/overlay",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/home/ubuntu/overlay/src,type=bind",
   "mounts": [
-      "source=${localEnv:HOME}/.Xauthority,target=/home/ros/.Xauthority,type=bind",
+      "source=${localEnv:HOME}/.Xauthority,target=/home/ubuntu/.Xauthority,type=bind",
       "source=/dev,target=/dev,type=bind"
     //   "source=/usr/src/jetson_multimedia_api,target=/usr/src/jetson_multimedia_api,type=bind",
     //   "source=/usr/lib/aarch64-linux-gnu/tegra,target=/usr/lib/aarch64-linux-gnu/tegra,type=bind"

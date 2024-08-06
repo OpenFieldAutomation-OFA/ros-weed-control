@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <cstdint>
 #include <k4a/k4a.hpp>
 #include <chrono>
 #include <string>
@@ -6,7 +7,7 @@
 #include <termios.h>
 #include <thread>
 
-#include <cv_bridge/cv_bridge.h>
+#include <cv_bridge/cv_bridge.hpp>
 #include <opencv2/opencv.hpp>
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_types.h>
@@ -218,7 +219,7 @@ private:
     
     // turn off leds and set brightness to maximum
     send_command(arduino_port_, "OFF");
-    send_command(arduino_port_, "BRIGHTNESS 255");
+    send_command(arduino_port_, "BRIGHTNESS 100");
 
     return true;
   }
@@ -462,11 +463,11 @@ private:
       color_image.get_buffer()
     );
     std::size_t mono_size = color_image.get_width_pixels() * color_image.get_height_pixels();
-    uint8_t *depth_buffer = depth_image.get_buffer();
-    std::vector<uint16_t> depth_vector(mono_size);
+    std::uint8_t *depth_buffer = depth_image.get_buffer();
+    std::vector<std::uint16_t> depth_vector(mono_size);
     for (std::size_t i = 0; i < mono_size; i++)
     {
-      depth_vector[i] = static_cast<uint16_t>(depth_buffer[2 * i] | (depth_buffer[2 * i + 1] << 8));
+      depth_vector[i] = static_cast<std::uint16_t>(depth_buffer[2 * i] | (depth_buffer[2 * i + 1] << 8));
     }
     cv::Mat depth_mat(
       depth_image.get_height_pixels(),
@@ -474,11 +475,11 @@ private:
       CV_16UC1,
       depth_vector.data()
     );
-    uint8_t *ir_active_buffer = ir_active_image.get_buffer();
-    std::vector<uint16_t> ir_active_vector(mono_size);
+    std::uint8_t *ir_active_buffer = ir_active_image.get_buffer();
+    std::vector<std::uint16_t> ir_active_vector(mono_size);
     for (std::size_t i = 0; i < mono_size; i++)
     {
-      ir_active_vector[i] = static_cast<uint16_t>(ir_active_buffer[2 * i] | (ir_active_buffer[2 * i + 1] << 8));
+      ir_active_vector[i] = static_cast<std::uint16_t>(ir_active_buffer[2 * i] | (ir_active_buffer[2 * i + 1] << 8));
     }
     cv::Mat ir_active_mat(
       ir_active_image.get_height_pixels(),
@@ -533,8 +534,8 @@ private:
     {
       for (int col = 0; col < combined_binary.cols; col++)
       {
-        if ((int)combined_binary.at<uint8_t>(row, col) == 0) continue;
-        if ((int)depth_mat.at<uint16_t>(row, col) == 0) continue;
+        if ((int)combined_binary.at<std::uint8_t>(row, col) == 0) continue;
+        if ((int)depth_mat.at<std::uint16_t>(row, col) == 0) continue;
         k4a_float3_t point3d;
         k4a_float2_t point2d;
         point2d.xy.x = col;
@@ -543,7 +544,7 @@ private:
         k4a_calibration_2d_to_3d(
           &calibration_,
           &point2d,
-          depth_mat.at<uint16_t>(row, col),
+          depth_mat.at<std::uint16_t>(row, col),
           K4A_CALIBRATION_TYPE_COLOR,
           K4A_CALIBRATION_TYPE_COLOR,
           &point3d,
@@ -601,9 +602,9 @@ private:
       // RCLCPP_INFO(this->get_logger(), "Split: %d\n", k);
       kmeans.setClusterSize(k);
 
-      uint8_t r = 255 * (rand() / (1.0 + RAND_MAX));
-      uint8_t g = 255 * (rand() / (1.0 + RAND_MAX));
-      uint8_t b = 255 * (rand() / (1.0 + RAND_MAX));
+      std::uint8_t r = 255 * (rand() / (1.0 + RAND_MAX));
+      std::uint8_t g = 255 * (rand() / (1.0 + RAND_MAX));
+      std::uint8_t b = 255 * (rand() / (1.0 + RAND_MAX));
 
       int min_row = combined_binary.rows;
       int min_col = combined_binary.cols;

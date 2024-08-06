@@ -518,7 +518,7 @@ hardware_interface::return_type TeknicSystemHardware::write(
           {
             if (!std::isnan(hw_commands_velocities_[i]))
             {
-              int32_t target = hw_commands_velocities_[i] * counts_conversions_[i];
+              double target = hw_commands_velocities_[i] * counts_conversions_[i];
               // RCLCPP_INFO(
               //   rclcpp::get_logger("TeknicSystemHardware"),
               //   "target vel: %i", target);
@@ -530,7 +530,7 @@ hardware_interface::return_type TeknicSystemHardware::write(
           {
             if (!std::isnan(hw_commands_positions_[i]))
             {
-              int32_t target = hw_commands_positions_[i] * counts_conversions_[i];
+              double target = hw_commands_positions_[i] * counts_conversions_[i];
               // RCLCPP_INFO(
               //   rclcpp::get_logger("TeknicSystemHardware"),
               //   "target pos: %i", target);

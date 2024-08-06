@@ -74,7 +74,7 @@ bool CanSocket::disconnect()
   return true;
 }
 
-bool CanSocket::read_nonblocking(uint32_t & id, uint8_t data[], uint8_t & len)
+bool CanSocket::read_nonblocking(std::uint32_t & id, std::uint8_t data[], std::uint8_t & len)
 {
   struct can_frame frame;
   if (recv(socket_, &frame, sizeof(struct can_frame), MSG_DONTWAIT) < 0)
@@ -99,7 +99,7 @@ bool CanSocket::read_nonblocking(uint32_t & id, uint8_t data[], uint8_t & len)
   return true;
 }
 
-bool CanSocket::write_message(uint32_t id, const uint8_t data[], uint8_t len)
+bool CanSocket::write_message(std::uint32_t id, const std::uint8_t data[], std::uint8_t len)
 {
   struct can_frame frame;
   frame.can_id = id | CAN_EFF_FLAG;

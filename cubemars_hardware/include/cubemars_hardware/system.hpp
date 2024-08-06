@@ -5,6 +5,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <cstdint>
 
 #include "hardware_interface/handle.hpp"
 #include "hardware_interface/hardware_info.hpp"
@@ -83,14 +84,14 @@ private:
   std::vector<double> torque_constants_;
   std::vector<double> enc_offs_;
   std::vector<double> trq_limits_;
-  std::vector<std::pair<int16_t, int16_t>> limits_;
+  std::vector<std::pair<std::int16_t, std::int16_t>> limits_;
   std::vector<bool> read_only_;
 
   CanSocket can_;
   std::string can_itf_;
-  std::vector<uint32_t> can_ids_;
+  std::vector<std::uint32_t> can_ids_;
 
-  enum control_mode_t : uint8_t
+  enum control_mode_t : std::uint8_t
   {
     CURRENT_LOOP = 1,
     SPEED_LOOP = 3,

@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="ofa_robot">
+  <!-- Arguments -->
+  <xacro:arg name="use_mock_hardware" default="false" />
+  <xacro:arg name="read_only" default="false" />
+
+  <!-- Load joint_limits -->
+  <xacro:property name="joint_limits_file" value="$(find ofa_moveit_config)/config/joint_limits.yaml" />
+  <xacro:property name="joint_limits" value="${xacro.load_yaml(joint_limits_file)['joint_limits']}"/>
+
+  <!-- Import ofa_robot urdf file -->
+  <xacro:include filename="ofa_robot_description.urdf.xacro" />
+
+  <!-- Import control_xacro -->
+  <xacro:include filename="ofa_robot.ros2_control.xacro" />
+  
+  
+  <xacro:ofa_robot_ros2_control use_mock_hardware="$(arg use_mock_hardware)" read_only="$(arg read_only)" />
+
+</robot>

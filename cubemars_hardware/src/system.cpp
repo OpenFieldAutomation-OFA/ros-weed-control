@@ -59,7 +59,7 @@ hardware_interface::CallbackReturn CubeMarsSystemHardware::on_init(
       if (joint.parameters.count("acc_limit") != 0 &&
         joint.parameters.count("vel_limit") != 0)
       {
-        std::pair<int32_t, int32_t> limits;
+        std::pair<std::int32_t, std::int32_t> limits;
         limits.first = std::stoi(joint.parameters.at("vel_limit")) / 10 * erpm_conversion;
         limits.second = std::stoi(joint.parameters.at("acc_limit")) / 10 * erpm_conversion;
         if (limits.first >= 32767 || limits.first <= 0)
@@ -297,11 +297,11 @@ hardware_interface::return_type CubeMarsSystemHardware::read(
   const rclcpp::Time & /*time*/, const rclcpp::Duration & /*period*/)
 {
   bool all_ids[can_ids_.size()] = { false };
-  uint32_t read_id;
-  uint8_t read_data[8];
-  uint8_t read_len;
+  std::uint32_t read_id;
+  std::uint8_t read_data[8];
+  std::uint8_t read_len;
 
-  int16_t pos_int;
+  std::int16_t pos_int;
 
   // read all buffered CAN messages
   while (can_.read_nonblocking(read_id, read_data, read_len))
@@ -347,8 +347,8 @@ hardware_interface::return_type CubeMarsSystemHardware::read(
           "Position has reached maximum possible value.");
       }
       hw_states_positions_[i] = pos_int;
-      hw_states_velocities_[i] = int16_t (read_data[2] << 8 | read_data[3]);
-      hw_states_efforts_[i] = int16_t (read_data[4] << 8 | read_data[5]);
+      hw_states_velocities_[i] = std::int16_t (read_data[2] << 8 | read_data[3]);
+      hw_states_efforts_[i] = std::int16_t (read_data[4] << 8 | read_data[5]);
     }
   }
 
@@ -376,7 +376,7 @@ hardware_interface::return_type CubeMarsSystemHardware::read(
           "Joint %lu went over torque limit.", i);
         
         // disable motor
-        uint8_t data[4] = {0, 0, 0, 0};
+        std::uint8_t data[4] = {0, 0, 0, 0};
         can_.write_message(can_ids_[i] | CURRENT_LOOP << 8, data, 4);
         
         return hardware_interface::return_type::ERROR;
@@ -419,7 +419,7 @@ hardware_interface::return_type CubeMarsSystemHardware::write(
         {
           if (!std::isnan(hw_commands_efforts_[i]))
           {
-            int32_t current = hw_commands_efforts_[i] * 1000 / torque_constants_[i];
+            std::int32_t current = hw_commands_efforts_[i] * 1000 / torque_constants_[i];
             if (std::abs(current) >= 60000)
             {
               RCLCPP_ERROR(
@@ -431,7 +431,7 @@ hardware_interface::return_type CubeMarsSystemHardware::write(
             //   rclcpp::get_logger("CubeMarsSystemHardware"),
             //   "current command for joint %lu: %d", i, current);
 
-            uint8_t data[4];
+            std::uint8_t data[4];
             data[0] = current >> 24;
             data[1] = current >> 16;
             data[2] = current >> 8;
@@ -445,7 +445,7 @@ hardware_interface::return_type CubeMarsSystemHardware::write(
         {
           if (!std::isnan(hw_commands_velocities_[i]))
           {
-            int32_t speed = hw_commands_velocities_[i] * erpm_conversions_[i];
+            std::int32_t speed = hw_commands_velocities_[i] * erpm_conversions_[i];
             if (std::abs(speed) >= 100000)
             {
               RCLCPP_ERROR(
@@ -457,7 +457,7 @@ hardware_interface::return_type CubeMarsSystemHardware::write(
             //   rclcpp::get_logger("CubeMarsSystemHardware"),
             //   "speed command for joint %lu: %d", i, speed);
 
-            uint8_t data[4];
+            std::uint8_t data[4];
             data[0] = speed >> 24;
             data[1] = speed >> 16;
             data[2] = speed >> 8;
@@ -471,7 +471,7 @@ hardware_interface::return_type CubeMarsSystemHardware::write(
         {
           if (!std::isnan(hw_commands_positions_[i]))
           {
-            int32_t position = (hw_commands_positions_[i] + enc_offs_[i]) * 10000 * 180 / M_PI;
+            std::int32_t position = (hw_commands_positions_[i] + enc_offs_[i]) * 10000 * 180 / M_PI;
             if (std::abs(position) >= 360000000)
             {
               RCLCPP_ERROR(
@@ -483,7 +483,7 @@ hardware_interface::return_type CubeMarsSystemHardware::write(
             //   rclcpp::get_logger("CubeMarsSystemHardware"),
             //   "position command for joint %lu: %d", i, position);
 
-            uint8_t data[4];
+            std::uint8_t data[4];
             data[0] = position >> 24;
             data[1] = position >> 16;
             data[2] = position >> 8;
@@ -496,9 +496,9 @@ hardware_interface::return_type CubeMarsSystemHardware::write(
         {
           if (!std::isnan(hw_commands_positions_[i]))
           {
-            int32_t position = (hw_commands_positions_[i] + enc_offs_[i]) * 10000 * 180 / M_PI;
-            int16_t vel = limits_[i].first;
-            int16_t acc = limits_[i].second;
+            std::int32_t position = (hw_commands_positions_[i] + enc_offs_[i]) * 10000 * 180 / M_PI;
+            std::int16_t vel = limits_[i].first;
+            std::int16_t acc = limits_[i].second;
             if (std::abs(position) >= 360000000)
             {
               RCLCPP_ERROR(
@@ -511,7 +511,7 @@ hardware_interface::return_type CubeMarsSystemHardware::write(
             //   "command for joint %lu: pos %d, vel %d, acc %d",
             //   i, position, vel, acc);
 
-            uint8_t data[8];
+            std::uint8_t data[8];
             data[0] = position >> 24;
             data[1] = position >> 16;
             data[2] = position >> 8;

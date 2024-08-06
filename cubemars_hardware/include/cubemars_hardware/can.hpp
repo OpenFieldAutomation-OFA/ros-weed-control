@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+ #include <cstdint>
 #include <linux/can.h>
 
 namespace cubemars_hardware
@@ -36,7 +37,7 @@ public:
    * @param len Number of bytes of data (0-8)
    * @return true on success
    */
-  bool write_message(uint32_t id, const uint8_t data[], uint8_t len);
+  bool write_message(std::uint32_t id, const std::uint8_t data[], std::uint8_t len);
 
   /**
    * @brief Read message from CAN bus without blocking
@@ -45,7 +46,7 @@ public:
    * @param len Received number of bytes of data (0-8)
    * @return true on success
    */
-  bool read_nonblocking(uint32_t & id, uint8_t data[], uint8_t & len);
+  bool read_nonblocking(std::uint32_t & id, std::uint8_t data[], std::uint8_t & len);
 
 private:
   /**
@@ -56,7 +57,7 @@ private:
   /**
    * @brief CAN IDs mask
    */
-  uint32_t can_mask_;
+  std::uint32_t can_mask_;
 };
 }
 
