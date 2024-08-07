@@ -7,3 +7,5 @@
     nir_threshold: 80.0
     save_images: true
     dilation_size: 20
+    x_lower: -0.50
+    x_upper: -0.30

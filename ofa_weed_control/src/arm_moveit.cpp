@@ -97,6 +97,7 @@ int main(int argc, char* argv[])
 
   move_group.setMaxVelocityScalingFactor(0.1);
   move_group.setMaxAccelerationScalingFactor(0.1);
+  // move_group.setPlanningTime(0.2);  // planning failed if it takes longer
 
   // for (std::size_t i = 0; i < node->get_length(); i++)
   // {

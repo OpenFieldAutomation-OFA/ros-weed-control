@@ -219,7 +219,7 @@ private:
     
     // turn off leds and set brightness to maximum
     send_command(arduino_port_, "OFF");
-    send_command(arduino_port_, "BRIGHTNESS 100");
+    send_command(arduino_port_, "BRIGHTNESS 255");
 
     return true;
   }
@@ -315,8 +315,6 @@ private:
       goal_handle->abort(result);
       return;
     }
-    move_group.setJointValueTarget({-0, 0.8, 0});
-    move_group.move();
 
     // get transform
     geometry_msgs::msg::TransformStamped t;
@@ -330,82 +328,114 @@ private:
       return;
     }
 
-    std::vector<std::vector<std::vector<float>>> positions = process_image();  
+    std::vector<std::vector<float>> camera_positions = process_image();  
     // positions = {{{}}};
 
-    // move to targets
+    // transform positions
+    double x_lower = this->get_parameter("x_lower").as_double();
+    double x_upper = this->get_parameter("x_upper").as_double();
+
     geometry_msgs::msg::PointStamped point_in_camera;
     point_in_camera.header.frame_id = "camera_color_frame";
     geometry_msgs::msg::PointStamped point_in_world;
-    for (const std::vector<std::vector<float>> & centroids : positions)
+    std::vector<std::vector<double>> world_positions;
+    for (const std::vector<float> & centroid : camera_positions)
     {
-      for (const std::vector<float> & centroid : centroids)
-      {
-        // transform to world frame
-        point_in_camera.point.x = centroid[0] / 1000;
-        point_in_camera.point.y = centroid[1] / 1000;
-        point_in_camera.point.z = centroid[2] / 1000;
-        RCLCPP_INFO(this->get_logger(), "Centroid in camera frame: [%f, %f, %f]",
-          point_in_camera.point.x,
-          point_in_camera.point.y,
-          point_in_camera.point.z);
-        tf2::doTransform(point_in_camera, point_in_world, t);
-        RCLCPP_INFO(this->get_logger(), "Centroid in world frame: [%f, %f, %f]",
+      point_in_camera.point.x = centroid[0] / 1000;
+      point_in_camera.point.y = centroid[1] / 1000;
+      point_in_camera.point.z = centroid[2] / 1000;
+      RCLCPP_INFO(this->get_logger(), "Centroid in camera frame: [%f, %f, %f]",
+        point_in_camera.point.x,
+        point_in_camera.point.y,
+        point_in_camera.point.z);
+      tf2::doTransform(point_in_camera, point_in_world, t);
+      RCLCPP_INFO(this->get_logger(), "Centroid in world frame: [%f, %f, %f]",
+        point_in_world.point.x,
+        point_in_world.point.y,
+        point_in_world.point.z);
+      
+      if (point_in_world.point.x < x_lower || point_in_world.point.x > x_upper) continue;
+      world_positions.push_back(
+        {
           point_in_world.point.x,
           point_in_world.point.y,
-          point_in_world.point.z);
-        
-        // if (point_in_world.point.x < -0.56) continue;
-
-        geometry_msgs::msg::Pose target_pose;
-        tf2::Quaternion q;
-        // make sure arm is correctly positioned
-        if (point_in_world.point.y < 0)
-        {
-          q.setRPY(-90 * M_PI / 180, 0, 0);
+          point_in_world.point.z
         }
-        else
-        {
-          q.setRPY(90 * M_PI / 180, 0, 0);
+      );
+    }
+
+    // sort world positions
+    std::vector<std::vector<double>> positive_y;
+    std::vector<std::vector<double>> negative_y;
+    for (const std::vector<double> & position : world_positions) {
+        if (position[1] > 0.0) {
+            positive_y.push_back(position);
+        } else {
+            negative_y.push_back(position);
         }
-        // RCLCPP_INFO(LOGGER, "quaternion: %f %f %f %f", q.x(), q.y(), q.z(), q.w());
-        target_pose.orientation.w = q.w();
-        target_pose.orientation.x = q.x();
-        target_pose.orientation.y = q.y();
-        target_pose.orientation.z = q.z();
-        target_pose.position.x = point_in_world.point.x;
-        target_pose.position.y = point_in_world.point.y;
-        target_pose.position.z = point_in_world.point.z + 0.02;
-        // move_group.setPositionTarget(point_in_world.point.x, point_in_world.point.y, point_in_world.point.z);
-        move_group.setPoseTarget(target_pose);
-        move_group.setGoalOrientationTolerance(45 * M_PI / 180);
+    }
+    std::sort(positive_y.begin(), positive_y.end(), 
+      [](const std::vector<double>& a, const std::vector<double>& b) {
+          return a[0] < b[0]; // Sort by x-coordinate in increasing order
+      });
+    std::sort(negative_y.begin(), negative_y.end(), 
+      [](const std::vector<double>& a, const std::vector<double>& b) {
+          return a[0] > b[0]; // Sort by x-coordinate in decreasing order
+      });
+    std::vector<std::vector<double>> sorted_positions = positive_y;
+    sorted_positions.insert(sorted_positions.end(), negative_y.begin(), negative_y.end());
 
-        error_code = move_group.plan(plan);
-
-        if(error_code)
-        {
-          error_code = move_group.execute(plan);
-          if (!error_code)
-          {
-            RCLCPP_ERROR(this->get_logger(), "Execution failed: %s",
-              moveit::core::errorCodeToString(error_code).c_str());
-            goal_handle->abort(result);
-            return;
-          }
-        }
-        else
-        {
-          RCLCPP_ERROR(this->get_logger(), "Planning failed: %s",
-            moveit::core::errorCodeToString(error_code).c_str());
-          continue;
-        }
-
-        rclcpp::sleep_for(std::chrono::seconds(1));
-
-        // break;
+    // move to targets
+    for (const std::vector<double> & position : sorted_positions)
+    {
+      geometry_msgs::msg::Pose target_pose;
+      tf2::Quaternion q;
+      // make sure arm is correctly positioned
+      if (position[1] < 0)
+      {
+        q.setRPY(-90 * M_PI / 180, 0, 0);
       }
+      else
+      {
+        q.setRPY(90 * M_PI / 180, 0, 0);
+      }
+      // RCLCPP_INFO(LOGGER, "quaternion: %f %f %f %f", q.x(), q.y(), q.z(), q.w());
+      target_pose.orientation.w = q.w();
+      target_pose.orientation.x = q.x();
+      target_pose.orientation.y = q.y();
+      target_pose.orientation.z = q.z();
+      target_pose.position.x = position[0];
+      target_pose.position.y = position[1];
+      target_pose.position.z = position[2] + 0.02;
+      // move_group.setPositionTarget(point_in_world.point.x, point_in_world.point.y, point_in_world.point.z);
+      move_group.setPoseTarget(target_pose);
+      move_group.setGoalOrientationTolerance(45 * M_PI / 180);
+
+      error_code = move_group.plan(plan);
+
+      if(error_code)
+      {
+        error_code = move_group.execute(plan);
+        if (!error_code)
+        {
+          RCLCPP_ERROR(this->get_logger(), "Execution failed: %s",
+            moveit::core::errorCodeToString(error_code).c_str());
+          goal_handle->abort(result);
+          return;
+        }
+      }
+      else
+      {
+        RCLCPP_ERROR(this->get_logger(), "Planning failed: %s",
+          moveit::core::errorCodeToString(error_code).c_str());
+        continue;
+      }
+
+      rclcpp::sleep_for(std::chrono::seconds(1));
+
       // break;
     }
+
 
     // move to home
     move_group.setNamedTarget("home");
@@ -418,7 +448,7 @@ private:
     }
   }
 
-  std::vector<std::vector<std::vector<float>>> process_image()
+  std::vector<std::vector<float>> process_image()
   {
     // get parameters
     double cluster_distance = this->get_parameter("cluster_distance").as_double();  // tolerance in mm for point cloud clustering
@@ -615,7 +645,7 @@ private:
 
     // project clusters back
     cv::Mat components3d = cv::Mat::zeros(combined_binary.size(), CV_8UC3);
-    std::vector<std::vector<std::vector<float>>> positions;  // 3d coordinate(s) for each plant
+    std::vector<std::vector<float>> positions;  // 3d coordinate(s) that should be treated
     
     for (const auto& indices : cluster_indices) {
       pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZ>);
@@ -677,6 +707,8 @@ private:
       }
       cv::Rect bounding_box = cv::Rect(min_col, min_row, max_col - min_col, max_row - min_row);
       cv::rectangle(components3d, bounding_box, cv::Scalar(0, 255, 0), 2);
+
+      // TODO: check if plant crop or not (classification)
       
       // positions
       std::vector<std::vector<float>> centroids;
@@ -684,47 +716,48 @@ private:
       {
         Eigen::Vector4f centroid;
         pcl::compute3DCentroid(*cloud_cluster, centroid);
-        centroids.push_back({centroid[0], centroid[1], centroid[2]});
+        positions.push_back({centroid[0], centroid[1], centroid[2]});
       }
       else
       {
         kmeans.kMeans();
-        std::vector<std::vector<float>> all_centroids = kmeans.get_centroids();
-        for (const std::vector<float> & centroid : all_centroids)
+        int ccount = 0;
+        std::vector<std::vector<float>> centroids = kmeans.get_centroids();
+        for (const std::vector<float> & centroid : centroids)
         {          
           if (!isnan(centroid[0]) && !isnan(centroid[1]) && !isnan(centroid[2]))
           {
-            centroids.push_back(centroid);
+            positions.push_back(centroid);
+            ccount++;
           }
         }
+        RCLCPP_INFO(this->get_logger(), "Centroid count: %d\n", ccount);
       }
-      positions.push_back(centroids);
-      RCLCPP_INFO(this->get_logger(), "Centroid count: %ld\n", centroids.size());
-      for (const std::vector<float> & centroid : centroids)
-      {
-        RCLCPP_INFO(this->get_logger(), "centroid %f: %f, %f\n",
-          centroid[0], centroid[1], centroid[2]);
-        k4a_float3_t point3d;
-        k4a_float2_t point2d;
-        point3d.xyz.x = centroid[0];
-        point3d.xyz.y = centroid[1];
-        point3d.xyz.z = centroid[2];
-        int valid = 0;
-        k4a_calibration_3d_to_2d(
-          &calibration_,
-          &point3d,
-          K4A_CALIBRATION_TYPE_COLOR,
-          K4A_CALIBRATION_TYPE_COLOR,
-          &point2d,
-          &valid
-        );
-        int row = std::round(point2d.xy.y);
-        int col = std::round(point2d.xy.x);
-        cv::Point projected_centroid(col, row);
-        cv::circle(components3d, projected_centroid, 10, cv::Scalar(0, 0, 255), -1);      }
     }
 
-
+    for (const std::vector<float> & centroid : positions)
+    {
+      RCLCPP_INFO(this->get_logger(), "centroid %f: %f, %f\n",
+        centroid[0], centroid[1], centroid[2]);
+      k4a_float3_t point3d;
+      k4a_float2_t point2d;
+      point3d.xyz.x = centroid[0];
+      point3d.xyz.y = centroid[1];
+      point3d.xyz.z = centroid[2];
+      int valid = 0;
+      k4a_calibration_3d_to_2d(
+        &calibration_,
+        &point3d,
+        K4A_CALIBRATION_TYPE_COLOR,
+        K4A_CALIBRATION_TYPE_COLOR,
+        &point2d,
+        &valid
+      );
+      int row = std::round(point2d.xy.y);
+      int col = std::round(point2d.xy.x);
+      cv::Point projected_centroid(col, row);
+      cv::circle(components3d, projected_centroid, 10, cv::Scalar(0, 0, 255), -1);
+    }
 
     RCLCPP_INFO(this->get_logger(), "Start 2d version\n");
     t1 = std::chrono::high_resolution_clock::now();
