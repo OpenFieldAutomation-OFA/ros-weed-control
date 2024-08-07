@@ -10,11 +10,11 @@ If you are developing on a `arm64` platform (Nvidia Jetson) the procedure has to
     ```bash
     xacro ofa_moveit_config/config/ofa_robot.urdf.xacro > ofa_robot.urdf
     ```
-    Then commit and push the repository.
+    Commit and push the repository.
 2. On a computer with `amd64` architecture, pull the repository with the new URDF file and run the script. This cannot be executed on a `arm64` platform.
     ```bash
     bash ofa_ikfast_plugin/scripts/auto_update_ikfast.sh
     ```
-3. Commit and push the changes.
+    Commit and push the changes.
 
 For the second step you only need to have Docker and Python installed, ROS is not needed.
