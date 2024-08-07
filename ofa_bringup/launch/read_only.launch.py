@@ -29,8 +29,8 @@ def generate_launch_description():
             " ",
             PathJoinSubstitution(
                 [
-                    FindPackageShare("ofa_description"),
-                    "urdf",
+                    FindPackageShare("ofa_moveit_config"),
+                    "config",
                     "ofa_robot.urdf.xacro",
                 ]
             ),
