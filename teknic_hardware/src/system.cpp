@@ -330,7 +330,7 @@ hardware_interface::CallbackReturn TeknicSystemHardware::on_activate(
           {
             RCLCPP_INFO(
               rclcpp::get_logger("TeknicSystemHardware"),
-              "Node %zu has already been homed, not homing. Current position is: \t%8.0f",
+              "Node %zu has already been homed, not homing. Current position is: \t%f",
               node.first, inode.Motion.PosnMeasured.Value());
           }
           else
