@@ -156,19 +156,6 @@ def update_ikfast_package(args):
     print("Wrote package.xml at  '%s'" % package_file_name)
 
 
-def update_moveit_package(args):
-    # Modify kinematics.yaml file
-    kin_yaml_file_name = moveit_folder + "/config/kinematics.yaml"
-    with open(kin_yaml_file_name, "r") as f:
-        kin_yaml_data = yaml.safe_load(f)
-
-    kin_yaml_data[planning_group_name]["kinematics_solver"] = plugin_name
-    with open(kin_yaml_file_name, "w") as f:
-        yaml.dump(kin_yaml_data, f, default_flow_style=False)
-
-    print("Modified kinematics.yaml at '%s'" % kin_yaml_file_name)
-
-
 def copy_file(src_path, dest_path, description, replacements=None):
     if not os.path.exists(src_path):
         raise Exception("Can't find %s at '%s'" % (description, src_path))
@@ -196,10 +183,6 @@ def main():
         raise Exception("Can't find IKFast source code at " + args.ikfast_output_path)
 
     update_ikfast_package(args)
-    try:
-        update_moveit_package(args)
-    except Exception as e:
-        print("Failed to update MoveIt package:\n" + str(e))
 
 
 if __name__ == "__main__":
