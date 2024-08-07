@@ -5,7 +5,6 @@
 
 import re
 import os
-import yaml
 from lxml import etree
 import argparse
 
@@ -16,14 +15,11 @@ robot_name = "ofa_robot"
 ikfast_plugin_pkg = "ofa_ikfast_plugin"
 base_link_name = "base_link"
 eef_link_name = "eef_link"
-moveit_config_pkg = "ofa_moveit_config"
 planning_group_name = "arm"
 search_mode = search_modes[0]
 
-srdf_filename = robot_name + ".srdf"
 script_folder = os.path.dirname(__file__)
 plugin_folder = script_folder + "/.."
-moveit_folder = script_folder + "/../../ofa_moveit_config"
 template_folder = script_folder + "/../templates"
 
 namespace = robot_name + "_" + planning_group_name
