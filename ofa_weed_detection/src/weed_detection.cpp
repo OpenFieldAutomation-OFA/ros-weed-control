@@ -295,13 +295,28 @@ private:
     RCLCPP_INFO(this->get_logger(), "Planning frame: %s", move_group.getPlanningFrame().c_str());
     move_group.setMaxVelocityScalingFactor(0.1);
     move_group.setMaxAccelerationScalingFactor(0.1);
-    move_group.setPlanningTime(0.2);
+    // move_group.setPlanningTime(0.2);
 
     // move to first position
-    move_group.setJointValueTarget({-0.25, 0.8, 0});
+    move_group.setJointValueTarget({-0.25, 0.8, 0.0});
+
+    moveit::core::MoveItErrorCode error_code;
+    moveit::planning_interface::MoveGroupInterface::Plan plan;
+
+    error_code = move_group.move();
+    if (error_code)
+    {
+      RCLCPP_INFO(this->get_logger(), "Successfully moved to first photo position.");
+    }
+    else
+    {
+      RCLCPP_ERROR(this->get_logger(), "Could not reach first photo position: %s",
+        moveit::core::errorCodeToString(error_code).c_str());
+      goal_handle->abort(result);
+      return;
+    }
+    move_group.setJointValueTarget({-0, 0.8, 0});
     move_group.move();
-    // move_group.setJointValueTarget({-0, 0.8, 0});
-    // move_group.move();
 
     // get transform
     geometry_msgs::msg::TransformStamped t;
@@ -340,7 +355,7 @@ private:
           point_in_world.point.y,
           point_in_world.point.z);
         
-        if (point_in_world.point.x < -0.56) continue;
+        // if (point_in_world.point.x < -0.56) continue;
 
         geometry_msgs::msg::Pose target_pose;
         tf2::Quaternion q;
@@ -365,16 +380,24 @@ private:
         move_group.setPoseTarget(target_pose);
         move_group.setGoalOrientationTolerance(45 * M_PI / 180);
 
-        auto const [success, plan] = [&move_group]{
-          moveit::planning_interface::MoveGroupInterface::Plan msg;
-          auto const ok = static_cast<bool>(move_group.plan(msg));
-          return std::make_pair(ok, msg);
-        }();
-        if(success) {
-          move_group.execute(plan);
-          RCLCPP_INFO(this->get_logger(), "what the hell");
-        } else {
-          RCLCPP_ERROR(this->get_logger(), "Planning failed!");
+        error_code = move_group.plan(plan);
+
+        if(error_code)
+        {
+          error_code = move_group.execute(plan);
+          if (!error_code)
+          {
+            RCLCPP_ERROR(this->get_logger(), "Execution failed: %s",
+              moveit::core::errorCodeToString(error_code).c_str());
+            goal_handle->abort(result);
+            return;
+          }
+        }
+        else
+        {
+          RCLCPP_ERROR(this->get_logger(), "Planning failed: %s",
+            moveit::core::errorCodeToString(error_code).c_str());
+          continue;
         }
 
         rclcpp::sleep_for(std::chrono::seconds(1));
@@ -406,7 +429,7 @@ private:
     bool save_images = this->get_parameter("save_images").as_bool();  // dilation kernel size
     int dilation_size = this->get_parameter("dilation_size").as_int();;  // dilation kernel size
 
-    // send_command(arduino_port_, "COLOR 255,255,128");
+    send_command(arduino_port_, "COLOR 255,255,128");
     device_.start_cameras(&config_);
     
     // wait for auto exposure to settle
