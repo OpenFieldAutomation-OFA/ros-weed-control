@@ -63,7 +63,7 @@
   <!-- Tube dimensions -->
   <xacro:property name="arm_r" value="${0.045/2}" />
   <xacro:property name="arm1_l" value="${0.451-2*motor_r}" />
-  <xacro:property name="arm2_l" value="0.161" />
+  <xacro:property name="arm2_l" value="${0.1165+motor_r}" />
 
   <!-- End effector dimensions -->
   <xacro:property name="end_base_r" value="0.013" />

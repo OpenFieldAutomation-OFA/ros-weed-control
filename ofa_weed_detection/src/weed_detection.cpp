@@ -293,8 +293,8 @@ private:
     // init movegroup
     moveit::planning_interface::MoveGroupInterface move_group(this->shared_from_this(), "arm");
     RCLCPP_INFO(this->get_logger(), "Planning frame: %s", move_group.getPlanningFrame().c_str());
-    move_group.setMaxVelocityScalingFactor(0.1);
-    move_group.setMaxAccelerationScalingFactor(0.1);
+    move_group.setMaxVelocityScalingFactor(1.0);
+    move_group.setMaxAccelerationScalingFactor(1.0);
     // move_group.setPlanningTime(0.2);
 
     // move to first position
@@ -652,6 +652,7 @@ private:
 
     // project clusters back
     cv::Mat components3d = cv::Mat::zeros(combined_binary.size(), CV_8UC3);
+    cv::Mat components3dcolor = bgr_mat.clone();
     std::vector<std::vector<float>> positions;  // 3d coordinate(s) that should be treated
     
     for (const auto& indices : cluster_indices) {
@@ -714,6 +715,7 @@ private:
       }
       cv::Rect bounding_box = cv::Rect(min_col, min_row, max_col - min_col, max_row - min_row);
       cv::rectangle(components3d, bounding_box, cv::Scalar(0, 255, 0), 2);
+      cv::rectangle(components3dcolor, bounding_box, cv::Scalar(0, 255, 0), 2);
 
       // TODO: check if plant crop or not (classification)
       
@@ -764,6 +766,7 @@ private:
       int col = std::round(point2d.xy.x);
       cv::Point projected_centroid(col, row);
       cv::circle(components3d, projected_centroid, 10, cv::Scalar(0, 0, 255), -1);
+      cv::circle(components3dcolor, projected_centroid, 10, cv::Scalar(0, 0, 255), -1);
     }
 
     RCLCPP_INFO(this->get_logger(), "Start 2d version\n");
@@ -822,6 +825,7 @@ private:
       cv::imwrite("/home/ubuntu/overlay/src/ofa_weed_detection/images/exg_binary.png", exg_binary);
       cv::imwrite("/home/ubuntu/overlay/src/ofa_weed_detection/images/components.png", components);
       cv::imwrite("/home/ubuntu/overlay/src/ofa_weed_detection/images/components3d.png", components3d);
+      cv::imwrite("/home/ubuntu/overlay/src/ofa_weed_detection/images/components3dcolor.png", components3dcolor);
       cv::imwrite("/home/ubuntu/overlay/src/ofa_weed_detection/images/combined_binary.png", combined_binary);
     }
 
