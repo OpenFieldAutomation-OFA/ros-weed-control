@@ -9,3 +9,6 @@
     dilation_size: 20
     x_lower: -0.50
     x_upper: -0.30
+    x_off: 0.01
+    y_off: 0.01
+    z_off: 0.02

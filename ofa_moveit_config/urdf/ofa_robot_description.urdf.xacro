@@ -14,11 +14,6 @@
   <xacro:property name="frame_h" value="0.03" />
   <xacro:property name="box_w" value="0.01" />
 
-  <!-- Side (Wheels) -->
-  <xacro:property name="frame_l" value="1.3" />
-  <xacro:property name="frame_w" value="0.8" />
-  <xacro:property name="frame_h" value="0.03" />
-
   <!-- Frame dimensions -->
   <xacro:property name="frame_l" value="1.3" />
   <xacro:property name="frame_w" value="0.8" />

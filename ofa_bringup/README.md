@@ -12,4 +12,4 @@ This will launch the camera node of the official [Orbbec ROS 2 SDK](https://gith
 ```bash
 ros2 launch moveit_setup_assistant setup_assistant.launch.py
 ```
-This will launch the Moveit 2 Setup Assistant which can be used to create the MoveIt config. Note that the `ofa_moveit_config` folder does not have the exact same structure as the setup assistant would expect and most files have been modified outside of the setup assistant. The setup assistant should only be used for generating and saving the SRDF file (after he URDF file has been modified) to update the self-collisions.
+This will launch the Moveit 2 Setup Assistant which can be used to create or change a MoveIt configuration package. Note that the `ofa_moveit_config` folder does not have the exact same structure as the setup assistant would expect and most files have been modified from the original configuration. The setup assistant should only be used for updating the SRDF file after the URDF file has been modified.

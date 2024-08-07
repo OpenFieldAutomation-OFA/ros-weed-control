@@ -10,7 +10,7 @@
 
 set -e  # fail on error
 
-INPUT=${1:-"`dirname $0`"/../../ofa_description/urdf/ofa_robot.urdf}
+INPUT=${1:-"`dirname $0`"/../../ofa_robot.urdf}
 BASE_LINK=base_link
 EEF_LINK=eef_link
 IK_TYPE=Translation3D
@@ -40,6 +40,7 @@ echo "Successfully built docker image."
 
 # create dae file
 cp "$INPUT" "$TMP_DIR/robot.urdf"
+rm "$INPUT"
 docker run --rm --user $(id -u):$(id -g) -v $TMP_DIR:/input --workdir /input -e HOME=/input \
     fixed-openrave:latest rosrun collada_urdf urdf_to_collada robot.urdf robot.dae
 

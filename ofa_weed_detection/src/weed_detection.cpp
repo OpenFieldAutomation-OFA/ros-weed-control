@@ -329,12 +329,19 @@ private:
     }
 
     std::vector<std::vector<float>> camera_positions = process_image();  
-    // positions = {{{}}};
+
+    double x_lower = this->get_parameter("x_lower").as_double();  // world points with lower x value will be ignored
+    double x_upper = this->get_parameter("x_upper").as_double();  // world points with lower x value will be ignored
+    
+    /*
+    Offsets in x, y, and z-direction
+    Ideally the URDF would describe our setup perfectly, but practically it's easier to tune the offsets as parameters
+    */ 
+    double x_off = this->get_parameter("x_off").as_double();
+    double y_off = this->get_parameter("y_off").as_double();
+    double z_off = this->get_parameter("z_off").as_double();
 
     // transform positions
-    double x_lower = this->get_parameter("x_lower").as_double();
-    double x_upper = this->get_parameter("x_upper").as_double();
-
     geometry_msgs::msg::PointStamped point_in_camera;
     point_in_camera.header.frame_id = "camera_color_frame";
     geometry_msgs::msg::PointStamped point_in_world;
@@ -404,9 +411,9 @@ private:
       target_pose.orientation.x = q.x();
       target_pose.orientation.y = q.y();
       target_pose.orientation.z = q.z();
-      target_pose.position.x = position[0];
-      target_pose.position.y = position[1];
-      target_pose.position.z = position[2] + 0.02;
+      target_pose.position.x = position[0] + x_off;
+      target_pose.position.y = position[1] + y_off;
+      target_pose.position.z = position[2] + z_off;
       // move_group.setPositionTarget(point_in_world.point.x, point_in_world.point.y, point_in_world.point.z);
       move_group.setPoseTarget(target_pose);
       move_group.setGoalOrientationTolerance(45 * M_PI / 180);

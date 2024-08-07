@@ -90,5 +90,5 @@ To get started just open the `ros-weed-control` folder in VS Code and run **Dev 
 
 After that you can run all the same commands as specified above.
 
-### Non-Docker
-TODO
+## URDF
+The URDF description of the robot is stored in `ofa_moveit_config/urdf/ofa_robot_description.urdf.xacro`. Everytime the URDF is changed, you need to update the IKFast plugin and regenerate the SRDF file of the MoveIt config. Details about these two steps can be found in the README of `ofa_ikfast_plugin` and `ofa_bringup`.
