@@ -20,6 +20,7 @@
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/common/centroid.h>
 #include <pcl/ml/kmeans.h>
+#include <pcl_conversions/pcl_conversions.h>
 
 #include <moveit/move_group_interface/move_group_interface.h>
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
@@ -35,6 +36,7 @@
 #include <ofa_interfaces/action/weed_control.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/image.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
 
 // Function to send command to the Arduino
@@ -107,7 +109,6 @@ public:
     {
       rclcpp::shutdown();
     }
-    this->create_publishers();
     this->init_camera();    
     RCLCPP_INFO(this->get_logger(), "Node initialized");
   }
@@ -133,21 +134,7 @@ private:
 
   // publishers
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr color_publisher_;
-  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr depth_publisher_;
-  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr depth_raw_publisher_;
-  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr hist_publisher_;
-  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr ir_publisher_;
-  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr red_publisher_;
-  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr green_publisher_;
-  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr blue_publisher_;
-  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr nir_publisher_;
-  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr nir_binary_publisher_;
-  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr exg_publisher_;
-  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr exg_binary_publisher_;
-  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr combined_binary_publisher_;
-  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr clean_binary_publisher_;
-  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr components_publisher_;
-  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr components3d_publisher_;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr point_cloud_publisher_;
 
   // arduino
   int arduino_port_;
@@ -192,26 +179,6 @@ private:
       handle_goal,
       handle_cancel,
       handle_accepted);
-  }
-
-  void create_publishers()
-  {
-    color_publisher_ = this->create_publisher<sensor_msgs::msg::Image>("color_image", 10);
-    depth_publisher_ = this->create_publisher<sensor_msgs::msg::Image>("depth_image", 10);
-    depth_raw_publisher_ = this->create_publisher<sensor_msgs::msg::Image>("depth_raw", 10);
-    hist_publisher_ = this->create_publisher<sensor_msgs::msg::Image>("hist_image", 10);
-    ir_publisher_ = this->create_publisher<sensor_msgs::msg::Image>("ir_active_image", 10);
-    red_publisher_ = this->create_publisher<sensor_msgs::msg::Image>("red_image", 10);
-    green_publisher_ = this->create_publisher<sensor_msgs::msg::Image>("green_image", 10);
-    blue_publisher_ = this->create_publisher<sensor_msgs::msg::Image>("blue_image", 10);
-    nir_publisher_ = this->create_publisher<sensor_msgs::msg::Image>("nir_image", 10);
-    exg_publisher_ = this->create_publisher<sensor_msgs::msg::Image>("exg_image", 10);
-    nir_binary_publisher_ = this->create_publisher<sensor_msgs::msg::Image>("nir_binary_image", 10);
-    exg_binary_publisher_ = this->create_publisher<sensor_msgs::msg::Image>("exg_binary_image", 10);
-    combined_binary_publisher_ = this->create_publisher<sensor_msgs::msg::Image>("combined_binary_image", 10);
-    clean_binary_publisher_ = this->create_publisher<sensor_msgs::msg::Image>("clean_binary_image", 10);
-    components_publisher_ = this->create_publisher<sensor_msgs::msg::Image>("components_image", 10);
-    components3d_publisher_ = this->create_publisher<sensor_msgs::msg::Image>("components3d_image", 10);
   }
 
   bool init_arduino()
@@ -312,12 +279,87 @@ private:
   }
 
   void capture_frames() {
+    // create publishers
+    color_publisher_ = this->create_publisher<sensor_msgs::msg::Image>("color_image", 10);
+    point_cloud_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("point_cloud", 10);
+
     // Capture frames in a loop until 'running_' is set to false
+    int frames = 0;
     while (running_) {
       if (!device_.get_capture(&capture_, std::chrono::milliseconds(1000)))
       {
         RCLCPP_ERROR(this->get_logger(), "Could not get camera capture.");
-      }      
+      }
+      if (frames == 5)
+      {
+        // get images
+        k4a::image depth_image = capture_.get_depth_image();
+        k4a::image color_image = capture_.get_color_image();
+        
+        // create and publish point cloud
+        cv::Mat depth_mat(
+          depth_image.get_height_pixels(),
+          depth_image.get_width_pixels(),
+          CV_16UC1,
+          reinterpret_cast<uint16_t*>(depth_image.get_buffer())
+        );
+        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
+        int rows = depth_image.get_height_pixels();
+        int cols = depth_image.get_width_pixels();
+        cloud->points.reserve(rows * cols);  // speeds up computation
+        for (int row = 0; row < rows; row++)
+        {
+          for (int col = 0; col < cols; col++)
+          {
+            if ((int)depth_mat.at<std::uint16_t>(row, col) == 0) continue;
+            k4a_float3_t point3d;
+            k4a_float2_t point2d;
+            point2d.xy.x = col;
+            point2d.xy.y = row;
+            int valid;
+            k4a_calibration_2d_to_3d(
+              &calibration_,
+              &point2d,
+              depth_mat.at<std::uint16_t>(row, col),
+              K4A_CALIBRATION_TYPE_DEPTH,
+              K4A_CALIBRATION_TYPE_DEPTH,
+              &point3d,
+              &valid
+            );
+            pcl::PointXYZ point;
+            point.x = point3d.xyz.x / 1000;
+            point.y = point3d.xyz.y / 1000;
+            point.z = point3d.xyz.z / 1000;
+            cloud->points.push_back(point);
+          }
+        }
+        cloud->width = cloud->points.size();
+        cloud->height = 1;
+        cloud->is_dense = true;
+        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_sparse(new pcl::PointCloud<pcl::PointXYZ>);
+        pcl::VoxelGrid<pcl::PointXYZ> sor;
+        sor.setInputCloud(cloud);
+        sor.setLeafSize(0.001, 0.001, 0.001);
+        sor.filter(*cloud_sparse);
+        sensor_msgs::msg::PointCloud2 pointcloud_msg;
+        pcl::toROSMsg(*cloud_sparse, pointcloud_msg);
+        pointcloud_msg.header.frame_id = "camera_color_frame";
+        pointcloud_msg.header.stamp = this->now();
+        point_cloud_publisher_->publish(pointcloud_msg);
+
+        // publish color image
+        std::vector<std::uint8_t> color_buffer(color_image.get_buffer(), color_image.get_buffer() + color_image.get_size());
+        cv::Mat color_mat = cv::imdecode(color_buffer, cv::IMREAD_ANYCOLOR);
+        std_msgs::msg::Header header;
+        header.frame_id = "camera_color_frame";
+        header.stamp = this->now();
+        color_publisher_->publish(
+          *cv_bridge::CvImage(header, "bgr8", color_mat).toImageMsg().get()
+        );
+
+        frames = 0;
+      }
+      frames++;
     }
   }
 
@@ -502,115 +544,81 @@ private:
     bool save_images = this->get_parameter("save_images").as_bool();  // dilation kernel size
     int dilation_size = this->get_parameter("dilation_size").as_int();;  // dilation kernel size
 
+    // turn on LEDs
     send_command(arduino_port_, "COLOR 255,255,128");
 
     // wait for auto exposure to settle
     std::this_thread::sleep_for(std::chrono::seconds(1));
 
+    // get images (capture done in seperate thread)
+    k4a::image depth_image = capture_.get_depth_image();
+    k4a::image color_image = capture_.get_color_image();
+    k4a::image ir_image = capture_.get_ir_image();
+    send_command(arduino_port_, "OFF");
 
     std::string log_text = "";
     auto t1_total = std::chrono::high_resolution_clock::now();
     auto t1 = std::chrono::high_resolution_clock::now();
-
-    // get images (capture done in seperate thread)
-    k4a::image depth_image = capture_.get_depth_image();
-    k4a::image color_image = capture_.get_color_image();
-    k4a::image ir_active_image = capture_.get_ir_image();
-    send_command(arduino_port_, "OFF");
     
     // transform depth and ir image to camera viewpoint
-    ir_active_image = k4a::image::create_from_buffer(
+    ir_image = k4a::image::create_from_buffer(
       K4A_IMAGE_FORMAT_CUSTOM16,
-      ir_active_image.get_width_pixels(),
-      ir_active_image.get_height_pixels(),
-      ir_active_image.get_stride_bytes(),
-      ir_active_image.get_buffer(),
-      ir_active_image.get_size(),
+      ir_image.get_width_pixels(),
+      ir_image.get_height_pixels(),
+      ir_image.get_stride_bytes(),
+      ir_image.get_buffer(),
+      ir_image.get_size(),
       [](void *, void *) {},
       NULL
     );
     std::pair<k4a::image, k4a::image> transformed = transformation_.depth_image_to_color_camera_custom(
       depth_image,
-      ir_active_image,
+      ir_image,
       K4A_TRANSFORMATION_INTERPOLATION_TYPE_NEAREST,
       0
     );
     depth_image = transformed.first;
-    ir_active_image = transformed.second;
+    ir_image = transformed.second;
 
     auto t2 = std::chrono::high_resolution_clock::now();
     auto ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
     log_text += "Transform images: " + std::to_string(ms_int.count()) + " ms\n";
 
-    // decompress mjpg
+    // decode JPG
     t1 = std::chrono::high_resolution_clock::now();
     std::vector<std::uint8_t> color_buffer(color_image.get_buffer(), color_image.get_buffer() + color_image.get_size());
     cv::Mat color_mat = cv::imdecode(color_buffer, cv::IMREAD_ANYCOLOR);
-    cv::cvtColor(color_mat, color_mat, cv::COLOR_BGR2BGRA);
     t2 = std::chrono::high_resolution_clock::now();
     ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
     log_text += "Decode JPEG: " + std::to_string(ms_int.count()) + " ms\n";
 
-    // convert rest to opencv
-    // cv::Mat color_mat(
-    //   color_image.get_height_pixels(),
-    //   color_image.get_width_pixels(),
-    //   CV_8UC4,
-    //   color_image.get_buffer()
-    // );
+    // convert depth and ir to opencv
     t1 = std::chrono::high_resolution_clock::now();
-    std::size_t mono_size = color_image.get_width_pixels() * color_image.get_height_pixels();
-    std::uint8_t *depth_buffer = depth_image.get_buffer();
-    std::vector<std::uint16_t> depth_vector(mono_size);
-    for (std::size_t i = 0; i < mono_size; i++)
-    {
-      depth_vector[i] = static_cast<std::uint16_t>(depth_buffer[2 * i] | (depth_buffer[2 * i + 1] << 8));
-    }
     cv::Mat depth_mat(
       depth_image.get_height_pixels(),
       depth_image.get_width_pixels(),
       CV_16UC1,
-      depth_vector.data()
+      reinterpret_cast<uint16_t*>(depth_image.get_buffer())
     );
-    std::uint8_t *ir_active_buffer = ir_active_image.get_buffer();
-    std::vector<std::uint16_t> ir_active_vector(mono_size);
-    for (std::size_t i = 0; i < mono_size; i++)
-    {
-      ir_active_vector[i] = static_cast<std::uint16_t>(ir_active_buffer[2 * i] | (ir_active_buffer[2 * i + 1] << 8));
-    }
-    cv::Mat ir_active_mat(
-      ir_active_image.get_height_pixels(),
-      ir_active_image.get_width_pixels(),
+    cv::Mat ir_mat(
+      ir_image.get_height_pixels(),
+      ir_image.get_width_pixels(),
       CV_16UC1,
-      ir_active_vector.data()
+      reinterpret_cast<uint16_t*>(ir_image.get_buffer())
     );
-    cv::Mat bgr_mat;
-    cv::cvtColor(color_mat, bgr_mat, cv::COLOR_BGRA2BGR);
-    cv::Mat nir_normalized;
-    cv::min(ir_active_mat, 2048, ir_active_mat); // remove outliers (reflections, saturated pixels)
-    cv::normalize(ir_active_mat, nir_normalized, 0, 255, cv::NORM_MINMAX, CV_8UC1);
+    cv::min(ir_mat, 2048, ir_mat); // remove outliers (reflections, saturated pixels)
+    cv::normalize(ir_mat, ir_mat, 0, 255, cv::NORM_MINMAX, CV_8UC1);
     cv::Mat depth_normalized;
     cv::normalize(depth_mat, depth_normalized, 0, 255, cv::NORM_MINMAX, CV_8UC1);
-
-    cv::Mat depth_meters;
-    depth_mat.convertTo(depth_meters, CV_32F, 0.001);
-    // depth_meters /= 1000;
-    RCLCPP_INFO(this->get_logger(), "FIRST VALUE: %f, %f", depth_meters.at<float>(0, 0), depth_meters.at<float>(100, 5));
-    // cv::divide(1000, depth_meters, depth_meters);
 
     t2 = std::chrono::high_resolution_clock::now();
     ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
     log_text += "Convert to OpenCV: " + std::to_string(ms_int.count()) + " ms\n";
 
-    // cv::Scalar mean, stddev;
-    // cv::meanStdDev(depth_mat, mean, stddev);
-    // RCLCPP_INFO(this->get_logger(), "mean: %f, std: %f\n", mean[0], stddev[0]);
-    // cv::Mat hist = plotHistogram(depth_normalized);
-
     // calculate ExG
     t1 = std::chrono::high_resolution_clock::now();
     std::vector<cv::Mat> bgr_channels;
-    cv::split(bgr_mat, bgr_channels);
+    cv::split(color_mat, bgr_channels);
     cv::Mat blue_channel = bgr_channels[0];
     cv::Mat green_channel = bgr_channels[1];
     cv::Mat red_channel = bgr_channels[2];
@@ -623,15 +631,15 @@ private:
     cv::normalize(exg, exg_normalized, 0, 255, cv::NORM_MINMAX, CV_8UC1);
 
     // remove some noise
-    cv::GaussianBlur(nir_normalized, nir_normalized, cv::Size(15, 15), 0);
-    cv::GaussianBlur(exg, exg, cv::Size(15, 15), 0);
+    // cv::GaussianBlur(ir_mat, ir_mat, cv::Size(15, 15), 0);
+    // cv::GaussianBlur(exg, exg, cv::Size(15, 15), 0);
 
     // threshold
     cv::Mat exg_binary;
     cv::threshold(exg, exg_binary, exg_threshold, 255, cv::THRESH_BINARY);
     exg_binary.convertTo(exg_binary, CV_8UC1);
     cv::Mat nir_binary;
-    cv::threshold(nir_normalized, nir_binary, nir_threshold, 255, cv::THRESH_BINARY);
+    cv::threshold(ir_mat, nir_binary, nir_threshold, 255, cv::THRESH_BINARY);
     cv::Mat combined_binary;
     cv::bitwise_and(exg_binary, nir_binary, combined_binary);
     t2 = std::chrono::high_resolution_clock::now();
@@ -640,6 +648,9 @@ private:
 
     t1 = std::chrono::high_resolution_clock::now();
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
+    int rows = combined_binary.rows;
+    int cols = combined_binary.cols;
+    cloud->points.reserve(rows * cols);  // speeds up computation
     for (int row = 0; row < combined_binary.rows; row++)
     {
       for (int col = 0; col < combined_binary.cols; col++)
@@ -707,7 +718,7 @@ private:
     // project clusters back
     t1 = std::chrono::high_resolution_clock::now();
     cv::Mat components3d = cv::Mat::zeros(combined_binary.size(), CV_8UC3);
-    cv::Mat components3dcolor = bgr_mat.clone();
+    cv::Mat components3dcolor = color_mat.clone();
     std::vector<std::vector<float>> positions;  // 3d coordinate(s) that should be treated
 
     for (const auto& indices : cluster_indices) {
@@ -900,9 +911,9 @@ private:
       std::filesystem::path dir_path(folder_name);
       std::filesystem::create_directory(dir_path);
 
-      cv::imwrite(folder_name + "/color.png", bgr_mat);
+      cv::imwrite(folder_name + "/color.png", color_mat);
       cv::imwrite(folder_name + "/depth.png", depth_normalized);
-      cv::imwrite(folder_name + "/ir.png", nir_normalized);
+      cv::imwrite(folder_name + "/ir.png", ir_mat);
       cv::imwrite(folder_name + "/ir_binary.png", nir_binary);
       cv::imwrite(folder_name + "/red.png", red_channel);
       cv::imwrite(folder_name + "/green.png", green_channel);

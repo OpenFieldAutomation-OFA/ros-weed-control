@@ -12,7 +12,7 @@
   <depend>rclcpp</depend>
   <depend>ofa_interfaces</depend>
   <depend>cv_bridge</depend>
-  <depend>libpcl-all-dev</depend>
+  <depend>pcl_conversions</depend>
   <depend>moveit_ros_planning_interface</depend>
 
   <test_depend>ament_lint_auto</test_depend>
