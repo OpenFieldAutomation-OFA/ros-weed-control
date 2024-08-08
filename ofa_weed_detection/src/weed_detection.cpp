@@ -366,6 +366,8 @@ private:
     double x_off = this->get_parameter("x_off").as_double();
     double y_off = this->get_parameter("y_off").as_double();
     double z_off = this->get_parameter("z_off").as_double();
+    double collision_off = this->get_parameter("collision_off").as_double();
+    int wait_shock = this->get_parameter("wait_shock").as_int();
 
     // transform positions
     geometry_msgs::msg::PointStamped point_in_camera;
@@ -464,8 +466,31 @@ private:
         continue;
       }
 
-      rclcpp::sleep_for(std::chrono::seconds(1));
+      // shock
+      rclcpp::sleep_for(std::chrono::milliseconds(wait_shock));
 
+      // move to upper position
+      target_pose.position.z += collision_off;
+      move_group.setPoseTarget(target_pose);
+      error_code = move_group.plan(plan);
+
+      if(error_code)
+      {
+        error_code = move_group.execute(plan);
+        if (!error_code)
+        {
+          RCLCPP_ERROR(this->get_logger(), "Execution failed: %s",
+            moveit::core::errorCodeToString(error_code).c_str());
+          goal_handle->abort(result);
+          return;
+        }
+      }
+      else
+      {
+        RCLCPP_ERROR(this->get_logger(), "Planning failed: %s",
+          moveit::core::errorCodeToString(error_code).c_str());
+        continue;
+      }
       // break;
     }
 
@@ -490,6 +515,7 @@ private:
     const double exg_threshold = this->get_parameter("exg_threshold").as_double();;  // excess green threshold
     const double nir_threshold = this->get_parameter("nir_threshold").as_double();  // nir threshold
     const bool save_images = this->get_parameter("save_images").as_bool();  // dilation kernel size
+    const int wait_led = this->get_parameter("wait_led").as_int();  // dilation kernel size
     
     const bool old_version = this->get_parameter("old_version").as_bool();
     const int dilation_size = this->get_parameter("dilation_size").as_int();;  // dilation kernel size
@@ -498,7 +524,8 @@ private:
     send_command(arduino_port_, "COLOR 255,255,128");
 
     // wait for auto exposure to settle
-    std::this_thread::sleep_for(std::chrono::seconds(1));
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(wait_led));
 
     // get images (capture done in seperate thread)
     k4a::image depth_image = capture_.get_depth_image();
@@ -864,7 +891,7 @@ private:
       cv::imwrite(folder_name + "/components3dcolor.png", components3dcolor);
       if (old_version)
       {
-        cv::imwrite(folder_name + "/components.png", components2d);
+        cv::imwrite(folder_name + "/components2d.png", components2d);
       }
 
       RCLCPP_INFO(this->get_logger(), "Saved images to %s", folder_name.c_str());
