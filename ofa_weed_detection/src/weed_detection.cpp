@@ -33,9 +33,6 @@
 #include <sensor_msgs/msg/image.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
 
-using WeedControl = ofa_interfaces::action::WeedControl;
-using GoalHandleWeedControl = rclcpp_action::ServerGoalHandle<WeedControl>;
-
 // Function to send command to the Arduino
 void send_command(int arduino_port_, const std::string& command)
 {
@@ -85,6 +82,9 @@ cv::Mat plotHistogram(const cv::Mat& image, int histSize = 256, int histWidth = 
 class WeedControlActionServer : public rclcpp::Node
 {
 public:
+  using WeedControl = ofa_interfaces::action::WeedControl;
+  using GoalHandleWeedControl = rclcpp_action::ServerGoalHandle<WeedControl>;
+  
   WeedControlActionServer()
   : Node("weed_control_action_server",
     rclcpp::NodeOptions().automatically_declare_parameters_from_overrides(true))
@@ -97,12 +97,7 @@ public:
 
     using namespace std::placeholders;
 
-    this->action_server_ = rclcpp_action::create_server<WeedControl>(
-      this,
-      "weed_control",
-      std::bind(&WeedControlActionServer::handle_goal, this, _1, _2),
-      std::bind(&WeedControlActionServer::handle_cancel, this, _1),
-      std::bind(&WeedControlActionServer::handle_accepted, this, _1));
+    this->init_action_server();
     
     if (!this->init_arduino())
     {
@@ -115,6 +110,10 @@ public:
 
   ~WeedControlActionServer()
   {
+    running_ = false;
+    capture_thread_.join();
+    device_.stop_cameras();
+
     close(arduino_port_);
   }
 
@@ -124,9 +123,14 @@ private:
 
   rclcpp_action::Server<WeedControl>::SharedPtr action_server_;
 
+  // capture thread
+  std::atomic<bool> running_;
+  std::thread capture_thread_;
+
   // publishers
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr color_publisher_;
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr depth_publisher_;
+  rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr depth_raw_publisher_;
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr hist_publisher_;
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr ir_publisher_;
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr red_publisher_;
@@ -151,10 +155,47 @@ private:
   k4a::transformation transformation_;
   k4a::capture capture_;
 
+  void init_action_server()
+  {
+    auto handle_goal = [this](
+      const rclcpp_action::GoalUUID & uuid,
+      std::shared_ptr<const WeedControl::Goal> /* goal */)
+    {
+      RCLCPP_INFO(this->get_logger(), "Received goal request");
+      (void)uuid;
+      return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
+    };
+
+    auto handle_cancel = [this](
+      const std::shared_ptr<GoalHandleWeedControl> goal_handle)
+    {
+      RCLCPP_INFO(this->get_logger(), "Received request to cancel goal");
+      (void)goal_handle;
+      return rclcpp_action::CancelResponse::ACCEPT;
+    };
+
+    auto handle_accepted = [this](
+      const std::shared_ptr<GoalHandleWeedControl> goal_handle)
+    {
+      // this needs to return quickly to avoid blocking the executor,
+      // so we declare a lambda function to be called inside a new thread
+      auto execute_in_thread = [this, goal_handle](){return this->execute(goal_handle);};
+      std::thread{execute_in_thread}.detach();
+    };
+
+    this->action_server_ = rclcpp_action::create_server<WeedControl>(
+      this,
+      "weed_control",
+      handle_goal,
+      handle_cancel,
+      handle_accepted);
+  }
+
   void create_publishers()
   {
     color_publisher_ = this->create_publisher<sensor_msgs::msg::Image>("color_image", 10);
     depth_publisher_ = this->create_publisher<sensor_msgs::msg::Image>("depth_image", 10);
+    depth_raw_publisher_ = this->create_publisher<sensor_msgs::msg::Image>("depth_raw", 10);
     hist_publisher_ = this->create_publisher<sensor_msgs::msg::Image>("hist_image", 10);
     ir_publisher_ = this->create_publisher<sensor_msgs::msg::Image>("ir_active_image", 10);
     red_publisher_ = this->create_publisher<sensor_msgs::msg::Image>("red_image", 10);
@@ -250,7 +291,7 @@ private:
     // define config
     config_ = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
     config_.camera_fps = K4A_FRAMES_PER_SECOND_15;
-    config_.color_format = K4A_IMAGE_FORMAT_COLOR_BGRA32;
+    config_.color_format = K4A_IMAGE_FORMAT_COLOR_MJPG;
     config_.color_resolution = K4A_COLOR_RESOLUTION_2160P;
     config_.depth_mode = K4A_DEPTH_MODE_WFOV_UNBINNED;
     config_.synchronized_images_only = true;
@@ -258,31 +299,25 @@ private:
     calibration_ = device_.get_calibration(config_.depth_mode, config_.color_resolution);
     transformation_ = k4a::transformation(calibration_);
 
-    k4a::capture capture_active = k4a::capture::create();
+    device_.start_cameras(&config_);
+
+    running_ = true;
+    capture_thread_ = std::thread(&WeedControlActionServer::capture_frames, this);
   }
 
-  rclcpp_action::GoalResponse handle_goal(
-    const rclcpp_action::GoalUUID & uuid,
-    std::shared_ptr<const WeedControl::Goal> /* goal */)
-  {
-    RCLCPP_INFO(this->get_logger(), "Received goal request");
-    (void)uuid;
-    return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
-  }
-
-  rclcpp_action::CancelResponse handle_cancel(
-    const std::shared_ptr<GoalHandleWeedControl> goal_handle)
-  {
-    RCLCPP_INFO(this->get_logger(), "Received request to cancel goal");
-    (void)goal_handle;
-    return rclcpp_action::CancelResponse::ACCEPT;
-  }
-
-  void handle_accepted(const std::shared_ptr<GoalHandleWeedControl> goal_handle)
-  {
-    using namespace std::placeholders;
-    // this needs to return quickly to avoid blocking the executor, so spin up a new thread
-    std::thread{std::bind(&WeedControlActionServer::execute, this, _1), goal_handle}.detach();
+  void capture_frames() {
+    // Capture frames in a loop until 'running_' is set to false
+    while (running_) {
+      if (device_.get_capture(&capture_, std::chrono::milliseconds(1000)))
+      {
+      RCLCPP_INFO(this->get_logger(), "Captured.");
+      }
+      else
+      {
+      RCLCPP_INFO(this->get_logger(), "Timed out.");
+      }
+      
+    }
   }
 
   void execute(const std::shared_ptr<GoalHandleWeedControl> goal_handle)
@@ -467,21 +502,22 @@ private:
     int dilation_size = this->get_parameter("dilation_size").as_int();;  // dilation kernel size
 
     send_command(arduino_port_, "COLOR 255,255,128");
-    device_.start_cameras(&config_);
+
+    // wait for auto exposure to settle
+    std::this_thread::sleep_for(std::chrono::seconds(10));
     
     // wait for auto exposure to settle
-    for (int i = 0; i < 20; i++)
-    {
-      device_.get_capture(&capture_);
-    }
+    // for (int i = 0; i < 20; i++)
+    // {
+    //   device_.get_capture(&capture_);
+    // }
 
     // get images
-    device_.get_capture(&capture_);
+    // device_.get_capture(&capture_);
     k4a::image depth_image = capture_.get_depth_image();
     k4a::image color_image = capture_.get_color_image();
     k4a::image ir_active_image = capture_.get_ir_image();
     send_command(arduino_port_, "OFF");
-    device_.stop_cameras();
     
     RCLCPP_INFO(this->get_logger(), "color image %i, %i, %li\n",
       color_image.get_width_pixels(),
@@ -555,6 +591,12 @@ private:
     cv::normalize(ir_active_mat, nir_normalized, 0, 255, cv::NORM_MINMAX, CV_8UC1);
     cv::Mat depth_normalized;
     cv::normalize(depth_mat, depth_normalized, 0, 255, cv::NORM_MINMAX, CV_8UC1);
+
+    cv::Mat depth_meters;
+    depth_mat.convertTo(depth_meters, CV_32F, 0.001);
+    // depth_meters /= 1000;
+    RCLCPP_INFO(this->get_logger(), "FIRST VALUE: %f, %f", depth_meters.at<float>(0, 0), depth_meters.at<float>(100, 5));
+    // cv::divide(1000, depth_meters, depth_meters);
 
     cv::Scalar mean, stddev;
     cv::meanStdDev(depth_mat, mean, stddev);
@@ -832,6 +874,7 @@ private:
     // publish images
     std_msgs::msg::Header header;
     header.stamp = this->now();
+    header.frame_id = "camera_color_frame";
     color_publisher_->publish(
       *cv_bridge::CvImage(header, "bgr8", bgr_mat).toImageMsg().get()
     );
@@ -840,6 +883,9 @@ private:
     );
     ir_publisher_->publish(
       *cv_bridge::CvImage(header, "mono16", ir_active_mat).toImageMsg().get()
+    );
+    depth_raw_publisher_->publish(
+      *cv_bridge::CvImage(header, "32FC1", depth_meters).toImageMsg().get()
     );
     depth_publisher_->publish(
       *cv_bridge::CvImage(header, "mono8", depth_normalized).toImageMsg().get()
@@ -879,8 +925,6 @@ private:
     );
 
     RCLCPP_INFO(this->get_logger(), "Published");
-
-    device_.stop_cameras();
 
     return positions;
   }

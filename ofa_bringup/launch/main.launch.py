@@ -115,7 +115,7 @@ def generate_launch_description():
         name="weed_detection",
         package="ofa_weed_detection",
         executable="weed_detection",
-        output="log",
+        output="screen",
         parameters=[
             moveit_config.robot_description,
             moveit_config.robot_description_semantic,

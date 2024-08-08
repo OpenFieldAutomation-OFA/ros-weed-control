@@ -39,4 +39,4 @@
 #  endif
 #endif
 
-#endif
+#endif /* K4A_EXPORT_H */
