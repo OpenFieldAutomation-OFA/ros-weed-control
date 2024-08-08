@@ -72,7 +72,7 @@ RUN apt-get update \
     can-utils \
     gdb \
     liblapack-dev \
-    # libpcl-dev \
+    libpcl-dev \
     ros-$ROS_DISTRO-urdf-launch \
     ros-$ROS_DISTRO-rqt-graph \
     ros-$ROS_DISTRO-turtlesim \

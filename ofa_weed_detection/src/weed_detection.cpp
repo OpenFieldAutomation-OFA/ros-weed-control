@@ -20,7 +20,6 @@
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/common/centroid.h>
 #include <pcl/ml/kmeans.h>
-// #include <pcl_conversions/pcl_conversions.h>
 
 #include <moveit/move_group_interface/move_group_interface.h>
 #include <moveit/planning_scene_interface/planning_scene_interface.h>

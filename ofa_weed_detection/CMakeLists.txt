@@ -15,7 +15,7 @@ set(THIS_PACKAGE_INCLUDE_DEPENDS
   geometry_msgs
   tf2
   tf2_ros
-  pcl_conversions
+  PCL
 )
 find_package(ament_cmake REQUIRED)
 foreach(Dependency IN ITEMS ${THIS_PACKAGE_INCLUDE_DEPENDS})
