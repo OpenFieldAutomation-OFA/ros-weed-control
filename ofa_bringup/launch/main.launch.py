@@ -39,15 +39,12 @@ def generate_launch_description():
         .to_moveit_configs()
     )
 
-    octomap_config = {'octomap_frame': 'world', 
-                  'octomap_resolution': 0.01,
-                  'max_range': 2.0}
     # Start the actual move_group node/action server
     move_group_node = Node(
         package="moveit_ros_move_group",
         executable="move_group",
         output="log",
-        parameters=[moveit_config.to_dict(), octomap_config],
+        parameters=[moveit_config.to_dict()],
     )
 
     # Launch RViz

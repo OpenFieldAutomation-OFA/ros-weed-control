@@ -1,5 +1,6 @@
 /weed_detection:
   ros__parameters:
+    publish_color: true
     color_resolution: 5
     cluster_distance: 10.0
     scale_z: 2.0
@@ -7,9 +8,10 @@
     exg_threshold: -25.0
     nir_threshold: 70.0
     save_images: true
-    dilation_size: 20
     x_lower: -0.50
     x_upper: -0.30
     x_off: 0.002
     y_off: -0.002
     z_off: 0.02
+    old_version: true
+    dilation_size: 20

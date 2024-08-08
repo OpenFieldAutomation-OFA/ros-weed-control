@@ -20,7 +20,7 @@
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/common/centroid.h>
 #include <pcl/ml/kmeans.h>
-#include <pcl_conversions/pcl_conversions.h>
+// #include <pcl_conversions/pcl_conversions.h>
 
 #include <moveit/move_group_interface/move_group_interface.h>
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
@@ -36,7 +36,6 @@
 #include <ofa_interfaces/action/weed_control.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/image.hpp>
-#include <sensor_msgs/msg/point_cloud2.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
 
 // Function to send command to the Arduino
@@ -134,7 +133,6 @@ private:
 
   // publishers
   rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr color_publisher_;
-  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr point_cloud_publisher_;
 
   // arduino
   int arduino_port_;
@@ -279,73 +277,24 @@ private:
   }
 
   void capture_frames() {
-    // create publishers
-    color_publisher_ = this->create_publisher<sensor_msgs::msg::Image>("color_image", 10);
-    point_cloud_publisher_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("point_cloud", 10);
+    bool publish_color = this->get_parameter("publish_color").as_bool();
+    if (publish_color)
+    {
+      color_publisher_ = this->create_publisher<sensor_msgs::msg::Image>("color_image", 10);
+    }
 
     // Capture frames in a loop until 'running_' is set to false
     int frames = 0;
     while (running_) {
+      frames++;
       if (!device_.get_capture(&capture_, std::chrono::milliseconds(1000)))
       {
         RCLCPP_ERROR(this->get_logger(), "Could not get camera capture.");
       }
-      if (frames == 5)
+      if (publish_color && frames == 15)
       {
         // get images
-        k4a::image depth_image = capture_.get_depth_image();
         k4a::image color_image = capture_.get_color_image();
-        
-        // create and publish point cloud
-        cv::Mat depth_mat(
-          depth_image.get_height_pixels(),
-          depth_image.get_width_pixels(),
-          CV_16UC1,
-          reinterpret_cast<uint16_t*>(depth_image.get_buffer())
-        );
-        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
-        int rows = depth_image.get_height_pixels();
-        int cols = depth_image.get_width_pixels();
-        cloud->points.reserve(rows * cols);  // speeds up computation
-        for (int row = 0; row < rows; row++)
-        {
-          for (int col = 0; col < cols; col++)
-          {
-            if ((int)depth_mat.at<std::uint16_t>(row, col) == 0) continue;
-            k4a_float3_t point3d;
-            k4a_float2_t point2d;
-            point2d.xy.x = col;
-            point2d.xy.y = row;
-            int valid;
-            k4a_calibration_2d_to_3d(
-              &calibration_,
-              &point2d,
-              depth_mat.at<std::uint16_t>(row, col),
-              K4A_CALIBRATION_TYPE_DEPTH,
-              K4A_CALIBRATION_TYPE_DEPTH,
-              &point3d,
-              &valid
-            );
-            pcl::PointXYZ point;
-            point.x = point3d.xyz.x / 1000;
-            point.y = point3d.xyz.y / 1000;
-            point.z = point3d.xyz.z / 1000;
-            cloud->points.push_back(point);
-          }
-        }
-        cloud->width = cloud->points.size();
-        cloud->height = 1;
-        cloud->is_dense = true;
-        pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_sparse(new pcl::PointCloud<pcl::PointXYZ>);
-        pcl::VoxelGrid<pcl::PointXYZ> sor;
-        sor.setInputCloud(cloud);
-        sor.setLeafSize(0.001, 0.001, 0.001);
-        sor.filter(*cloud_sparse);
-        sensor_msgs::msg::PointCloud2 pointcloud_msg;
-        pcl::toROSMsg(*cloud_sparse, pointcloud_msg);
-        pointcloud_msg.header.frame_id = "camera_color_frame";
-        pointcloud_msg.header.stamp = this->now();
-        point_cloud_publisher_->publish(pointcloud_msg);
 
         // publish color image
         std::vector<std::uint8_t> color_buffer(color_image.get_buffer(), color_image.get_buffer() + color_image.get_size());
@@ -359,7 +308,6 @@ private:
 
         frames = 0;
       }
-      frames++;
     }
   }
 
@@ -536,13 +484,15 @@ private:
   std::vector<std::vector<float>> process_image()
   {
     // get parameters
-    double cluster_distance = this->get_parameter("cluster_distance").as_double();  // tolerance in mm for point cloud clustering
-    double scale_z = this->get_parameter("scale_z").as_double();;  // scales depth value in point cloud
-    int split_size = this->get_parameter("split_size").as_int();  // big plant point cloud split
-    double exg_threshold = this->get_parameter("exg_threshold").as_double();;  // excess green threshold
-    double nir_threshold = this->get_parameter("nir_threshold").as_double();  // nir threshold
-    bool save_images = this->get_parameter("save_images").as_bool();  // dilation kernel size
-    int dilation_size = this->get_parameter("dilation_size").as_int();;  // dilation kernel size
+    const double cluster_distance = this->get_parameter("cluster_distance").as_double();  // tolerance in mm for point cloud clustering
+    const double scale_z = this->get_parameter("scale_z").as_double();;  // scales depth value in point cloud
+    const int split_size = this->get_parameter("split_size").as_int();  // big plant point cloud split
+    const double exg_threshold = this->get_parameter("exg_threshold").as_double();;  // excess green threshold
+    const double nir_threshold = this->get_parameter("nir_threshold").as_double();  // nir threshold
+    const bool save_images = this->get_parameter("save_images").as_bool();  // dilation kernel size
+    
+    const bool old_version = this->get_parameter("old_version").as_bool();
+    const int dilation_size = this->get_parameter("dilation_size").as_int();;  // dilation kernel size
 
     // turn on LEDs
     send_command(arduino_port_, "COLOR 255,255,128");
@@ -619,20 +569,17 @@ private:
     t1 = std::chrono::high_resolution_clock::now();
     std::vector<cv::Mat> bgr_channels;
     cv::split(color_mat, bgr_channels);
-    cv::Mat blue_channel = bgr_channels[0];
-    cv::Mat green_channel = bgr_channels[1];
-    cv::Mat red_channel = bgr_channels[2];
-    cv::Mat blue_channel_float, green_channel_float, red_channel_float, nir_float;
-    blue_channel.convertTo(blue_channel_float, CV_32F);
-    green_channel.convertTo(green_channel_float, CV_32F);
-    red_channel.convertTo(red_channel_float, CV_32F);
-    cv::Mat exg = 2 * green_channel_float - red_channel_float - blue_channel_float;
+    cv::Mat blue_channel, green_channel, red_channel;
+    bgr_channels[0].convertTo(blue_channel, CV_32F);
+    bgr_channels[1].convertTo(green_channel, CV_32F);
+    bgr_channels[2].convertTo(red_channel, CV_32F);
+    cv::Mat exg = 2.0 * green_channel - red_channel - blue_channel;
     cv::Mat exg_normalized;  // only used to display
     cv::normalize(exg, exg_normalized, 0, 255, cv::NORM_MINMAX, CV_8UC1);
 
     // remove some noise
-    // cv::GaussianBlur(ir_mat, ir_mat, cv::Size(15, 15), 0);
-    // cv::GaussianBlur(exg, exg, cv::Size(15, 15), 0);
+    cv::GaussianBlur(ir_mat, ir_mat, cv::Size(15, 15), 0);
+    cv::GaussianBlur(exg, exg, cv::Size(15, 15), 0);
 
     // threshold
     cv::Mat exg_binary;
@@ -682,7 +629,6 @@ private:
     cloud->width = cloud->points.size();
     cloud->height = 1; // Unorganized point cloud
     cloud->is_dense = true;
-    log_text += "Point cloud size: " + std::to_string(cloud->width) + "\n";
     t2 = std::chrono::high_resolution_clock::now();
     ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
     log_text += "Project to 3D: " + std::to_string(ms_int.count()) + " ms\n";
@@ -694,6 +640,7 @@ private:
     sor.setInputCloud(cloud);
     sor.setLeafSize(1.0, 1.0, 1.0);
     sor.filter(*cloud_filtered);
+    log_text += "Point cloud size: " + std::to_string(cloud->width) + "\n";
     log_text += "Filtered point cloud size: " + std::to_string(cloud_filtered->width) + "\n"; 
     t2 = std::chrono::high_resolution_clock::now();
     ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
@@ -775,7 +722,7 @@ private:
 
         components3d.at<cv::Vec3b>(row, col)[0] = r; 
         components3d.at<cv::Vec3b>(row, col)[1] = g; 
-        components3d.at<cv::Vec3b>(row, col)[2] = b; 
+        components3d.at<cv::Vec3b>(row, col)[2] = b;
         // RCLCPP_INFO(this->get_logger(), "x: %f, y: %f\n", image_point.xy.x, image_point.xy.y);
       }
       cv::Rect bounding_box = cv::Rect(min_col, min_row, max_col - min_col, max_row - min_row);
@@ -812,8 +759,11 @@ private:
     ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
     log_text += "KMeans: " + std::to_string(ms_int.count()) + " ms\n";
 
+    auto t2_total = std::chrono::high_resolution_clock::now();
+    ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2_total - t1_total);
+    log_text += "Total time to process image: " + std::to_string(ms_int.count()) + " ms\n";
+
     // draw 3d components
-    t1 = std::chrono::high_resolution_clock::now();
     for (const std::vector<float> & centroid : positions)
     {
       RCLCPP_INFO(this->get_logger(), "centroid %f: %f, %f\n",
@@ -838,60 +788,49 @@ private:
       cv::circle(components3d, projected_centroid, 10, cv::Scalar(0, 0, 255), -1);
       cv::circle(components3dcolor, projected_centroid, 10, cv::Scalar(0, 0, 255), -1);
     }
-    t2 = std::chrono::high_resolution_clock::now();
-    ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
-    log_text += "Draw 3D components: " + std::to_string(ms_int.count()) + " ms\n";
 
-    t1 = std::chrono::high_resolution_clock::now();
-    // morphological transforms
-    cv::Mat clean_binary;
-    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(dilation_size, dilation_size));
-    cv::morphologyEx(combined_binary, clean_binary, cv::MORPH_DILATE, kernel);
+    cv::Mat components2d = cv::Mat::zeros(combined_binary.size(), CV_8UC3);
+    if (old_version)  // connecting components in 2d
+    {
+      t1 = std::chrono::high_resolution_clock::now();
 
-    // seperate components
-    cv::Mat labels, stats, centroids;
-    int connectivity = 8;
-    int num_components = cv::connectedComponentsWithStats(clean_binary, labels, stats, centroids, connectivity);
-    t2 = std::chrono::high_resolution_clock::now();
-    ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
-    log_text += "2D Clustering: " + std::to_string(ms_int.count()) + " ms\n";
+      // morphological transforms
+      cv::Mat clean_binary;
+      cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(dilation_size, dilation_size));
+      cv::morphologyEx(combined_binary, clean_binary, cv::MORPH_DILATE, kernel);
 
-    // display results
-    t1 = std::chrono::high_resolution_clock::now();
-    std::vector<cv::Vec3b> colors(num_components);
-    colors[0] = cv::Vec3b(0, 0, 0); // Background color
-    for (int i = 1; i < num_components; i++) {
-        colors[i] = cv::Vec3b(rand() % 256, rand() % 256, rand() % 256);
-    }
-    cv::Mat components = cv::Mat::zeros(combined_binary.size(), CV_8UC3);
+      // seperate components
+      cv::Mat labels, stats, centroids;
+      int connectivity = 8;
+      int num_components = cv::connectedComponentsWithStats(clean_binary, labels, stats, centroids, connectivity);
+      t2 = std::chrono::high_resolution_clock::now();
+      ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
+      log_text += "2D Clustering: " + std::to_string(ms_int.count()) + " ms\n";
 
-    int min_area = 1000;
-    for (int i = 1; i < num_components; i++) {
-      cv::Rect bounding_box = cv::Rect(stats.at<int>(i, cv::CC_STAT_LEFT),
-                                      stats.at<int>(i, cv::CC_STAT_TOP),
-                                      stats.at<int>(i, cv::CC_STAT_WIDTH),
-                                      stats.at<int>(i, cv::CC_STAT_HEIGHT));
-      // don't consider small components
-      int area = stats.at<int>(i, cv::CC_STAT_AREA);
-      if (area >= min_area) {
-        components.setTo(
-          cv::Vec3b(rand() % 256, rand() % 256, rand() % 256),
-          labels == i
-        );
-        cv::Point centroid(cvRound(centroids.at<double>(i, 0)), cvRound(centroids.at<double>(i, 1)));
-        // std::cout << "Component " << i << ": Area = " << area << ", Centroid = " << centroid << std::endl;
-        cv::rectangle(components, bounding_box, cv::Scalar(0, 255, 0), 5);
-        cv::circle(components, centroid, 4, cv::Scalar(0, 0, 255), -1);
+      // display results
+      int min_area = 1000;
+      for (int i = 1; i < num_components; i++) {
+        cv::Rect bounding_box = cv::Rect(stats.at<int>(i, cv::CC_STAT_LEFT),
+                                        stats.at<int>(i, cv::CC_STAT_TOP),
+                                        stats.at<int>(i, cv::CC_STAT_WIDTH),
+                                        stats.at<int>(i, cv::CC_STAT_HEIGHT));
+        // don't consider small components
+        int area = stats.at<int>(i, cv::CC_STAT_AREA);
+        if (area >= min_area) {
+          std::uint8_t r = 255 * (rand() / (1.0 + RAND_MAX));
+          std::uint8_t g = 255 * (rand() / (1.0 + RAND_MAX));
+          std::uint8_t b = 255 * (rand() / (1.0 + RAND_MAX));
+          components2d.setTo(
+            cv::Vec3b(r, g, b),
+            labels == i
+          );
+          cv::Point centroid(cvRound(centroids.at<double>(i, 0)), cvRound(centroids.at<double>(i, 1)));
+          cv::rectangle(components2d, bounding_box, cv::Scalar(0, 255, 0), 5);
+          cv::circle(components2d, centroid, 4, cv::Scalar(0, 0, 255), -1);
+        }
       }
     }
 
-    t2 = std::chrono::high_resolution_clock::now();
-    ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
-    log_text += "Draw 2D components: " + std::to_string(ms_int.count()) + " ms\n";
-
-    auto t2_total = std::chrono::high_resolution_clock::now();
-    ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2_total - t1_total);
-    log_text += "Total time to process image: " + std::to_string(ms_int.count()) + " ms\n";
 
     // saved measured times
     auto now = std::chrono::system_clock::now();
@@ -915,15 +854,18 @@ private:
       cv::imwrite(folder_name + "/depth.png", depth_normalized);
       cv::imwrite(folder_name + "/ir.png", ir_mat);
       cv::imwrite(folder_name + "/ir_binary.png", nir_binary);
-      cv::imwrite(folder_name + "/red.png", red_channel);
-      cv::imwrite(folder_name + "/green.png", green_channel);
-      cv::imwrite(folder_name + "/blue.png", blue_channel);
+      cv::imwrite(folder_name + "/red.png", bgr_channels[1]);
+      cv::imwrite(folder_name + "/green.png", bgr_channels[2]);
+      cv::imwrite(folder_name + "/blue.png", bgr_channels[0]);
       cv::imwrite(folder_name + "/exg.png", exg_normalized);
       cv::imwrite(folder_name + "/exg_binary.png", exg_binary);
-      cv::imwrite(folder_name + "/components.png", components);
+      cv::imwrite(folder_name + "/combined_binary.png", combined_binary);
       cv::imwrite(folder_name + "/components3d.png", components3d);
       cv::imwrite(folder_name + "/components3dcolor.png", components3dcolor);
-      cv::imwrite(folder_name + "/combined_binary.png", combined_binary);
+      if (old_version)
+      {
+        cv::imwrite(folder_name + "/components.png", components2d);
+      }
 
       RCLCPP_INFO(this->get_logger(), "Saved images to %s", folder_name.c_str());
     }
