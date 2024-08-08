@@ -421,14 +421,17 @@ private:
     sorted_positions.insert(sorted_positions.end(), negative_y.begin(), negative_y.end());
 
     // move to targets
+    int state = 0;
+    geometry_msgs::msg::Pose target_pose;
     for (const std::vector<double> & position : sorted_positions)
     {
-      geometry_msgs::msg::Pose target_pose;
+      geometry_msgs::msg::Pose old_target_pose = target_pose;
       tf2::Quaternion q;
       // make sure arm is correctly positioned
       if (position[1] < 0)
       {
         q.setRPY(-90 * M_PI / 180, 0, 0);
+        if (state == 1) state++;
       }
       else
       {
@@ -443,14 +446,45 @@ private:
       target_pose.position.y = position[1] + y_off;
       target_pose.position.z = position[2] + z_off;
       // move_group.setPositionTarget(point_in_world.point.x, point_in_world.point.y, point_in_world.point.z);
-      move_group.setPoseTarget(target_pose);
-      move_group.setGoalOrientationTolerance(45 * M_PI / 180);
-
-      error_code = move_group.plan(plan);
-
-      if(error_code)
+      
+      if (state == 0 || state == 2)
       {
-        error_code = move_group.execute(plan);
+        move_group.setPoseTarget(target_pose);
+        move_group.setGoalOrientationTolerance(45 * M_PI / 180);
+
+        error_code = move_group.plan(plan);
+
+        if(error_code)
+        {
+          error_code = move_group.execute(plan);
+          if (!error_code)
+          {
+            RCLCPP_ERROR(this->get_logger(), "Execution failed: %s",
+              moveit::core::errorCodeToString(error_code).c_str());
+            goal_handle->abort(result);
+            return;
+          }
+        }
+        else
+        {
+          RCLCPP_ERROR(this->get_logger(), "Planning failed: %s",
+            moveit::core::errorCodeToString(error_code).c_str());
+          continue;
+        }
+        state++;
+      }
+      else
+      {
+        std::vector<geometry_msgs::msg::Pose> waypoints;
+        old_target_pose.position.z += collision_off;
+        waypoints.push_back(old_target_pose);
+        waypoints.push_back(target_pose);
+        moveit_msgs::msg::RobotTrajectory trajectory;
+        const double jump_threshold = 0.0;
+        const double eef_step = 0.01;
+        double fraction = move_group.computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory);
+        RCLCPP_INFO(this->get_logger(), "Fraction achieved: %f", fraction * 100.0);
+        error_code = move_group.execute(trajectory);
         if (!error_code)
         {
           RCLCPP_ERROR(this->get_logger(), "Execution failed: %s",
@@ -459,18 +493,13 @@ private:
           return;
         }
       }
-      else
-      {
-        RCLCPP_ERROR(this->get_logger(), "Planning failed: %s",
-          moveit::core::errorCodeToString(error_code).c_str());
-        continue;
-      }
+      
 
       // shock
       rclcpp::sleep_for(std::chrono::milliseconds(wait_shock));
 
       // move to upper position
-      target_pose.position.z += collision_off;
+      
       move_group.setPoseTarget(target_pose);
       error_code = move_group.plan(plan);
 

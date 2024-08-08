@@ -13,7 +13,7 @@
     x_off: 0.002
     y_off: -0.002
     z_off: 0.02
-    collision_off: 0.1
+    collision_off: 0.05
     old_version: true
     dilation_size: 20
     wait_led: 1500
