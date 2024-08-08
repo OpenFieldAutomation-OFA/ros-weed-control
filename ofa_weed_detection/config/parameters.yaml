@@ -1,5 +1,6 @@
 /weed_detection:
   ros__parameters:
+    color_resolution: 5
     cluster_distance: 10.0
     scale_z: 2.0
     split_size: 5000

@@ -6,6 +6,10 @@
 #include <fcntl.h>
 #include <termios.h>
 #include <thread>
+#include <sstream>
+#include <filesystem>
+#include <iostream>
+#include <fstream>
 
 #include <cv_bridge/cv_bridge.hpp>
 #include <opencv2/opencv.hpp>
@@ -150,7 +154,6 @@ private:
 
   // camera
   k4a::device device_;
-  k4a_device_configuration_t config_;
   k4a::calibration calibration_;
   k4a::transformation transformation_;
   k4a::capture capture_;
@@ -288,18 +291,21 @@ private:
     device_.set_color_control(K4A_COLOR_CONTROL_POWERLINE_FREQUENCY,
       K4A_COLOR_CONTROL_MODE_MANUAL, 1);
 
-    // define config
-    config_ = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
-    config_.camera_fps = K4A_FRAMES_PER_SECOND_15;
-    config_.color_format = K4A_IMAGE_FORMAT_COLOR_MJPG;
-    config_.color_resolution = K4A_COLOR_RESOLUTION_2160P;
-    config_.depth_mode = K4A_DEPTH_MODE_WFOV_UNBINNED;
-    config_.synchronized_images_only = true;
+    k4a_color_resolution_t color_resolution = static_cast<k4a_color_resolution_t>(
+      this->get_parameter("color_resolution").as_int());
 
-    calibration_ = device_.get_calibration(config_.depth_mode, config_.color_resolution);
+    // define config
+    k4a_device_configuration_t config = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
+    config.camera_fps = K4A_FRAMES_PER_SECOND_15;
+    config.color_format = K4A_IMAGE_FORMAT_COLOR_MJPG;  // BGRA32 leads to problems
+    config.color_resolution = color_resolution;
+    config.depth_mode = K4A_DEPTH_MODE_WFOV_UNBINNED;
+    config.synchronized_images_only = true;
+
+    calibration_ = device_.get_calibration(config.depth_mode, config.color_resolution);
     transformation_ = k4a::transformation(calibration_);
 
-    device_.start_cameras(&config_);
+    device_.start_cameras(&config);
 
     running_ = true;
     capture_thread_ = std::thread(&WeedControlActionServer::capture_frames, this);
@@ -308,15 +314,10 @@ private:
   void capture_frames() {
     // Capture frames in a loop until 'running_' is set to false
     while (running_) {
-      if (device_.get_capture(&capture_, std::chrono::milliseconds(1000)))
+      if (!device_.get_capture(&capture_, std::chrono::milliseconds(1000)))
       {
-      RCLCPP_INFO(this->get_logger(), "Captured.");
-      }
-      else
-      {
-      RCLCPP_INFO(this->get_logger(), "Timed out.");
-      }
-      
+        RCLCPP_ERROR(this->get_logger(), "Could not get camera capture.");
+      }      
     }
   }
 
@@ -504,33 +505,18 @@ private:
     send_command(arduino_port_, "COLOR 255,255,128");
 
     // wait for auto exposure to settle
-    std::this_thread::sleep_for(std::chrono::seconds(10));
-    
-    // wait for auto exposure to settle
-    // for (int i = 0; i < 20; i++)
-    // {
-    //   device_.get_capture(&capture_);
-    // }
+    std::this_thread::sleep_for(std::chrono::seconds(1));
 
-    // get images
-    // device_.get_capture(&capture_);
+
+    std::string log_text = "";
+    auto t1_total = std::chrono::high_resolution_clock::now();
+    auto t1 = std::chrono::high_resolution_clock::now();
+
+    // get images (capture done in seperate thread)
     k4a::image depth_image = capture_.get_depth_image();
     k4a::image color_image = capture_.get_color_image();
     k4a::image ir_active_image = capture_.get_ir_image();
     send_command(arduino_port_, "OFF");
-    
-    RCLCPP_INFO(this->get_logger(), "color image %i, %i, %li\n",
-      color_image.get_width_pixels(),
-      color_image.get_height_pixels(),
-      color_image.get_size());
-    RCLCPP_INFO(this->get_logger(), "depth image %i, %i, %li\n",
-      depth_image.get_width_pixels(),
-      depth_image.get_height_pixels(),
-      depth_image.get_size());
-    RCLCPP_INFO(this->get_logger(), "active ir %i, %i, %li\n",
-      ir_active_image.get_width_pixels(),
-      ir_active_image.get_height_pixels(),
-      ir_active_image.get_size());
     
     // transform depth and ir image to camera viewpoint
     ir_active_image = k4a::image::create_from_buffer(
@@ -552,13 +538,27 @@ private:
     depth_image = transformed.first;
     ir_active_image = transformed.second;
 
-    // buffer data to cv2
-    cv::Mat color_mat(
-      color_image.get_height_pixels(),
-      color_image.get_width_pixels(),
-      CV_8UC4,
-      color_image.get_buffer()
-    );
+    auto t2 = std::chrono::high_resolution_clock::now();
+    auto ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
+    log_text += "Transform images: " + std::to_string(ms_int.count()) + " ms\n";
+
+    // decompress mjpg
+    t1 = std::chrono::high_resolution_clock::now();
+    std::vector<std::uint8_t> color_buffer(color_image.get_buffer(), color_image.get_buffer() + color_image.get_size());
+    cv::Mat color_mat = cv::imdecode(color_buffer, cv::IMREAD_ANYCOLOR);
+    cv::cvtColor(color_mat, color_mat, cv::COLOR_BGR2BGRA);
+    t2 = std::chrono::high_resolution_clock::now();
+    ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
+    log_text += "Decode JPEG: " + std::to_string(ms_int.count()) + " ms\n";
+
+    // convert rest to opencv
+    // cv::Mat color_mat(
+    //   color_image.get_height_pixels(),
+    //   color_image.get_width_pixels(),
+    //   CV_8UC4,
+    //   color_image.get_buffer()
+    // );
+    t1 = std::chrono::high_resolution_clock::now();
     std::size_t mono_size = color_image.get_width_pixels() * color_image.get_height_pixels();
     std::uint8_t *depth_buffer = depth_image.get_buffer();
     std::vector<std::uint16_t> depth_vector(mono_size);
@@ -598,12 +598,17 @@ private:
     RCLCPP_INFO(this->get_logger(), "FIRST VALUE: %f, %f", depth_meters.at<float>(0, 0), depth_meters.at<float>(100, 5));
     // cv::divide(1000, depth_meters, depth_meters);
 
-    cv::Scalar mean, stddev;
-    cv::meanStdDev(depth_mat, mean, stddev);
-    RCLCPP_INFO(this->get_logger(), "mean: %f, std: %f\n", mean[0], stddev[0]);
-    cv::Mat hist = plotHistogram(depth_normalized);
+    t2 = std::chrono::high_resolution_clock::now();
+    ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
+    log_text += "Convert to OpenCV: " + std::to_string(ms_int.count()) + " ms\n";
+
+    // cv::Scalar mean, stddev;
+    // cv::meanStdDev(depth_mat, mean, stddev);
+    // RCLCPP_INFO(this->get_logger(), "mean: %f, std: %f\n", mean[0], stddev[0]);
+    // cv::Mat hist = plotHistogram(depth_normalized);
 
     // calculate ExG
+    t1 = std::chrono::high_resolution_clock::now();
     std::vector<cv::Mat> bgr_channels;
     cv::split(bgr_mat, bgr_channels);
     cv::Mat blue_channel = bgr_channels[0];
@@ -629,9 +634,11 @@ private:
     cv::threshold(nir_normalized, nir_binary, nir_threshold, 255, cv::THRESH_BINARY);
     cv::Mat combined_binary;
     cv::bitwise_and(exg_binary, nir_binary, combined_binary);
-    // threshold_value = cv::threshold(ndvi_normalized, binary, 0, 255, cv::THRESH_BINARY | cv::THRESH_OTSU);
-    // RCLCPP_INFO(this->get_logger(), "otsus value: %f\n", threshold_value);
+    t2 = std::chrono::high_resolution_clock::now();
+    ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
+    log_text += "Segmentation: " + std::to_string(ms_int.count()) + " ms\n";
 
+    t1 = std::chrono::high_resolution_clock::now();
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
     for (int row = 0; row < combined_binary.rows; row++)
     {
@@ -664,20 +671,25 @@ private:
     cloud->width = cloud->points.size();
     cloud->height = 1; // Unorganized point cloud
     cloud->is_dense = true;
-    RCLCPP_INFO(this->get_logger(), "Point cloud size: %d\n", cloud->width);
+    log_text += "Point cloud size: " + std::to_string(cloud->width) + "\n";
+    t2 = std::chrono::high_resolution_clock::now();
+    ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
+    log_text += "Project to 3D: " + std::to_string(ms_int.count()) + " ms\n";
 
     // downsample cloud
+    t1 = std::chrono::high_resolution_clock::now();
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::VoxelGrid<pcl::PointXYZ> sor;
     sor.setInputCloud(cloud);
     sor.setLeafSize(1.0, 1.0, 1.0);
     sor.filter(*cloud_filtered);
-
-    RCLCPP_INFO(this->get_logger(), "Filtered point cloud size: %d\n", cloud_filtered->width);
+    log_text += "Filtered point cloud size: " + std::to_string(cloud_filtered->width) + "\n"; 
+    t2 = std::chrono::high_resolution_clock::now();
+    ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
+    log_text += "Filter 3d points: " + std::to_string(ms_int.count()) + " ms\n";  
 
     // cluster cloud
-    RCLCPP_INFO(this->get_logger(), "Clustering cloud\n");
-    auto t1 = std::chrono::high_resolution_clock::now();
+    t1 = std::chrono::high_resolution_clock::now();
     pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>);
     tree->setInputCloud(cloud_filtered);
     pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
@@ -688,22 +700,22 @@ private:
     ec.setInputCloud(cloud_filtered);
     std::vector<pcl::PointIndices> cluster_indices;
     ec.extract(cluster_indices);
-    auto t2 = std::chrono::high_resolution_clock::now();
-    auto ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
-    RCLCPP_INFO(this->get_logger(), "Finished clustering in %ld ms\n", ms_int.count());
+    t2 = std::chrono::high_resolution_clock::now();
+    ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
+    log_text += "3D Clustering: " + std::to_string(ms_int.count()) + " ms\n";
 
     // project clusters back
+    t1 = std::chrono::high_resolution_clock::now();
     cv::Mat components3d = cv::Mat::zeros(combined_binary.size(), CV_8UC3);
     cv::Mat components3dcolor = bgr_mat.clone();
     std::vector<std::vector<float>> positions;  // 3d coordinate(s) that should be treated
-    
+
     for (const auto& indices : cluster_indices) {
       pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZ>);
       pcl::Kmeans kmeans(indices.indices.size(), 3);
       // int k = std::min(indices.indices.size() / split_size + 1, static_cast<unsigned long>(20));
       int k = indices.indices.size() / split_size + 1;
       RCLCPP_INFO(this->get_logger(), "Cluster size: %ld\n", indices.indices.size());
-      // RCLCPP_INFO(this->get_logger(), "Split: %d\n", k);
       kmeans.setClusterSize(k);
 
       std::uint8_t r = 255 * (rand() / (1.0 + RAND_MAX));
@@ -785,7 +797,12 @@ private:
         RCLCPP_INFO(this->get_logger(), "Centroid count: %d\n", ccount);
       }
     }
+    t2 = std::chrono::high_resolution_clock::now();
+    ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
+    log_text += "KMeans: " + std::to_string(ms_int.count()) + " ms\n";
 
+    // draw 3d components
+    t1 = std::chrono::high_resolution_clock::now();
     for (const std::vector<float> & centroid : positions)
     {
       RCLCPP_INFO(this->get_logger(), "centroid %f: %f, %f\n",
@@ -810,8 +827,10 @@ private:
       cv::circle(components3d, projected_centroid, 10, cv::Scalar(0, 0, 255), -1);
       cv::circle(components3dcolor, projected_centroid, 10, cv::Scalar(0, 0, 255), -1);
     }
+    t2 = std::chrono::high_resolution_clock::now();
+    ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
+    log_text += "Draw 3D components: " + std::to_string(ms_int.count()) + " ms\n";
 
-    RCLCPP_INFO(this->get_logger(), "Start 2d version\n");
     t1 = std::chrono::high_resolution_clock::now();
     // morphological transforms
     cv::Mat clean_binary;
@@ -824,9 +843,10 @@ private:
     int num_components = cv::connectedComponentsWithStats(clean_binary, labels, stats, centroids, connectivity);
     t2 = std::chrono::high_resolution_clock::now();
     ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
-    RCLCPP_INFO(this->get_logger(), "Finished 2d in %ld ms\n", ms_int.count());
+    log_text += "2D Clustering: " + std::to_string(ms_int.count()) + " ms\n";
 
     // display results
+    t1 = std::chrono::high_resolution_clock::now();
     std::vector<cv::Vec3b> colors(num_components);
     colors[0] = cv::Vec3b(0, 0, 0); // Background color
     for (int i = 1; i < num_components; i++) {
@@ -854,77 +874,48 @@ private:
       }
     }
 
+    t2 = std::chrono::high_resolution_clock::now();
+    ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
+    log_text += "Draw 2D components: " + std::to_string(ms_int.count()) + " ms\n";
+
+    auto t2_total = std::chrono::high_resolution_clock::now();
+    ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2_total - t1_total);
+    log_text += "Total time to process image: " + std::to_string(ms_int.count()) + " ms\n";
+
+    // saved measured times
+    auto now = std::chrono::system_clock::now();
+    auto now_time_t = std::chrono::system_clock::to_time_t(now);
+    auto now_tm = *std::localtime(&now_time_t);
+    std::ostringstream oss;
+    oss << std::put_time(&now_tm, "%Y%m%d_%H%M%S");
+    std::string file_name = "/home/ubuntu/overlay/src/ofa_weed_detection/measured/" + oss.str() + ".txt";  
+    std::ofstream outfile;
+    outfile.open(file_name);
+    outfile << log_text;
+    outfile.close();
+
     if (save_images)
     {
-      cv::imwrite("/home/ubuntu/overlay/src/ofa_weed_detection/images/color.png", bgr_mat);
-      cv::imwrite("/home/ubuntu/overlay/src/ofa_weed_detection/images/depth.png", depth_normalized);
-      cv::imwrite("/home/ubuntu/overlay/src/ofa_weed_detection/images/ir.png", nir_normalized);
-      cv::imwrite("/home/ubuntu/overlay/src/ofa_weed_detection/images/ir_binary.png", nir_binary);
-      cv::imwrite("/home/ubuntu/overlay/src/ofa_weed_detection/images/red.png", red_channel);
-      cv::imwrite("/home/ubuntu/overlay/src/ofa_weed_detection/images/green.png", green_channel);
-      cv::imwrite("/home/ubuntu/overlay/src/ofa_weed_detection/images/blue.png", blue_channel);
-      cv::imwrite("/home/ubuntu/overlay/src/ofa_weed_detection/images/exg.png", exg_normalized);
-      cv::imwrite("/home/ubuntu/overlay/src/ofa_weed_detection/images/exg_binary.png", exg_binary);
-      cv::imwrite("/home/ubuntu/overlay/src/ofa_weed_detection/images/components.png", components);
-      cv::imwrite("/home/ubuntu/overlay/src/ofa_weed_detection/images/components3d.png", components3d);
-      cv::imwrite("/home/ubuntu/overlay/src/ofa_weed_detection/images/components3dcolor.png", components3dcolor);
-      cv::imwrite("/home/ubuntu/overlay/src/ofa_weed_detection/images/combined_binary.png", combined_binary);
+      std::string folder_name = "/home/ubuntu/overlay/src/ofa_weed_detection/images/" + oss.str();
+      std::filesystem::path dir_path(folder_name);
+      std::filesystem::create_directory(dir_path);
+
+      cv::imwrite(folder_name + "/color.png", bgr_mat);
+      cv::imwrite(folder_name + "/depth.png", depth_normalized);
+      cv::imwrite(folder_name + "/ir.png", nir_normalized);
+      cv::imwrite(folder_name + "/ir_binary.png", nir_binary);
+      cv::imwrite(folder_name + "/red.png", red_channel);
+      cv::imwrite(folder_name + "/green.png", green_channel);
+      cv::imwrite(folder_name + "/blue.png", blue_channel);
+      cv::imwrite(folder_name + "/exg.png", exg_normalized);
+      cv::imwrite(folder_name + "/exg_binary.png", exg_binary);
+      cv::imwrite(folder_name + "/components.png", components);
+      cv::imwrite(folder_name + "/components3d.png", components3d);
+      cv::imwrite(folder_name + "/components3dcolor.png", components3dcolor);
+      cv::imwrite(folder_name + "/combined_binary.png", combined_binary);
+
+      RCLCPP_INFO(this->get_logger(), "Saved images to %s", folder_name.c_str());
     }
-
-    // publish images
-    std_msgs::msg::Header header;
-    header.stamp = this->now();
-    header.frame_id = "camera_color_frame";
-    color_publisher_->publish(
-      *cv_bridge::CvImage(header, "bgr8", bgr_mat).toImageMsg().get()
-    );
-    hist_publisher_->publish(
-      *cv_bridge::CvImage(header, "mono8", hist).toImageMsg().get()
-    );
-    ir_publisher_->publish(
-      *cv_bridge::CvImage(header, "mono16", ir_active_mat).toImageMsg().get()
-    );
-    depth_raw_publisher_->publish(
-      *cv_bridge::CvImage(header, "32FC1", depth_meters).toImageMsg().get()
-    );
-    depth_publisher_->publish(
-      *cv_bridge::CvImage(header, "mono8", depth_normalized).toImageMsg().get()
-    );
-    red_publisher_->publish(
-      *cv_bridge::CvImage(header, "mono8", red_channel).toImageMsg().get()
-    );
-    green_publisher_->publish(
-      *cv_bridge::CvImage(header, "mono8", green_channel).toImageMsg().get()
-    );
-    blue_publisher_->publish(
-      *cv_bridge::CvImage(header, "mono8", blue_channel).toImageMsg().get()
-    );
-    nir_publisher_->publish(
-      *cv_bridge::CvImage(header, "mono8", nir_normalized).toImageMsg().get()
-    );
-    exg_publisher_->publish(
-      *cv_bridge::CvImage(header, "mono8", exg_normalized).toImageMsg().get()
-    );
-    exg_binary_publisher_->publish(
-      *cv_bridge::CvImage(header, "mono8", exg_binary).toImageMsg().get()
-    );
-    nir_binary_publisher_->publish(
-      *cv_bridge::CvImage(header, "mono8", nir_binary).toImageMsg().get()
-    );
-    combined_binary_publisher_->publish(
-      *cv_bridge::CvImage(header, "mono8", combined_binary).toImageMsg().get()
-    );
-    clean_binary_publisher_->publish(
-      *cv_bridge::CvImage(header, "mono8", clean_binary).toImageMsg().get()
-    );
-    components_publisher_->publish(
-      *cv_bridge::CvImage(header, "rgb8", components).toImageMsg().get()
-    );
-    components3d_publisher_->publish(
-      *cv_bridge::CvImage(header, "rgb8", components3d).toImageMsg().get()
-    );
-
-    RCLCPP_INFO(this->get_logger(), "Published");
 
     return positions;
   }
