@@ -444,10 +444,10 @@ private:
       target_pose.position.x = position[0] + x_off;
       target_pose.position.y = position[1] + y_off;
       target_pose.position.z = position[2] + z_off;
-      // move_group.setPositionTarget(point_in_world.point.x, point_in_world.point.y, point_in_world.point.z);
       
       if (state == 0 || state == 2)
       {
+        RCLCPP_INFO(this->get_logger(), "Not using Cartesian Path");
         move_group.setPoseTarget(target_pose);
         move_group.setGoalOrientationTolerance(45 * M_PI / 180);
 
@@ -483,14 +483,18 @@ private:
         const double eef_step = 0.01;
         double fraction = move_group.computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory);
         RCLCPP_INFO(this->get_logger(), "Fraction achieved: %f", fraction * 100.0);
-        error_code = move_group.execute(trajectory);
-        if (!error_code)
+        if (fraction > 0.99)
         {
-          RCLCPP_ERROR(this->get_logger(), "Execution failed: %s",
-            moveit::core::errorCodeToString(error_code).c_str());
-          goal_handle->abort(result);
-          return;
+          error_code = move_group.execute(trajectory);
+          if (!error_code)
+          {
+            RCLCPP_ERROR(this->get_logger(), "Execution failed: %s",
+              moveit::core::errorCodeToString(error_code).c_str());
+            goal_handle->abort(result);
+            return;
+          }
         }
+        
       }
       
 
