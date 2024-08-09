@@ -101,6 +101,19 @@ public:
 
     using namespace std::placeholders;
 
+    save_runs_ = this->get_parameter("save_runs").as_bool();
+    if (save_runs_)
+    {
+      auto now = std::chrono::system_clock::now();
+      auto now_time_t = std::chrono::system_clock::to_time_t(now);
+      auto now_tm = *std::localtime(&now_time_t);
+      std::ostringstream oss;
+      oss << std::put_time(&now_tm, "%Y%m%d_%H%M%S");
+      folder_name_ = "/home/ubuntu/overlay/src/ofa_weed_detection/runs/" + oss.str() + "/";
+      std::filesystem::create_directory(folder_name_);
+
+    }
+
     this->init_action_server();
     
     if (!this->init_arduino())
@@ -141,6 +154,11 @@ private:
   k4a::calibration calibration_;
   k4a::transformation transformation_;
   k4a::capture capture_;
+
+  // folder for saving images and measurements
+  std::string folder_name_;
+  int process_count_ = 0;
+  bool save_runs_;
 
   void init_action_server()
   {
@@ -553,7 +571,6 @@ private:
     const int split_size = this->get_parameter("split_size").as_int();  // big plant point cloud split
     const double exg_threshold = this->get_parameter("exg_threshold").as_double();;  // excess green threshold
     const double nir_threshold = this->get_parameter("nir_threshold").as_double();  // nir threshold
-    const bool save_images = this->get_parameter("save_images").as_bool();  // dilation kernel size
     const int wait_led = this->get_parameter("wait_led").as_int();  // dilation kernel size
     
     const bool old_version = this->get_parameter("old_version").as_bool();
@@ -897,40 +914,36 @@ private:
       }
     }
 
-
-    // saved measured times
-    auto now = std::chrono::system_clock::now();
-    auto now_time_t = std::chrono::system_clock::to_time_t(now);
-    auto now_tm = *std::localtime(&now_time_t);
-    std::ostringstream oss;
-    oss << std::put_time(&now_tm, "%Y%m%d_%H%M%S");
-    std::string file_name = "/home/ubuntu/overlay/src/ofa_weed_detection/measured/" + oss.str() + ".txt";  
-    std::ofstream outfile;
-    outfile.open(file_name);
-    outfile << log_text;
-    outfile.close();
-
-    if (save_images)
+    if (save_runs_)
     {
-      std::string folder_name = "/home/ubuntu/overlay/src/ofa_weed_detection/images/" + oss.str();
-      std::filesystem::path dir_path(folder_name);
-      std::filesystem::create_directory(dir_path);
+      // save log text
+      std::string folder_name = folder_name_ + std::to_string(process_count_++) + "/";
+      std::filesystem::create_directory(folder_name);
+      std::string file_name = folder_name + "log_file.txt";  
+      std::ofstream outfile;
+      outfile.open(file_name);
+      outfile << log_text;
+      outfile.close();
 
-      cv::imwrite(folder_name + "/color.png", color_mat);
-      cv::imwrite(folder_name + "/depth.png", depth_normalized);
-      cv::imwrite(folder_name + "/ir.png", ir_mat);
-      cv::imwrite(folder_name + "/ir_binary.png", nir_binary);
-      cv::imwrite(folder_name + "/red.png", bgr_channels[1]);
-      cv::imwrite(folder_name + "/green.png", bgr_channels[2]);
-      cv::imwrite(folder_name + "/blue.png", bgr_channels[0]);
-      cv::imwrite(folder_name + "/exg.png", exg_normalized);
-      cv::imwrite(folder_name + "/exg_binary.png", exg_binary);
-      cv::imwrite(folder_name + "/combined_binary.png", combined_binary);
-      cv::imwrite(folder_name + "/components3d.png", components3d);
-      cv::imwrite(folder_name + "/components3dcolor.png", components3dcolor);
+      // save images
+      folder_name += "images/";
+      std::filesystem::create_directory(folder_name);
+
+      cv::imwrite(folder_name + "color.png", color_mat);
+      cv::imwrite(folder_name + "depth.png", depth_normalized);
+      cv::imwrite(folder_name + "ir.png", ir_mat);
+      cv::imwrite(folder_name + "ir_binary.png", nir_binary);
+      cv::imwrite(folder_name + "red.png", bgr_channels[1]);
+      cv::imwrite(folder_name + "green.png", bgr_channels[2]);
+      cv::imwrite(folder_name + "blue.png", bgr_channels[0]);
+      cv::imwrite(folder_name + "exg.png", exg_normalized);
+      cv::imwrite(folder_name + "exg_binary.png", exg_binary);
+      cv::imwrite(folder_name + "combined_binary.png", combined_binary);
+      cv::imwrite(folder_name + "components3d.png", components3d);
+      cv::imwrite(folder_name + "components3dcolor.png", components3dcolor);
       if (old_version)
       {
-        cv::imwrite(folder_name + "/components2d.png", components2d);
+        cv::imwrite(folder_name + "components2d.png", components2d);
       }
 
       RCLCPP_INFO(this->get_logger(), "Saved images to %s", folder_name.c_str());

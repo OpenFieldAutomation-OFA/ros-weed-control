@@ -7,7 +7,7 @@
     split_size: 5000
     exg_threshold: -25.0
     nir_threshold: 70.0
-    save_images: true
+    save_runs: true
     x_lower: -0.56
     x_upper: 0.38
     x_off: 0.002
