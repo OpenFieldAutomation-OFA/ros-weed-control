@@ -90,5 +90,14 @@ To get started just open the `ros-weed-control` folder in VS Code and run **Dev 
 
 After that you can run all the same commands as specified above.
 
+<!-- ## TensorRT
+To generate a TensorRT engine file with a ONNX model you can run the following command on the Jetson.
+```bash
+/usr/src/tensorrt/bin/trtexec --onnx=model.onnx --saveEngine=engine.trt
+```
+The `engine.trt` file has to be saved in the `ofa_weed_detection/model` folder.
+
+In the [weed-detection]() repository you can find the all the information about how we trained our network and links to the ONNX and PyTorch model. -->
+
 ## URDF
 The URDF description of the robot is stored in `ofa_moveit_config/urdf/ofa_robot_description.urdf.xacro`. Everytime the URDF is changed, you need to update the IKFast plugin and regenerate the SRDF file of the MoveIt config. Details about these two steps can be found in the README of `ofa_ikfast_plugin` and `ofa_bringup`.

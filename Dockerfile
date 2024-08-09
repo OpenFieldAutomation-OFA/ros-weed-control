@@ -82,8 +82,7 @@ RUN apt-get update \
     ros-$ROS_DISTRO-moveit \
     ros-$ROS_DISTRO-moveit-visual-tools \
     ros-$ROS_DISTRO-moveit-ros-perception \
-    ros-$ROS_DISTRO-rqt-joint-trajectory-controller \
-    ros-$ROS_DISTRO-pcl-conversions
+    ros-$ROS_DISTRO-rqt-joint-trajectory-controller
     # ros-$ROS_DISTRO-ros-gz
     # && rm -rf /var/lib/apt/lists/*
 
