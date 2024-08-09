@@ -111,7 +111,6 @@ public:
       oss << std::put_time(&now_tm, "%Y%m%d_%H%M%S");
       folder_name_ = "/home/ubuntu/overlay/src/ofa_weed_detection/runs/" + oss.str() + "/";
       std::filesystem::create_directory(folder_name_);
-
     }
 
     this->init_action_server();
@@ -159,6 +158,8 @@ private:
   std::string folder_name_;
   int process_count_ = 0;
   bool save_runs_;
+
+  bool auto_exposure_;
 
   void init_action_server()
   {
@@ -252,12 +253,21 @@ private:
 
   void init_camera()
   {
+    auto_exposure_ = this->get_parameter("auto_exposure").as_bool();
     // open the first plugged in Kinect device
     device_ = k4a::device::open(K4A_DEVICE_DEFAULT);
 
     // set color controls (mostly same as camera defaults)
-    device_.set_color_control(K4A_COLOR_CONTROL_EXPOSURE_TIME_ABSOLUTE,
-      K4A_COLOR_CONTROL_MODE_AUTO, 0);
+    if (auto_exposure_)
+    {
+      device_.set_color_control(K4A_COLOR_CONTROL_EXPOSURE_TIME_ABSOLUTE,
+        K4A_COLOR_CONTROL_MODE_AUTO, 0);
+    }
+    else
+    {
+      device_.set_color_control(K4A_COLOR_CONTROL_EXPOSURE_TIME_ABSOLUTE,
+        K4A_COLOR_CONTROL_MODE_MANUAL, 20000);
+    }
     device_.set_color_control(K4A_COLOR_CONTROL_BRIGHTNESS,
       K4A_COLOR_CONTROL_MODE_MANUAL, 10);
     device_.set_color_control(K4A_COLOR_CONTROL_CONTRAST,
@@ -341,7 +351,7 @@ private:
     // move_group.setPlanningTime(0.2);
 
     // move to first position
-    move_group.setJointValueTarget({-0.25, 0.8, 0.0});
+    move_group.setJointValueTarget({-0.25, 1.3, 0.0});
 
     moveit::core::MoveItErrorCode error_code;
     moveit::planning_interface::MoveGroupInterface::Plan plan;
@@ -365,7 +375,7 @@ private:
     }
 
     // move to second position
-    move_group.setJointValueTarget({-0.75, 0.8, 0.0});
+    move_group.setJointValueTarget({-0.75, 1.3, 0.0});
 
     error_code = move_group.move();
     if (error_code)
@@ -571,7 +581,6 @@ private:
     const int split_size = this->get_parameter("split_size").as_int();  // big plant point cloud split
     const double exg_threshold = this->get_parameter("exg_threshold").as_double();;  // excess green threshold
     const double nir_threshold = this->get_parameter("nir_threshold").as_double();  // nir threshold
-    const int wait_led = this->get_parameter("wait_led").as_int();  // dilation kernel size
     
     const bool old_version = this->get_parameter("old_version").as_bool();
     const int dilation_size = this->get_parameter("dilation_size").as_int();;  // dilation kernel size
@@ -579,9 +588,15 @@ private:
     // turn on LEDs
     send_command(arduino_port_, "COLOR 255,255,128");
 
-    // wait for auto exposure to settle
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(wait_led));
+    if (auto_exposure_)
+    {
+      // wait for auto exposure to settle
+      std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+    }
+    else
+    {
+      std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
 
     // get images (capture done in seperate thread)
     k4a::image depth_image = capture_.get_depth_image();
