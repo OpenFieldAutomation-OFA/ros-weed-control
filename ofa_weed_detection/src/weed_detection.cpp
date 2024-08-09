@@ -341,6 +341,48 @@ private:
       return;
     }
 
+    if (!weed_control(move_group))
+    {
+      goal_handle->abort(result);
+    }
+
+    // move to second position
+    move_group.setJointValueTarget({-0.75, 0.8, 0.0});
+
+    error_code = move_group.move();
+    if (error_code)
+    {
+      RCLCPP_INFO(this->get_logger(), "Successfully moved to second photo position.");
+    }
+    else
+    {
+      RCLCPP_ERROR(this->get_logger(), "Could not reach second photo position: %s",
+        moveit::core::errorCodeToString(error_code).c_str());
+      goal_handle->abort(result);
+      return;
+    }
+
+    if (!weed_control(move_group))
+    {
+      goal_handle->abort(result);
+    }
+
+    // move to home
+    move_group.setNamedTarget("home");
+    move_group.move();
+
+    // Check if goal is done
+    if (rclcpp::ok()) {
+      goal_handle->succeed(result);
+      RCLCPP_INFO(this->get_logger(), "Goal succeeded");
+    }
+  }
+
+  bool weed_control(moveit::planning_interface::MoveGroupInterface & move_group)
+  {
+    moveit::core::MoveItErrorCode error_code;
+    moveit::planning_interface::MoveGroupInterface::Plan plan;
+
     // get transform
     geometry_msgs::msg::TransformStamped t;
     try {
@@ -350,7 +392,7 @@ private:
     } catch (const tf2::TransformException & ex) {
       RCLCPP_ERROR(
         this->get_logger(), "Could not transform %s", ex.what());
-      return;
+      return false;
     }
 
     std::vector<std::vector<float>> camera_positions = process_image();  
@@ -391,9 +433,9 @@ private:
       if (point_in_world.point.x < x_lower || point_in_world.point.x > x_upper) continue;
       world_positions.push_back(
         {
-          point_in_world.point.x,
-          point_in_world.point.y,
-          point_in_world.point.z
+          point_in_world.point.x + x_off,
+          point_in_world.point.y + y_off,
+          point_in_world.point.z + z_off
         }
       );
     }
@@ -402,11 +444,11 @@ private:
     std::vector<std::vector<double>> positive_y;
     std::vector<std::vector<double>> negative_y;
     for (const std::vector<double> & position : world_positions) {
-        if (position[1] > 0.0) {
-            positive_y.push_back(position);
-        } else {
-            negative_y.push_back(position);
-        }
+      if (position[1] > 0.0) {
+        positive_y.push_back(position);
+      } else {
+        negative_y.push_back(position);
+      }
     }
     std::sort(positive_y.begin(), positive_y.end(), 
       [](const std::vector<double>& a, const std::vector<double>& b) {
@@ -420,37 +462,38 @@ private:
     sorted_positions.insert(sorted_positions.end(), negative_y.begin(), negative_y.end());
 
     // move to targets
-    int state = 0;
+    bool first = true;
     geometry_msgs::msg::Pose target_pose;
+    move_group.setGoalOrientationTolerance(45 * M_PI / 180);
     for (const std::vector<double> & position : sorted_positions)
     {
       geometry_msgs::msg::Pose old_target_pose = target_pose;
-      tf2::Quaternion q;
-      // make sure arm is correctly positioned
-      if (position[1] < 0)
-      {
-        q.setRPY(-90 * M_PI / 180, 0, 0);
-        if (state == 1) state++;
-      }
-      else
-      {
-        q.setRPY(90 * M_PI / 180, 0, 0);
-      }
-      // RCLCPP_INFO(LOGGER, "quaternion: %f %f %f %f", q.x(), q.y(), q.z(), q.w());
-      target_pose.orientation.w = q.w();
-      target_pose.orientation.x = q.x();
-      target_pose.orientation.y = q.y();
-      target_pose.orientation.z = q.z();
-      target_pose.position.x = position[0] + x_off;
-      target_pose.position.y = position[1] + y_off;
-      target_pose.position.z = position[2] + z_off;
       
-      if (state == 0 || state == 2)
+      target_pose.position.x = position[0];
+      target_pose.position.y = position[1];
+      target_pose.position.z = position[2];
+      
+      if (first || (old_target_pose.position.y > 0 && target_pose.position.y < 0))
       {
-        RCLCPP_INFO(this->get_logger(), "Not using Cartesian Path");
+        RCLCPP_INFO(this->get_logger(), "Moving to first plant");
+        move_group.setMaxVelocityScalingFactor(0.5);
+        move_group.setMaxAccelerationScalingFactor(0.5);
+        tf2::Quaternion q;
+        // make sure arm is correctly positioned
+        if (position[1] < 0)
+        {
+          q.setRPY(-45 * M_PI / 180, 0, 0);
+        }
+        else
+        {
+          q.setRPY(45 * M_PI / 180, 0, 0);
+        }
+        // RCLCPP_INFO(LOGGER, "quaternion: %f %f %f %f", q.x(), q.y(), q.z(), q.w());
+        target_pose.orientation.w = q.w();
+        target_pose.orientation.x = q.x();
+        target_pose.orientation.y = q.y();
+        target_pose.orientation.z = q.z();
         move_group.setPoseTarget(target_pose);
-        move_group.setGoalOrientationTolerance(45 * M_PI / 180);
-
         error_code = move_group.plan(plan);
 
         if(error_code)
@@ -460,8 +503,7 @@ private:
           {
             RCLCPP_ERROR(this->get_logger(), "Execution failed: %s",
               moveit::core::errorCodeToString(error_code).c_str());
-            goal_handle->abort(result);
-            return;
+            return false;
           }
         }
         else
@@ -470,7 +512,9 @@ private:
             moveit::core::errorCodeToString(error_code).c_str());
           continue;
         }
-        state++;
+        move_group.setMaxVelocityScalingFactor(0.5);
+        move_group.setMaxAccelerationScalingFactor(0.5);
+        first = false;
       }
       else
       {
@@ -490,52 +534,15 @@ private:
           {
             RCLCPP_ERROR(this->get_logger(), "Execution failed: %s",
               moveit::core::errorCodeToString(error_code).c_str());
-            goal_handle->abort(result);
-            return;
+            return false;
           }
         }
-        
       }
-      
 
       // shock
       rclcpp::sleep_for(std::chrono::milliseconds(wait_shock));
-
-      // move to upper position
-      
-      move_group.setPoseTarget(target_pose);
-      error_code = move_group.plan(plan);
-
-      if(error_code)
-      {
-        error_code = move_group.execute(plan);
-        if (!error_code)
-        {
-          RCLCPP_ERROR(this->get_logger(), "Execution failed: %s",
-            moveit::core::errorCodeToString(error_code).c_str());
-          goal_handle->abort(result);
-          return;
-        }
-      }
-      else
-      {
-        RCLCPP_ERROR(this->get_logger(), "Planning failed: %s",
-          moveit::core::errorCodeToString(error_code).c_str());
-        continue;
-      }
-      // break;
     }
-
-
-    // move to home
-    move_group.setNamedTarget("home");
-    move_group.move();
-
-    // Check if goal is done
-    if (rclcpp::ok()) {
-      goal_handle->succeed(result);
-      RCLCPP_INFO(this->get_logger(), "Goal succeeded");
-    }
+    return true;
   }
 
   std::vector<std::vector<float>> process_image()

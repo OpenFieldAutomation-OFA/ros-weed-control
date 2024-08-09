@@ -8,8 +8,8 @@
     exg_threshold: -25.0
     nir_threshold: 70.0
     save_images: true
-    x_lower: -0.50
-    x_upper: -0.30
+    x_lower: -0.56
+    x_upper: 0.38
     x_off: 0.002
     y_off: -0.002
     z_off: 0.02
