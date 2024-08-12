@@ -41,7 +41,11 @@ ament_target_dependencies(
   weed_detection
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
-target_link_libraries(weed_detection ${CMAKE_CURRENT_SOURCE_DIR}/lib/${HOST_PLATFORM}/libk4a.so)
+target_link_libraries(
+  weed_detection
+  ${CMAKE_CURRENT_SOURCE_DIR}/lib/${HOST_PLATFORM}/libk4a.so
+  ${CMAKE_CURRENT_SOURCE_DIR}/lib/${HOST_PLATFORM}/libOrbbecSDK.so
+)
 
 ## INSTALL
 install(

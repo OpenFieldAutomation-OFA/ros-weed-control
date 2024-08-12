@@ -109,7 +109,7 @@ public:
       auto now_tm = *std::localtime(&now_time_t);
       std::ostringstream oss;
       oss << std::put_time(&now_tm, "%Y%m%d_%H%M%S");
-      folder_name_ = "/home/ubuntu/overlay/src/ofa_weed_detection/runs/" + oss.str() + "/";
+      folder_name_ = "/home/ubuntu/overlay/src/runs/" + oss.str() + "/";
       std::filesystem::create_directory(folder_name_);
     }
 
