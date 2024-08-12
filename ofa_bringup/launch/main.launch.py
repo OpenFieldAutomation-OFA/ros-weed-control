@@ -28,9 +28,10 @@ def generate_launch_description():
         )
     )
 
+    use_mock_hardware = LaunchConfiguration("use_mock_hardware")
     # Load the robot configuration
     mappings = {
-        "use_mock_hardware": LaunchConfiguration("use_mock_hardware"),
+        "use_mock_hardware": use_mock_hardware,
     }
     moveit_config = (
         MoveItConfigsBuilder("ofa_robot", package_name="ofa_moveit_config")
@@ -120,7 +121,8 @@ def generate_launch_description():
             moveit_config.robot_description,
             moveit_config.robot_description_semantic,
             moveit_config.robot_description_kinematics,
-            parameters
+            parameters,
+            {"use_mock_hardware": use_mock_hardware}
         ],
     )
     

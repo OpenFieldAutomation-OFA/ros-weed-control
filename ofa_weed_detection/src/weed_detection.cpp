@@ -115,11 +115,32 @@ public:
 
     this->init_action_server();
     
-    if (!this->init_arduino())
+    use_mock_hardware_ = this->get_parameter("use_mock_hardware").as_bool();
+    if (use_mock_hardware_)
     {
-      rclcpp::shutdown();
+      RCLCPP_INFO(this->get_logger(), "Not using real hardware");
+
+      // manually initialize camera calibration
+      k4a_calibration_camera_t color_camera_calibration;
+      k4a_calibration_intrinsics_t intrinsics;
+      intrinsics.type = K4A_CALIBRATION_LENS_DISTORTION_MODEL_BROWN_CONRADY;
+      intrinsics.parameter_count = 14;
+      intrinsics.parameters = {1899.003296, 1080.935913, 2240.591797, 2239.406738, 0.079749, -0.110377, 0.046372, 0, 0, 0, 0, 0, 0.000473, -0.000354, 0};
+      color_camera_calibration.intrinsics = intrinsics;
+      color_camera_calibration.resolution_width = 3840;
+      color_camera_calibration.resolution_height = 2160;
+      color_camera_calibration.metric_radius = 1.7;
+      calibration_.color_camera_calibration = color_camera_calibration;
+      calibration_.color_resolution = K4A_COLOR_RESOLUTION_2160P;
     }
-    this->init_camera();    
+    else
+    {
+      if (!this->init_arduino())
+      {
+        rclcpp::shutdown();
+      }
+      this->init_camera();    
+    }
     RCLCPP_INFO(this->get_logger(), "Node initialized");
   }
 
@@ -158,6 +179,8 @@ private:
   std::string folder_name_;
   int process_count_ = 0;
   bool save_runs_;
+
+  bool use_mock_hardware_;
 
   bool auto_exposure_;
 
@@ -295,6 +318,29 @@ private:
     config.synchronized_images_only = true;
 
     calibration_ = device_.get_calibration(config.depth_mode, config.color_resolution);
+    // int resolution = calibration_.color_resolution;
+    // int height = calibration_.color_camera_calibration.resolution_height;
+    // int width = calibration_.color_camera_calibration.resolution_width;
+    // float metric_radius = calibration_.color_camera_calibration.metric_radius;
+
+    // float cx = calibration_.color_camera_calibration.extrinsics.rotation[0];
+    // float cy = calibration_.color_camera_calibration.extrinsics.rotation[1];
+    // float fx = calibration_.color_camera_calibration.extrinsics.rotation[2];
+    // float fy = calibration_.color_camera_calibration.extrinsics.rotation[3];
+    // float k1 = calibration_.color_camera_calibration.extrinsics.rotation[4];
+    // float k2 = calibration_.color_camera_calibration.extrinsics.rotation[5];
+    // float k3 = calibration_.color_camera_calibration.extrinsics.rotation[6];
+    // float k4 = calibration_.color_camera_calibration.extrinsics.rotation[7];
+    // float k5 = calibration_.color_camera_calibration.extrinsics.rotation[8];
+    // float k6 = calibration_.color_camera_calibration.extrinsics.rotation[9];
+    // float codx = calibration_.color_camera_calibration.extrinsics.translation[0];
+    // float cody = calibration_.color_camera_calibration.extrinsics.translation[1];
+    // float p2 = calibration_.color_camera_calibration.extrinsics.translation[2];
+    // RCLCPP_INFO(this->get_logger(),
+    //   "camera calibration: %d, %d, %d, %f. extrincis: %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f",
+    //   resolution, height, width, metric_radius,
+    //   cx, cy, fx, fy, k1, k2, k3, k4, k5, k6, codx, cody, p2
+    // );
     transformation_ = k4a::transformation(calibration_);
 
     device_.start_cameras(&config);
@@ -369,7 +415,7 @@ private:
       return;
     }
 
-    if (!weed_control(move_group))
+    if (!weed_control(move_group, "back"))
     {
       goal_handle->abort(result);
     }
@@ -390,7 +436,7 @@ private:
       return;
     }
 
-    if (!weed_control(move_group))
+    if (!weed_control(move_group, "front"))
     {
       goal_handle->abort(result);
     }
@@ -406,7 +452,7 @@ private:
     }
   }
 
-  bool weed_control(moveit::planning_interface::MoveGroupInterface & move_group)
+  bool weed_control(moveit::planning_interface::MoveGroupInterface & move_group, std::string pos)
   {
     moveit::core::MoveItErrorCode error_code;
     moveit::planning_interface::MoveGroupInterface::Plan plan;
@@ -423,7 +469,7 @@ private:
       return false;
     }
 
-    std::vector<std::vector<float>> camera_positions = process_image();  
+    std::vector<std::vector<float>> camera_positions = process_image(pos);  
 
     double x_lower = this->get_parameter("x_lower").as_double();  // world points with lower x value will be ignored
     double x_upper = this->get_parameter("x_upper").as_double();  // world points with lower x value will be ignored
@@ -492,7 +538,7 @@ private:
     // move to targets
     bool first = true;
     geometry_msgs::msg::Pose target_pose;
-    move_group.setGoalOrientationTolerance(45 * M_PI / 180);
+    move_group.setGoalOrientationTolerance(90 * M_PI / 180);
     for (const std::vector<double> & position : sorted_positions)
     {
       geometry_msgs::msg::Pose old_target_pose = target_pose;
@@ -500,6 +546,11 @@ private:
       target_pose.position.x = position[0];
       target_pose.position.y = position[1];
       target_pose.position.z = position[2];
+
+      RCLCPP_INFO(this->get_logger(), "Target position: [%f, %f, %f]",
+        target_pose.position.x,
+        target_pose.position.y,
+        target_pose.position.z);
       
       if (first || (old_target_pose.position.y > 0 && target_pose.position.y < 0))
       {
@@ -510,11 +561,11 @@ private:
         // make sure arm is correctly positioned
         if (position[1] < 0)
         {
-          q.setRPY(-45 * M_PI / 180, 0, 0);
+          q.setRPY(-90 * M_PI / 180, 0, 0);
         }
         else
         {
-          q.setRPY(45 * M_PI / 180, 0, 0);
+          q.setRPY(90 * M_PI / 180, 0, 0);
         }
         // RCLCPP_INFO(LOGGER, "quaternion: %f %f %f %f", q.x(), q.y(), q.z(), q.w());
         target_pose.orientation.w = q.w();
@@ -540,8 +591,8 @@ private:
             moveit::core::errorCodeToString(error_code).c_str());
           continue;
         }
-        move_group.setMaxVelocityScalingFactor(0.5);
-        move_group.setMaxAccelerationScalingFactor(0.5);
+        move_group.setMaxVelocityScalingFactor(1.0);
+        move_group.setMaxAccelerationScalingFactor(1.0);
         first = false;
       }
       else
@@ -573,7 +624,7 @@ private:
     return true;
   }
 
-  std::vector<std::vector<float>> process_image()
+  std::vector<std::vector<float>> process_image(std::string pos)
   {
     // get parameters
     const double cluster_distance = this->get_parameter("cluster_distance").as_double();  // tolerance in mm for point cloud clustering
@@ -585,83 +636,104 @@ private:
     const bool old_version = this->get_parameter("old_version").as_bool();
     const int dilation_size = this->get_parameter("dilation_size").as_int();;  // dilation kernel size
 
-    // turn on LEDs
-    send_command(arduino_port_, "COLOR 255,255,128");
+    std::chrono::_V2::system_clock::time_point t1_total;
+    std::chrono::_V2::system_clock::time_point t1;
+    std::chrono::_V2::system_clock::time_point t2;
+    std::chrono::milliseconds ms_int;
 
-    if (auto_exposure_)
+    std::string log_text = "";
+
+    cv::Mat depth_mat;
+    cv::Mat ir_mat;
+    cv::Mat color_mat;
+    
+    if (!use_mock_hardware_)
     {
-      // wait for auto exposure to settle
-      std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+      // turn on LEDs
+      send_command(arduino_port_, "COLOR 255,255,128");
+
+      if (auto_exposure_)
+      {
+        // wait for auto exposure to settle
+        std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+      }
+      else
+      {
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+      }
+
+      // get images (capture done in seperate thread)
+      k4a::image depth_image = capture_.get_depth_image();
+      k4a::image color_image = capture_.get_color_image();
+      k4a::image ir_image = capture_.get_ir_image();
+      send_command(arduino_port_, "OFF");
+
+      t1_total = std::chrono::high_resolution_clock::now();
+      t1 = std::chrono::high_resolution_clock::now();
+      
+      // transform depth and ir image to camera viewpoint
+      ir_image = k4a::image::create_from_buffer(
+        K4A_IMAGE_FORMAT_CUSTOM16,
+        ir_image.get_width_pixels(),
+        ir_image.get_height_pixels(),
+        ir_image.get_stride_bytes(),
+        ir_image.get_buffer(),
+        ir_image.get_size(),
+        [](void *, void *) {},
+        NULL
+      );
+      std::pair<k4a::image, k4a::image> transformed = transformation_.depth_image_to_color_camera_custom(
+        depth_image,
+        ir_image,
+        K4A_TRANSFORMATION_INTERPOLATION_TYPE_NEAREST,
+        0
+      );
+      depth_image = transformed.first;
+      ir_image = transformed.second;
+
+      t2 = std::chrono::high_resolution_clock::now();
+      ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
+      log_text += "Transform images: " + std::to_string(ms_int.count()) + " ms\n";
+
+      // decode JPG
+      t1 = std::chrono::high_resolution_clock::now();
+      std::vector<std::uint8_t> color_buffer(color_image.get_buffer(), color_image.get_buffer() + color_image.get_size());
+      color_mat = cv::imdecode(color_buffer, cv::IMREAD_ANYCOLOR);
+      t2 = std::chrono::high_resolution_clock::now();
+      ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
+      log_text += "Decode JPEG: " + std::to_string(ms_int.count()) + " ms\n";
+
+      // convert depth and ir to opencv
+      t1 = std::chrono::high_resolution_clock::now();
+      depth_mat = cv::Mat(
+        depth_image.get_height_pixels(),
+        depth_image.get_width_pixels(),
+        CV_16UC1,
+        reinterpret_cast<uint16_t*>(depth_image.get_buffer())
+      );
+      ir_mat = cv::Mat(
+        ir_image.get_height_pixels(),
+        ir_image.get_width_pixels(),
+        CV_16UC1,
+        reinterpret_cast<uint16_t*>(ir_image.get_buffer())
+      );
+      cv::min(ir_mat, 2048, ir_mat); // remove outliers (reflections, saturated pixels)
+      cv::normalize(ir_mat, ir_mat, 0, 255, cv::NORM_MINMAX, CV_8UC1);
+      cv::GaussianBlur(ir_mat, ir_mat, cv::Size(15, 15), 0);
+
+      t2 = std::chrono::high_resolution_clock::now();
+      ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
+      log_text += "Convert to OpenCV: " + std::to_string(ms_int.count()) + " ms\n";
     }
     else
     {
-      std::this_thread::sleep_for(std::chrono::milliseconds(500));
+      depth_mat = cv::imread("/home/ubuntu/overlay/src/ofa_weed_detection/mock_images/" + pos + "/depth16.png", cv::IMREAD_UNCHANGED);
+      ir_mat = cv::imread("/home/ubuntu/overlay/src/ofa_weed_detection/mock_images/" + pos + "/ir.png", cv::IMREAD_GRAYSCALE);
+      color_mat = cv::imread("/home/ubuntu/overlay/src/ofa_weed_detection/mock_images/" + pos + "/color.png", cv::IMREAD_COLOR);
     }
 
-    // get images (capture done in seperate thread)
-    k4a::image depth_image = capture_.get_depth_image();
-    k4a::image color_image = capture_.get_color_image();
-    k4a::image ir_image = capture_.get_ir_image();
-    send_command(arduino_port_, "OFF");
-
-    std::string log_text = "";
-    auto t1_total = std::chrono::high_resolution_clock::now();
-    auto t1 = std::chrono::high_resolution_clock::now();
-    
-    // transform depth and ir image to camera viewpoint
-    ir_image = k4a::image::create_from_buffer(
-      K4A_IMAGE_FORMAT_CUSTOM16,
-      ir_image.get_width_pixels(),
-      ir_image.get_height_pixels(),
-      ir_image.get_stride_bytes(),
-      ir_image.get_buffer(),
-      ir_image.get_size(),
-      [](void *, void *) {},
-      NULL
-    );
-    std::pair<k4a::image, k4a::image> transformed = transformation_.depth_image_to_color_camera_custom(
-      depth_image,
-      ir_image,
-      K4A_TRANSFORMATION_INTERPOLATION_TYPE_NEAREST,
-      0
-    );
-    depth_image = transformed.first;
-    ir_image = transformed.second;
-
-    auto t2 = std::chrono::high_resolution_clock::now();
-    auto ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
-    log_text += "Transform images: " + std::to_string(ms_int.count()) + " ms\n";
-
-    // decode JPG
-    t1 = std::chrono::high_resolution_clock::now();
-    std::vector<std::uint8_t> color_buffer(color_image.get_buffer(), color_image.get_buffer() + color_image.get_size());
-    cv::Mat color_mat = cv::imdecode(color_buffer, cv::IMREAD_ANYCOLOR);
-    t2 = std::chrono::high_resolution_clock::now();
-    ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
-    log_text += "Decode JPEG: " + std::to_string(ms_int.count()) + " ms\n";
-
-    // convert depth and ir to opencv
-    t1 = std::chrono::high_resolution_clock::now();
-    cv::Mat depth_mat(
-      depth_image.get_height_pixels(),
-      depth_image.get_width_pixels(),
-      CV_16UC1,
-      reinterpret_cast<uint16_t*>(depth_image.get_buffer())
-    );
-    cv::Mat ir_mat(
-      ir_image.get_height_pixels(),
-      ir_image.get_width_pixels(),
-      CV_16UC1,
-      reinterpret_cast<uint16_t*>(ir_image.get_buffer())
-    );
-    cv::min(ir_mat, 2048, ir_mat); // remove outliers (reflections, saturated pixels)
-    cv::normalize(ir_mat, ir_mat, 0, 255, cv::NORM_MINMAX, CV_8UC1);
     cv::Mat depth_normalized;
     cv::normalize(depth_mat, depth_normalized, 0, 255, cv::NORM_MINMAX, CV_8UC1);
-
-    t2 = std::chrono::high_resolution_clock::now();
-    ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
-    log_text += "Convert to OpenCV: " + std::to_string(ms_int.count()) + " ms\n";
 
     // calculate ExG
     t1 = std::chrono::high_resolution_clock::now();
@@ -674,9 +746,6 @@ private:
     cv::Mat exg = 2.0 * green_channel - red_channel - blue_channel;
     cv::Mat exg_normalized;  // only used to display
     cv::normalize(exg, exg_normalized, 0, 255, cv::NORM_MINMAX, CV_8UC1);
-
-    // remove some noise
-    cv::GaussianBlur(ir_mat, ir_mat, cv::Size(15, 15), 0);
     cv::GaussianBlur(exg, exg, cv::Size(15, 15), 0);
 
     // threshold
@@ -742,7 +811,7 @@ private:
     log_text += "Filtered point cloud size: " + std::to_string(cloud_filtered->width) + "\n"; 
     t2 = std::chrono::high_resolution_clock::now();
     ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
-    log_text += "Filter 3d points: " + std::to_string(ms_int.count()) + " ms\n";  
+    log_text += "Filter 3d points: " + std::to_string(ms_int.count()) + " ms\n";
 
     // cluster cloud
     t1 = std::chrono::high_resolution_clock::now();
@@ -932,7 +1001,7 @@ private:
     if (save_runs_)
     {
       // save log text
-      std::string folder_name = folder_name_ + std::to_string(process_count_++) + "/";
+      std::string folder_name = folder_name_ + pos + "_" + std::to_string(process_count_++) + "/";
       std::filesystem::create_directory(folder_name);
       std::string file_name = folder_name + "log_file.txt";  
       std::ofstream outfile;
@@ -946,6 +1015,7 @@ private:
 
       cv::imwrite(folder_name + "color.png", color_mat);
       cv::imwrite(folder_name + "depth.png", depth_normalized);
+      cv::imwrite(folder_name + "depth16.png", depth_mat);
       cv::imwrite(folder_name + "ir.png", ir_mat);
       cv::imwrite(folder_name + "ir_binary.png", nir_binary);
       cv::imwrite(folder_name + "red.png", bgr_channels[1]);
