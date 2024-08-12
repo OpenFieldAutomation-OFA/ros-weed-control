@@ -410,7 +410,7 @@ private:
     else
     {
       RCLCPP_ERROR(this->get_logger(), "Could not reach first photo position: %s",
-        moveit::core::errorCodeToString(error_code).c_str());
+        moveit::core::error_code_to_string(error_code).c_str());
       goal_handle->abort(result);
       return;
     }
@@ -431,7 +431,7 @@ private:
     else
     {
       RCLCPP_ERROR(this->get_logger(), "Could not reach second photo position: %s",
-        moveit::core::errorCodeToString(error_code).c_str());
+        moveit::core::error_code_to_string(error_code).c_str());
       goal_handle->abort(result);
       return;
     }
@@ -581,14 +581,14 @@ private:
           if (!error_code)
           {
             RCLCPP_ERROR(this->get_logger(), "Execution failed: %s",
-              moveit::core::errorCodeToString(error_code).c_str());
+              moveit::core::error_code_to_string(error_code).c_str());
             return false;
           }
         }
         else
         {
           RCLCPP_ERROR(this->get_logger(), "Planning failed: %s",
-            moveit::core::errorCodeToString(error_code).c_str());
+            moveit::core::error_code_to_string(error_code).c_str());
           continue;
         }
         move_group.setMaxVelocityScalingFactor(1.0);
@@ -612,7 +612,7 @@ private:
           if (!error_code)
           {
             RCLCPP_ERROR(this->get_logger(), "Execution failed: %s",
-              moveit::core::errorCodeToString(error_code).c_str());
+              moveit::core::error_code_to_string(error_code).c_str());
             return false;
           }
         }

@@ -1,25 +1,31 @@
 # credit: https://github.com/sea-bass/turtlebot3_behavior_demos
 
 # ROS distribution
-ARG ROS_DISTRO=jazzy
+ARG ROS_DISTRO=iron
 
 ##############
 # Base Image #
 ##############
 FROM ros:$ROS_DISTRO-ros-base AS base
 
-# Use default user
-ARG USER=ubuntu
+# Define user
+ARG UID=1000
+ARG GID=1000
+ARG USERNAME=ubuntu
+
+# Create user
+RUN groupadd --gid $GID $USERNAME \
+    && useradd -s /bin/bash --uid $UID --gid $GID -m $USERNAME
 
 # Create underlay workspace
-WORKDIR /home/$USER/underlay/src
+WORKDIR /home/$USERNAME/underlay/src
 
 # Clone external dependencies
 COPY dependencies.repos .
 RUN vcs import  < dependencies.repos
 
 # Build underlay workspace
-WORKDIR /home/$USER/underlay
+WORKDIR /home/$USERNAME/underlay
 RUN . /opt/ros/$ROS_DISTRO/setup.sh \
     && apt-get update \
     && rosdep install -y --from-paths src --ignore-src \
@@ -27,11 +33,11 @@ RUN . /opt/ros/$ROS_DISTRO/setup.sh \
     && rm -rf /var/lib/apt/lists/*
 
 # Create overlay workspace
-RUN su $USER -c "mkdir /home/$USER/overlay"
-WORKDIR /home/$USER/overlay
+RUN su $USERNAME -c "mkdir /home/$USERNAME/overlay"
+WORKDIR /home/$USERNAME/overlay
 
 # Allow access to serial and video devices
-RUN usermod -aG dialout,video $USER
+RUN usermod -aG dialout,video $USERNAME
 
 ####################
 # Production Image #
@@ -48,12 +54,12 @@ RUN apt-get update \
 
 # Change entrypoint
 RUN sed --in-place \
-    "s|^source .*|source /home/$USER/overlay/install/setup.bash|" \
+    "s|^source .*|source /home/$USERNAME/overlay/install/setup.bash|" \
     /ros_entrypoint.sh
 
 # Build overlay
-USER $USER
-RUN . /home/$USER/underlay/install/setup.sh \
+USER $USERNAME
+RUN . /home/$USERNAME/underlay/install/setup.sh \
     && colcon build
 
 #####################
@@ -87,12 +93,12 @@ RUN apt-get update \
     # && rm -rf /var/lib/apt/lists/*
 
 # Add sudo privileges to user
-RUN echo $USER ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USER \
-    && chmod 0440 /etc/sudoers.d/$USER && touch /home/$USER/.sudo_as_admin_successful
+RUN echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
+    && chmod 0440 /etc/sudoers.d/$USERNAME
 
 # Source underlay in bashrc
-USER $USER
-RUN echo "source /home/$USER/underlay/install/setup.bash" >> ~/.bashrc
+USER $USERNAME
+RUN echo "source /home/$USERNAME/underlay/install/setup.bash" >> ~/.bashrc
 
 # Setup colcon mixin and metadata
 RUN colcon mixin add default \

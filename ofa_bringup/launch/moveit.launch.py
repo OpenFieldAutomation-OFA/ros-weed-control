@@ -74,19 +74,22 @@ def generate_launch_description():
         package="controller_manager",
         executable="ros2_control_node",
         parameters=[ros2_controllers_path],
-        output="both"
+        output="both",
+        remappings=[
+            ("~/robot_description", "/robot_description"),
+        ],
     )
 
     # Load controllers
     joint_state_broadcaster_spawner = Node(
         package="controller_manager",
         executable="spawner",
-        arguments=["joint_state_broadcaster"],
+        arguments=["joint_state_broadcaster", "--controller-manager", "/controller_manager"],
     )
     arm_controller_spawner = Node(
         package="controller_manager",
         executable="spawner",
-        arguments=["ofa_robot_controller", "--param-file", ros2_controllers_path],
+        arguments=["ofa_robot_controller", "--controller-manager", "/controller_manager"],
     )
 
     return LaunchDescription(
