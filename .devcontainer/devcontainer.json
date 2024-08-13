@@ -3,8 +3,7 @@
   "name": "Weed Control Unit ROS 2 Workspace",
   "build": {
       "dockerfile": "../Dockerfile",
-      "context": "..",
-      "target": "dev"
+      "context": ".."
   },
   "customizations": {
       "vscode": {
@@ -22,24 +21,12 @@
           }
       }
   },
-  "workspaceFolder": "/home/ubuntu/overlay",
-  "workspaceMount": "source=${localWorkspaceFolder},target=/home/ubuntu/overlay/src,type=bind",
+  "workspaceFolder": "/home/ofa/ros2_ws",
+  "workspaceMount": "source=${localWorkspaceFolder},target=/home/ofa/ros2_ws/src/ros-weed-control,type=bind",
   "mounts": [
-      "source=${localEnv:HOME}/.Xauthority,target=/home/ubuntu/.Xauthority,type=bind",
-      "source=/dev,target=/dev,type=bind"
-    //   "source=/usr/src/jetson_multimedia_api,target=/usr/src/jetson_multimedia_api,type=bind",
-    //   "source=/usr/lib/aarch64-linux-gnu/tegra,target=/usr/lib/aarch64-linux-gnu/tegra,type=bind"
+    "source=/tmp/.X11-unix,target=/tmp/.X11-unix,type=bind,consistency=cached"
   ],
   "containerEnv": {
     "DISPLAY": "${localEnv:DISPLAY}"
-  },
-  "runArgs": [
-      "--net", "host",
-      "--runtime", "nvidia",
-      "--gpus", "all",
-    //   "--device-cgroup-rule", "c 226:* rmw", // dri
-    "--device-cgroup-rule", "c 166:* rmw", // Arduino
-    "--device-cgroup-rule", "c 189:* rmw", // Femto Bolt
-    "--device-cgroup-rule", "c 266:* rmw" // SC4-Hub
-  ]
+  }
 }

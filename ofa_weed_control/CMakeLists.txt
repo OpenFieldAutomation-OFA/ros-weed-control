@@ -8,7 +8,6 @@ endif()
 # find dependencies
 set(THIS_PACKAGE_INCLUDE_DEPENDS
   moveit_ros_planning_interface
-  moveit_visual_tools
   rclcpp
   tf2
   # tf2_ros
