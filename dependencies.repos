@@ -1,1 +1,9 @@
 repositories:
+  cubemars_hardware:
+    type: git
+    url: https://github.com/OpenFieldAutomation-OFA/cubemars_hardware.git
+    version: main
+  teknic_hardware:
+    type: git
+    url: https://github.com/OpenFieldAutomation-OFA/teknic_hardware.git
+    version: main

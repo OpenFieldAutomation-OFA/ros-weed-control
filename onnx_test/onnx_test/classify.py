@@ -23,18 +23,18 @@ class MinimalPublisher(Node):
 
         session = ort.InferenceSession("/home/ubuntu/overlay/src/onnx_test/model/model.onnx", 
             providers=ort.get_available_providers())
-        input_name = session.get_inputs()[0].name
-        input_shape = session.get_inputs()[0].shape
-        self.get_logger().info(f"Input name: {input_name}, input shape: {input_shape}")
-        input_data = np.random.random(input_shape).astype(np.float32)
-        start = time.time()
-        outputs = session.run(None, {input_name: input_data})
-        end = time.time()
-        self.get_logger().info(f"Time: {end-start}")
-        output_name = session.get_outputs()[0].name
-        predictions = outputs[0]
+        # input_name = session.get_inputs()[0].name
+        # input_shape = session.get_inputs()[0].shape
+        # self.get_logger().info(f"Input name: {input_name}, input shape: {input_shape}")
+        # input_data = np.random.random(input_shape).astype(np.float32)
+        # start = time.time()
+        # outputs = session.run(None, {input_name: input_data})
+        # end = time.time()
+        # self.get_logger().info(f"Time: {end-start}")
+        # output_name = session.get_outputs()[0].name
+        # predictions = outputs[0]
 
-        print(predictions)
+        # print(predictions)
 
 
 

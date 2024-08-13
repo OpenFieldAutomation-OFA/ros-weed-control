@@ -109,7 +109,7 @@ public:
       auto now_tm = *std::localtime(&now_time_t);
       std::ostringstream oss;
       oss << std::put_time(&now_tm, "%Y%m%d_%H%M%S");
-      folder_name_ = "/home/ubuntu/overlay/src/runs/" + oss.str() + "/";
+      folder_name_ = "/home/ofa/overlay/src/runs/" + oss.str() + "/";
       std::filesystem::create_directory(folder_name_);
     }
 
@@ -727,9 +727,9 @@ private:
     }
     else
     {
-      depth_mat = cv::imread("/home/ubuntu/overlay/src/ofa_weed_detection/mock_images/" + pos + "/depth16.png", cv::IMREAD_UNCHANGED);
-      ir_mat = cv::imread("/home/ubuntu/overlay/src/ofa_weed_detection/mock_images/" + pos + "/ir.png", cv::IMREAD_GRAYSCALE);
-      color_mat = cv::imread("/home/ubuntu/overlay/src/ofa_weed_detection/mock_images/" + pos + "/color.png", cv::IMREAD_COLOR);
+      depth_mat = cv::imread("/home/ofa/overlay/src/ofa_weed_detection/mock_images/" + pos + "/depth16.png", cv::IMREAD_UNCHANGED);
+      ir_mat = cv::imread("/home/ofa/overlay/src/ofa_weed_detection/mock_images/" + pos + "/ir.png", cv::IMREAD_GRAYSCALE);
+      color_mat = cv::imread("/home/ofa/overlay/src/ofa_weed_detection/mock_images/" + pos + "/color.png", cv::IMREAD_COLOR);
     }
 
     cv::Mat depth_normalized;
