@@ -35,7 +35,7 @@
   },
   "runArgs": [
       "--net", "host",
-      // "--runtime", "nvidia",
+      "--runtime", "nvidia",
       "--gpus", "all",
     //   "--device-cgroup-rule", "c 226:* rmw", // dri
     "--device-cgroup-rule", "c 166:* rmw", // Arduino
