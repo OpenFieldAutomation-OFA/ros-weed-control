@@ -117,7 +117,7 @@ int main(int argc, char* argv[])
   target_pose.orientation.x = q.x();
   target_pose.orientation.y = q.y();
   target_pose.orientation.z = q.z();
-  target_pose.position.x = -0.56;
+  target_pose.position.x = -0.6;
   target_pose.position.y = 0.1;
   target_pose.position.z = 0.3;
   // move_group.setPositionTarget(-0.552716, -0.116621, 0.062975);
