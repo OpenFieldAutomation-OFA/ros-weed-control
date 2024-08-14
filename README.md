@@ -55,6 +55,7 @@ The following steps describe the setup on a reComputer Industrial J40 flashed wi
 8. Install onnxruntime.
     ```bash
     cd ~/ros2_ws/src/ros-weed-control/onnx_test
+    pip install --upgrade numpy==1.26.1
     pip install onnxruntime_gpu-1.20.0-cp310-cp310-linux_aarch64.whl
     ```
 9. Install the SC4-Hub USB Driver.
