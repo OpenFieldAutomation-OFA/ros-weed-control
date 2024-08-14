@@ -9,4 +9,3 @@ In order to load the settings you have to execute the following steps:
 5. Click  "Write Parameters"
 
 Changing parameters can be done directly in the CubeMars UI or by editing the McParams/AppParams file and then following the above procedure.
-

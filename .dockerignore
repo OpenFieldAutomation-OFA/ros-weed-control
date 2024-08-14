@@ -1,7 +1,0 @@
-.devcontainer/
-.dockerignore
-.git/
-.gitignore
-Dockerfile
-README.md
-ros2_control_demos/
