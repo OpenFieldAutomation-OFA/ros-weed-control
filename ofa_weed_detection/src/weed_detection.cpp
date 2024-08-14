@@ -11,7 +11,6 @@
 #include <iostream>
 #include <fstream>
 
-#include <cv_bridge/cv_bridge.hpp>
 #include <opencv2/opencv.hpp>
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_types.h>
@@ -109,7 +108,7 @@ public:
       auto now_tm = *std::localtime(&now_time_t);
       std::ostringstream oss;
       oss << std::put_time(&now_tm, "%Y%m%d_%H%M%S");
-      folder_name_ = "/home/ofa/overlay/src/runs/" + oss.str() + "/";
+      folder_name_ = "/home/ofa/ros2_ws/src/ros-weed-control/runs/" + oss.str() + "/";
       std::filesystem::create_directory(folder_name_);
     }
 
@@ -372,12 +371,16 @@ private:
         // publish color image
         std::vector<std::uint8_t> color_buffer(color_image.get_buffer(), color_image.get_buffer() + color_image.get_size());
         cv::Mat color_mat = cv::imdecode(color_buffer, cv::IMREAD_ANYCOLOR);
-        std_msgs::msg::Header header;
-        header.frame_id = "camera_color_frame";
-        header.stamp = this->now();
-        color_publisher_->publish(
-          *cv_bridge::CvImage(header, "bgr8", color_mat).toImageMsg().get()
-        );
+        sensor_msgs::msg::Image ros_image;
+        ros_image.header.stamp = this->now();
+        ros_image.header.frame_id = "camera_color_frame";
+        ros_image.height = color_mat.rows;
+        ros_image.width = color_mat.cols;
+        ros_image.encoding = "bgr8";
+        ros_image.is_bigendian = false;
+        ros_image.step = static_cast<sensor_msgs::msg::Image::_step_type>(color_mat.step);
+        ros_image.data.assign(color_mat.datastart, color_mat.dataend);
+        color_publisher_->publish(ros_image);
 
         frames = 0;
       }
@@ -727,9 +730,9 @@ private:
     }
     else
     {
-      depth_mat = cv::imread("/home/ofa/overlay/src/ofa_weed_detection/mock_images/" + pos + "/depth16.png", cv::IMREAD_UNCHANGED);
-      ir_mat = cv::imread("/home/ofa/overlay/src/ofa_weed_detection/mock_images/" + pos + "/ir.png", cv::IMREAD_GRAYSCALE);
-      color_mat = cv::imread("/home/ofa/overlay/src/ofa_weed_detection/mock_images/" + pos + "/color.png", cv::IMREAD_COLOR);
+      depth_mat = cv::imread("/home/ofa/ros2_ws/src/ros-weed-control/ofa_weed_detection/mock_images/" + pos + "/depth16.png", cv::IMREAD_UNCHANGED);
+      ir_mat = cv::imread("/home/ofa/ros2_ws/src/ros-weed-control/ofa_weed_detection/mock_images/" + pos + "/ir.png", cv::IMREAD_GRAYSCALE);
+      color_mat = cv::imread("/home/ofa/ros2_ws/src/ros-weed-control/ofa_weed_detection/mock_images/" + pos + "/color.png", cv::IMREAD_COLOR);
     }
 
     cv::Mat depth_normalized;

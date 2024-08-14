@@ -7,14 +7,13 @@ endif()
 
 # find dependencies
 set(THIS_PACKAGE_INCLUDE_DEPENDS
-  # orbbec_camera
   ofa_interfaces
   rclcpp
-  cv_bridge
   moveit_ros_planning_interface
   geometry_msgs
   tf2
   tf2_ros
+  OpenCV
   PCL
 )
 find_package(ament_cmake REQUIRED)
