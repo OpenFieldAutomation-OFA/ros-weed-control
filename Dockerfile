@@ -38,4 +38,4 @@ RUN sudo apt-get update \
 
 RUN echo "source /opt/ros/iron/setup.bash" >> ~/.bashrc
 
-# pip install onnxruntime
+RUN pip install numpy==1.26.1 onnxruntime
