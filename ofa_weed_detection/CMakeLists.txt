@@ -56,7 +56,7 @@ install(
   DESTINATION lib
 )
 install(
-  DIRECTORY config
+  DIRECTORY config images
   DESTINATION share/${PROJECT_NAME}
 )
 

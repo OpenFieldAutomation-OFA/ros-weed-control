@@ -36,6 +36,8 @@
 #include <sensor_msgs/msg/image.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
 
+#include <ament_index_cpp/get_package_share_directory.hpp>
+
 // Function to send command to the Arduino
 void send_command(int arduino_port_, const std::string& command)
 {
@@ -107,9 +109,9 @@ public:
       auto now_time_t = std::chrono::system_clock::to_time_t(now);
       auto now_tm = *std::localtime(&now_time_t);
       std::ostringstream oss;
-      oss << std::put_time(&now_tm, "%Y%m%d_%H%M%S");
-      folder_name_ = "/home/ofa/ros2_ws/src/ros-weed-control/runs/" + oss.str() + "/";
-      std::filesystem::create_directory(folder_name_);
+      oss << std::put_time(&now_tm, "/%Y%m%d_%H%M%S/");
+      run_folder_ = this->get_parameter("runs_folder").as_string() + oss.str();
+      std::filesystem::create_directory(run_folder_);
     }
 
     this->init_action_server();
@@ -175,7 +177,7 @@ private:
   k4a::capture capture_;
 
   // folder for saving images and measurements
-  std::string folder_name_;
+  std::string run_folder_;
   int process_count_ = 0;
   bool save_runs_;
 
@@ -555,7 +557,7 @@ private:
         target_pose.position.y,
         target_pose.position.z);
       
-      if (first || (old_target_pose.position.y > 0 && target_pose.position.y < 0))
+      if (first || (old_target_pose.position.y > 0 && target_pose.position.y <= 0))
       {
         RCLCPP_INFO(this->get_logger(), "Moving to first plant");
         move_group.setMaxVelocityScalingFactor(0.5);
@@ -587,16 +589,15 @@ private:
               moveit::core::error_code_to_string(error_code).c_str());
             return false;
           }
+          first = false;
         }
         else
         {
           RCLCPP_ERROR(this->get_logger(), "Planning failed: %s",
             moveit::core::error_code_to_string(error_code).c_str());
-          continue;
         }
         move_group.setMaxVelocityScalingFactor(1.0);
         move_group.setMaxAccelerationScalingFactor(1.0);
-        first = false;
       }
       else
       {
@@ -619,6 +620,11 @@ private:
             return false;
           }
         }
+        else
+        {
+          RCLCPP_ERROR(this->get_logger(), "Planning failed: %s",
+            moveit::core::error_code_to_string(error_code).c_str());
+        }
       }
 
       // shock
@@ -639,7 +645,7 @@ private:
     const bool old_version = this->get_parameter("old_version").as_bool();
     const int dilation_size = this->get_parameter("dilation_size").as_int();;  // dilation kernel size
 
-    std::chrono::_V2::system_clock::time_point t1_total;
+    std::chrono::_V2::system_clock::time_point t1_total = std::chrono::high_resolution_clock::now();
     std::chrono::_V2::system_clock::time_point t1;
     std::chrono::_V2::system_clock::time_point t2;
     std::chrono::milliseconds ms_int;
@@ -649,7 +655,9 @@ private:
     cv::Mat depth_mat;
     cv::Mat ir_mat;
     cv::Mat color_mat;
-    
+
+    std::string package_share_directory = ament_index_cpp::get_package_share_directory("ofa_weed_detection");
+
     if (!use_mock_hardware_)
     {
       // turn on LEDs
@@ -671,7 +679,6 @@ private:
       k4a::image ir_image = capture_.get_ir_image();
       send_command(arduino_port_, "OFF");
 
-      t1_total = std::chrono::high_resolution_clock::now();
       t1 = std::chrono::high_resolution_clock::now();
       
       // transform depth and ir image to camera viewpoint
@@ -720,9 +727,6 @@ private:
         CV_16UC1,
         reinterpret_cast<uint16_t*>(ir_image.get_buffer())
       );
-      cv::min(ir_mat, 2048, ir_mat); // remove outliers (reflections, saturated pixels)
-      cv::normalize(ir_mat, ir_mat, 0, 255, cv::NORM_MINMAX, CV_8UC1);
-      cv::GaussianBlur(ir_mat, ir_mat, cv::Size(15, 15), 0);
 
       t2 = std::chrono::high_resolution_clock::now();
       ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
@@ -730,13 +734,23 @@ private:
     }
     else
     {
-      depth_mat = cv::imread("/home/ofa/ros2_ws/src/ros-weed-control/ofa_weed_detection/mock_images/" + pos + "/depth16.png", cv::IMREAD_UNCHANGED);
-      ir_mat = cv::imread("/home/ofa/ros2_ws/src/ros-weed-control/ofa_weed_detection/mock_images/" + pos + "/ir.png", cv::IMREAD_GRAYSCALE);
-      color_mat = cv::imread("/home/ofa/ros2_ws/src/ros-weed-control/ofa_weed_detection/mock_images/" + pos + "/color.png", cv::IMREAD_COLOR);
+      depth_mat = cv::imread(package_share_directory + "/images/mock_images/" + pos + "/depth16.png", cv::IMREAD_UNCHANGED);
+      ir_mat = cv::imread(package_share_directory + "/images/mock_images/" + pos + "/ir16.png", cv::IMREAD_UNCHANGED);
+      color_mat = cv::imread(package_share_directory + "/images/mock_images/" + pos + "/color.png", cv::IMREAD_COLOR);
     }
 
-    cv::Mat depth_normalized;
-    cv::normalize(depth_mat, depth_normalized, 0, 255, cv::NORM_MINMAX, CV_8UC1);
+    cv::Mat ir_corrected;
+    ir_mat.convertTo(ir_corrected, CV_32F);
+    bool illumination_correction = this->get_parameter("illumination_correction").as_bool();
+    if(illumination_correction)
+    {
+      cv::Mat ill_corr = cv::imread(package_share_directory + "/images/illumination.png", cv::IMREAD_GRAYSCALE);
+      ill_corr.convertTo(ill_corr, CV_32F);
+      ir_corrected = ir_corrected / ill_corr * 150;
+    }
+
+    cv::threshold(ir_corrected, ir_corrected, 2000, 2000, cv::THRESH_TRUNC); // remove outliers (reflections, saturated pixels)
+    ir_corrected.convertTo(ir_corrected, CV_8UC1, 255.0 / 2000.0);
 
     // calculate ExG
     t1 = std::chrono::high_resolution_clock::now();
@@ -747,8 +761,9 @@ private:
     bgr_channels[1].convertTo(green_channel, CV_32F);
     bgr_channels[2].convertTo(red_channel, CV_32F);
     cv::Mat exg = 2.0 * green_channel - red_channel - blue_channel;
-    cv::Mat exg_normalized;  // only used to display
-    cv::normalize(exg, exg_normalized, 0, 255, cv::NORM_MINMAX, CV_8UC1);
+
+    // remove some noise
+    cv::GaussianBlur(ir_corrected, ir_corrected, cv::Size(15, 15), 0);
     cv::GaussianBlur(exg, exg, cv::Size(15, 15), 0);
 
     // threshold
@@ -756,7 +771,7 @@ private:
     cv::threshold(exg, exg_binary, exg_threshold, 255, cv::THRESH_BINARY);
     exg_binary.convertTo(exg_binary, CV_8UC1);
     cv::Mat nir_binary;
-    cv::threshold(ir_mat, nir_binary, nir_threshold, 255, cv::THRESH_BINARY);
+    cv::threshold(ir_corrected, nir_binary, nir_threshold, 255, cv::THRESH_BINARY);
     cv::Mat combined_binary;
     cv::bitwise_and(exg_binary, nir_binary, combined_binary);
     t2 = std::chrono::high_resolution_clock::now();
@@ -1004,7 +1019,7 @@ private:
     if (save_runs_)
     {
       // save log text
-      std::string folder_name = folder_name_ + pos + "_" + std::to_string(process_count_++) + "/";
+      std::string folder_name = run_folder_ + pos + "_" + std::to_string(process_count_++) + "/";
       std::filesystem::create_directory(folder_name);
       std::string file_name = folder_name + "log_file.txt";  
       std::ofstream outfile;
@@ -1016,11 +1031,17 @@ private:
       folder_name += "images/";
       std::filesystem::create_directory(folder_name);
 
+      cv::Mat depth_normalized;
+      cv::normalize(depth_mat, depth_normalized, 0, 255, cv::NORM_MINMAX, CV_8UC1);
+      cv::Mat exg_normalized;
+      cv::normalize(exg, exg_normalized, 0, 255, cv::NORM_MINMAX, CV_8UC1);
+
       cv::imwrite(folder_name + "color.png", color_mat);
       cv::imwrite(folder_name + "depth.png", depth_normalized);
       cv::imwrite(folder_name + "depth16.png", depth_mat);
-      cv::imwrite(folder_name + "ir.png", ir_mat);
+      cv::imwrite(folder_name + "ir16.png", ir_mat);
       cv::imwrite(folder_name + "ir_binary.png", nir_binary);
+      cv::imwrite(folder_name + "ir.png", ir_corrected);
       cv::imwrite(folder_name + "red.png", bgr_channels[1]);
       cv::imwrite(folder_name + "green.png", bgr_channels[2]);
       cv::imwrite(folder_name + "blue.png", bgr_channels[0]);

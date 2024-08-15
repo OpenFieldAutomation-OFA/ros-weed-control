@@ -6,8 +6,7 @@
     scale_z: 2.0
     split_size: 5000
     exg_threshold: -30.0
-    nir_threshold: 90.0
-    save_runs: true
+    nir_threshold: 70.0
     x_lower: -0.56
     x_upper: 0.38
     x_off: 0.002
@@ -17,4 +16,7 @@
     old_version: true
     dilation_size: 20
     auto_exposure: false
+    illumination_correction: true
     wait_shock: 1000
+    save_runs: true
+    runs_folder: /home/ofa/ros2_ws/src/ros-weed-control/runs
