@@ -476,9 +476,14 @@ private:
 
     std::vector<std::vector<float>> camera_positions = process_image(pos);  
 
-    double x_lower = this->get_parameter("x_lower").as_double();  // world points with lower x value will be ignored
-    double x_upper = this->get_parameter("x_upper").as_double();  // world points with lower x value will be ignored
-    
+    // limit workspace to reachable positions
+    double x_lower = this->get_parameter("x_lower").as_double();
+    double x_upper = this->get_parameter("x_upper").as_double();
+    double y_lower = this->get_parameter("y_lower").as_double();
+    double y_upper = this->get_parameter("y_upper").as_double();
+    double z_lower = this->get_parameter("z_lower").as_double();
+    double z_upper = this->get_parameter("z_upper").as_double();
+
     /*
     Offsets in x, y, and z-direction
     Ideally the URDF would describe our setup perfectly, but practically it's easier to tune the offsets as parameters
@@ -509,7 +514,9 @@ private:
         point_in_world.point.y,
         point_in_world.point.z);
       
-      if (point_in_world.point.x < x_lower || point_in_world.point.x > x_upper) continue;
+      if (point_in_world.point.x + x_off < x_lower || point_in_world.point.x + x_off > x_upper) continue;
+      if (point_in_world.point.y + y_off < y_lower || point_in_world.point.y + y_off > y_upper) continue;
+      if (point_in_world.point.z + z_off < z_lower || point_in_world.point.z + z_off > z_upper) continue;
       world_positions.push_back(
         {
           point_in_world.point.x + x_off,
@@ -622,8 +629,7 @@ private:
         }
         else
         {
-          RCLCPP_ERROR(this->get_logger(), "Planning failed: %s",
-            moveit::core::error_code_to_string(error_code).c_str());
+          RCLCPP_ERROR(this->get_logger(), "Planning failed: Fraction achieved %f", fraction * 100.0);
         }
       }
 

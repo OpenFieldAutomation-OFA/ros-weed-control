@@ -16,7 +16,7 @@
 
   <!-- Frame dimensions -->
   <xacro:property name="frame_l" value="1.3" />
-  <xacro:property name="frame_w" value="0.8" />
+  <xacro:property name="frame_w" value="1.0" />
   <xacro:property name="frame_h" value="0.03" />
 
   <!-- Distance between carriage hard stop and end of axis -->

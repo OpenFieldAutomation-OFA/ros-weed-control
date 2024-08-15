@@ -120,9 +120,11 @@ int main(int argc, char* argv[])
   target_pose.position.x = -0.6;
   target_pose.position.y = 0.1;
   target_pose.position.z = 0.3;
-  // move_group.setPositionTarget(-0.552716, -0.116621, 0.062975);
-  move_group.setPoseTarget(target_pose);
-  move_group.setGoalOrientationTolerance(45 * M_PI / 180);
+  move_group.setPositionTarget(0.224756, 0.4, 0.5);
+  // move_group.setPositionTarget(-0.384220, 0.095513, 0.118338);
+  
+  // move_group.setPoseTarget(target_pose);
+  // move_group.setGoalOrientationTolerance(45 * M_PI / 180);
 
   // plan and execute
   move_group.move();
