@@ -21,6 +21,6 @@
     dilation_size: 20
     auto_exposure: false
     illumination_correction: true
-    wait_shock: 1000
+    wait_shock: 200
     save_runs: true
     runs_folder: /home/ofa/ros2_ws/src/ros-weed-control/runs

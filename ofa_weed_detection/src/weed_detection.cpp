@@ -538,14 +538,14 @@ private:
     }
     std::sort(positive_y.begin(), positive_y.end(), 
       [](const std::vector<double>& a, const std::vector<double>& b) {
-          return a[0] < b[0]; // Sort by x-coordinate in increasing order
+          return a[0] > b[0]; // Sort by x-coordinate in increasing order
       });
     std::sort(negative_y.begin(), negative_y.end(), 
       [](const std::vector<double>& a, const std::vector<double>& b) {
-          return a[0] > b[0]; // Sort by x-coordinate in decreasing order
+          return a[0] < b[0]; // Sort by x-coordinate in decreasing order
       });
-    std::vector<std::vector<double>> sorted_positions = positive_y;
-    sorted_positions.insert(sorted_positions.end(), negative_y.begin(), negative_y.end());
+    std::vector<std::vector<double>> sorted_positions = negative_y;
+    sorted_positions.insert(sorted_positions.end(), positive_y.begin(), positive_y.end());
 
     // move to targets
     bool first = true;
@@ -564,7 +564,7 @@ private:
         target_pose.position.y,
         target_pose.position.z);
       
-      if (first || (old_target_pose.position.y > 0 && target_pose.position.y <= 0))
+      if (first || (old_target_pose.position.y <= 0 && target_pose.position.y > 0))
       {
         RCLCPP_INFO(this->get_logger(), "Moving to first plant");
         move_group.setMaxVelocityScalingFactor(0.5);
