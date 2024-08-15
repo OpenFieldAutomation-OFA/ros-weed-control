@@ -1,7 +1,5 @@
 ros2 action send_goal /weed_control ofa_interfaces/action/WeedControl "{}"
 
-if no command is sent for 1 second, the motor stalls, regardless of mode
-
 speed 0 command:
 cansend can0 8000035a#00000000
 
