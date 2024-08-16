@@ -856,6 +856,8 @@ private:
     ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
     log_text += "Filter 3d points: " + std::to_string(ms_int.count()) + " ms\n";
 
+    pcl::io::savePCDFileASCII("/home/ofa/ros2_ws/src/ros-weed-control/onnx_test/pcl.pcd", *cloud_filtered);
+
     // cluster cloud
     t1 = std::chrono::high_resolution_clock::now();
     pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>);
@@ -871,6 +873,7 @@ private:
     t2 = std::chrono::high_resolution_clock::now();
     ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
     log_text += "3D Clustering: " + std::to_string(ms_int.count()) + " ms\n";
+    log_text += "Clusters: " + std::to_string(cluster_indices.size()) + "\n";
 
     // project clusters back
     t1 = std::chrono::high_resolution_clock::now();
