@@ -24,19 +24,23 @@ class MinimalPublisher(Node):
             ('TensorrtExecutionProvider', {
                 'trt_fp16_enable': True,
                 'trt_engine_cache_enable': True,
-                'trt_engine_cache_path': '/home/ofa/ros2_ws/src/ros-weed-control/onnx_test/model/trt_engine'
+                'trt_engine_cache_path': '/home/ofa/ros2_ws/src/ros-weed-control/onnx_test/model/trt_engine',
+                'trt_profile_min_shapes': 'input:4x3x518x518',
+                'trt_profile_max_shapes': 'input:4x3x518x518',
+                'trt_profile_opt_shapes': 'input:4x3x518x518',
             }),
             'CPUExecutionProvider'
         ]
         start = time.time()
-        session = ort.InferenceSession("/home/ofa/ros2_ws/src/ros-weed-control/onnx_test/model/end2end.onnx", 
+        session = ort.InferenceSession("/home/ofa/ros2_ws/src/ros-weed-control/onnx_test/model/end2end_dynamic.onnx", 
             providers=providers)
         end = time.time()
         self.get_logger().info(f"Time load: {end-start}")
         input_name = session.get_inputs()[0].name
         input_shape = session.get_inputs()[0].shape
+        input_shape = (4, 3, 518, 518)
         self.get_logger().info(f"Input name: {input_name}, input shape: {input_shape}")
-        input_data = np.random.random(input_shape).astype(np.float32)
+        input_data = np.ones((input_shape)).astype(np.float32)
         start = time.time()
         self.timer = self.create_timer(timer_period, self.timer_callback)
         outputs = session.run(None, {input_name: input_data})
@@ -44,8 +48,10 @@ class MinimalPublisher(Node):
         self.get_logger().info(f"Time: {end-start}")
         output_name = session.get_outputs()[0].name
         predictions = outputs[0]
+        max_indices = np.argmax(predictions, axis=1)
 
         print(predictions)
+        print(max_indices)
 
 
 
