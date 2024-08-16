@@ -393,6 +393,8 @@ private:
   {
     RCLCPP_INFO(this->get_logger(), "Executing goal");
     auto result = std::make_shared<WeedControl::Result>();
+    auto feedback = std::make_shared<WeedControl::Feedback>();
+    feedback->percent_complete = 0;
 
     // init movegroup
     moveit::planning_interface::MoveGroupInterface move_group(this->shared_from_this(), "arm");
@@ -420,9 +422,9 @@ private:
       return;
     }
 
-    if (!weed_control(move_group, "back"))
+    if (!weed_control(move_group, goal_handle, feedback, result, "back"))
     {
-      goal_handle->abort(result);
+      return;
     }
 
     // move to second position
@@ -441,9 +443,9 @@ private:
       return;
     }
 
-    if (!weed_control(move_group, "front"))
+    if (!weed_control(move_group, goal_handle, feedback, result, "front"))
     {
-      goal_handle->abort(result);
+      return;
     }
 
     // move to home
@@ -457,7 +459,11 @@ private:
     }
   }
 
-  bool weed_control(moveit::planning_interface::MoveGroupInterface & move_group, std::string pos)
+  bool weed_control(moveit::planning_interface::MoveGroupInterface & move_group,
+    const std::shared_ptr<GoalHandleWeedControl> & goal_handle,
+    const std::shared_ptr<WeedControl::Feedback> & feedback,
+    const std::shared_ptr<WeedControl::Result> & result,
+    std::string pos)
   {
     moveit::core::MoveItErrorCode error_code;
     moveit::planning_interface::MoveGroupInterface::Plan plan;
@@ -471,6 +477,7 @@ private:
     } catch (const tf2::TransformException & ex) {
       RCLCPP_ERROR(
         this->get_logger(), "Could not transform %s", ex.what());
+      goal_handle->abort(result);
       return false;
     }
 
@@ -551,8 +558,16 @@ private:
     bool first = true;
     geometry_msgs::msg::Pose target_pose;
     move_group.setGoalOrientationTolerance(90 * M_PI / 180);
+    float percent_increase = 50.0 / sorted_positions.size();
     for (const std::vector<double> & position : sorted_positions)
     {
+      if (goal_handle->is_canceling()) {
+        move_group.setNamedTarget("home");
+        move_group.move();
+        goal_handle->canceled(result);
+        RCLCPP_INFO(this->get_logger(), "Goal canceled");
+        return false;
+      }
       geometry_msgs::msg::Pose old_target_pose = target_pose;
       
       target_pose.position.x = position[0];
@@ -594,6 +609,7 @@ private:
           {
             RCLCPP_ERROR(this->get_logger(), "Execution failed: %s",
               moveit::core::error_code_to_string(error_code).c_str());
+            goal_handle->abort(result);
             return false;
           }
           first = false;
@@ -624,6 +640,7 @@ private:
           {
             RCLCPP_ERROR(this->get_logger(), "Execution failed: %s",
               moveit::core::error_code_to_string(error_code).c_str());
+            goal_handle->abort(result);
             return false;
           }
         }
@@ -635,6 +652,8 @@ private:
 
       // shock
       rclcpp::sleep_for(std::chrono::milliseconds(wait_shock));
+      feedback->percent_complete += percent_increase;
+      goal_handle->publish_feedback(feedback);
     }
     return true;
   }
