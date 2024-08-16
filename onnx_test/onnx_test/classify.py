@@ -25,20 +25,16 @@ class MinimalPublisher(Node):
                 'trt_fp16_enable': True,
                 'trt_engine_cache_enable': True,
                 'trt_engine_cache_path': '/home/ofa/ros2_ws/src/ros-weed-control/onnx_test/model/trt_engine',
-                'trt_profile_min_shapes': 'input:4x3x518x518',
-                'trt_profile_max_shapes': 'input:4x3x518x518',
-                'trt_profile_opt_shapes': 'input:4x3x518x518',
             }),
             'CPUExecutionProvider'
         ]
         start = time.time()
-        session = ort.InferenceSession("/home/ofa/ros2_ws/src/ros-weed-control/onnx_test/model/end2end_dynamic.onnx", 
+        session = ort.InferenceSession("/home/ofa/ros2_ws/src/ros-weed-control/onnx_test/model/end2end.onnx", 
             providers=providers)
         end = time.time()
         self.get_logger().info(f"Time load: {end-start}")
         input_name = session.get_inputs()[0].name
         input_shape = session.get_inputs()[0].shape
-        input_shape = (4, 3, 518, 518)
         self.get_logger().info(f"Input name: {input_name}, input shape: {input_shape}")
         input_data = np.ones((input_shape)).astype(np.float32)
         start = time.time()
