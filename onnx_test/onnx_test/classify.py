@@ -20,14 +20,25 @@ class MinimalPublisher(Node):
         self.get_logger().info(f"The value of the first pixel is: {first_pixel}")
         self.get_logger().info(f"Providers: {ort.get_available_providers()}")
 
-        session = ort.InferenceSession("/home/ofa/ros2_ws/src/ros-weed-control/onnx_test/model/model.onnx", 
-            providers=['CPUExecutionProvider'])
-        self.timer = self.create_timer(timer_period, self.timer_callback)
+        providers = [
+            ('TensorrtExecutionProvider', {
+                'trt_fp16_enable': True,
+                'trt_engine_cache_enable': True,
+                'trt_engine_cache_path': '/home/ofa/ros2_ws/src/ros-weed-control/onnx_test/model/trt_engine'
+            }),
+            'CPUExecutionProvider'
+        ]
+        start = time.time()
+        session = ort.InferenceSession("/home/ofa/ros2_ws/src/ros-weed-control/onnx_test/model/end2end.onnx", 
+            providers=providers)
+        end = time.time()
+        self.get_logger().info(f"Time load: {end-start}")
         input_name = session.get_inputs()[0].name
         input_shape = session.get_inputs()[0].shape
         self.get_logger().info(f"Input name: {input_name}, input shape: {input_shape}")
         input_data = np.random.random(input_shape).astype(np.float32)
         start = time.time()
+        self.timer = self.create_timer(timer_period, self.timer_callback)
         outputs = session.run(None, {input_name: input_data})
         end = time.time()
         self.get_logger().info(f"Time: {end-start}")
