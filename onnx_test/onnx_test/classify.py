@@ -16,8 +16,16 @@ class MinimalPublisher(Node):
         self.i = 0
 
         image = cv2.imread('/home/ofa/ros2_ws/src/ros-weed-control/onnx_test/onnx_test/00dcd0ff0c50e304d43e519f0eafc849.jpg')
-        first_pixel = image[0, 0]
-        self.get_logger().info(f"The value of the first pixel is: {first_pixel}")
+        self.get_logger().info(f"The value of the first pixel is: {image[0, 0]}")
+        image = cv2.resize(image, (518, 518))
+        mean=[123.675, 116.28, 103.53]
+        std=[58.395, 57.12, 57.375]
+        image = (image - mean) / std
+        print(image[0, 0])
+        image = np.transpose(image, (2, 0, 1))
+        input_tensor = np.expand_dims(image, axis=0)
+        input_tensor = input_tensor.astype(np.float32)
+
         self.get_logger().info(f"Providers: {ort.get_available_providers()}")
 
         providers = [
@@ -39,14 +47,15 @@ class MinimalPublisher(Node):
         input_data = np.ones((input_shape)).astype(np.float32)
         start = time.time()
         self.timer = self.create_timer(timer_period, self.timer_callback)
-        outputs = session.run(None, {input_name: input_data})
+        outputs = session.run(None, {input_name: input_tensor})
         end = time.time()
         self.get_logger().info(f"Time: {end-start}")
         output_name = session.get_outputs()[0].name
-        predictions = outputs[0]
-        max_indices = np.argmax(predictions, axis=1)
+        predictions = outputs[0][0]
+        max_indices = np.argmax(predictions)
 
         print(predictions)
+        print(predictions[max_indices])
         print(max_indices)
 
 
