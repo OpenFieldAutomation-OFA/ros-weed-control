@@ -36,6 +36,10 @@ RUN sudo apt-get update \
     ros-$ROS_DISTRO-ros2-controllers \
     ros-$ROS_DISTRO-moveit
 
-RUN echo "source /opt/ros/iron/setup.bash" >> ~/.bashrc
+RUN sudo apt-get install -y --no-install-recommends \
+    python3-open3d \
+    python3-sklearn
 
-RUN pip install numpy==1.26.1 onnxruntime
+RUN pip install onnxruntime numpy==1.26.1
+
+RUN echo "source /opt/ros/iron/setup.bash" >> ~/.bashrc

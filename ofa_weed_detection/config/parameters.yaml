@@ -3,7 +3,7 @@
     publish_color: true
     color_resolution: 5
     cluster_distance: 10.0
-    scale_z: 2.0
+    scale_z: 1.0
     split_size: 5000
     exg_threshold: -30.0
     nir_threshold: 70.0
