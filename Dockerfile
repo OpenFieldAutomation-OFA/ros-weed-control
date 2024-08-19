@@ -40,6 +40,6 @@ RUN sudo apt-get install -y --no-install-recommends \
     python3-open3d \
     python3-sklearn
 
-RUN pip install onnxruntime numpy==1.26.1
+RUN pip install onnxruntime numpy==1.26.4
 
 RUN echo "source /opt/ros/iron/setup.bash" >> ~/.bashrc

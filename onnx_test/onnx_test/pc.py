@@ -129,15 +129,14 @@ print(f"KMeans Time: {end-start}")
 
 color_image = cv2.imread("/home/ofa/ros2_ws/src/ros-weed-control/ofa_weed_detection/images/mock_images/back/color.png")
 providers = [
-    # ('TensorrtExecutionProvider', {
-    #     'trt_fp16_enable': True,
-    #     'trt_engine_cache_enable': True,
-    #     'trt_engine_cache_path': '/home/ofa/ros2_ws/src/ros-weed-control/onnx_test/model/trt_engine',
-    # }),
-    'CUDAExecutionProvider',
+    ('TensorrtExecutionProvider', {
+        'trt_engine_cache_enable': True,
+        'trt_engine_cache_path': '/home/ofa/ros2_ws/src/ros-weed-control/onnx_test/model/trt_engine',
+    }),
+    # 'CUDAExecutionProvider',
     'CPUExecutionProvider'
 ]
-session = ort.InferenceSession("/home/ofa/ros2_ws/src/ros-weed-control/onnx_test/model/end2end_dynamic.onnx", 
+session = ort.InferenceSession("/home/ofa/ros2_ws/src/ros-weed-control/onnx_test/model/finetuned.onnx", 
     providers=providers)
 input_name = session.get_inputs()[0].name
 

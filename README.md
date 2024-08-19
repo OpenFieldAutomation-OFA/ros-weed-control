@@ -52,11 +52,15 @@ The following steps describe the setup on a reComputer Industrial J40 flashed wi
     rosdep update
     rosdep install --from-paths src -y --ignore-src
     ```
-8. Install onnxruntime.
+8. Install onnxruntime and model.
     ```bash
     cd ~/ros2_ws/src/ros-weed-control/onnx_test
-    pip install --upgrade numpy==1.26.1
+    pip install --upgrade numpy==1.26.4
     pip install onnxruntime_gpu-1.20.0-cp310-cp310-linux_aarch64.whl
+    wget https://github.com/OpenFieldAutomation-OFA/plant-training/releases/download/v0.0.0/finetuned.onnx -P model/
+    # We generate the engine file manually because the builder in onnxruntime does not work for some reason
+    mkdir -p model/trt_engine
+    /usr/src/tensorrt/bin/trtexec --onnx=model/finetuned.onnx --saveEngine=model/trt_engine/TensorrtExecutionProvider_TRTKernel_graph_main_graph_12799879847838785250_0_0_sm87.engine
     ```
 9. Install the SC4-Hub USB Driver.
     ```bash
@@ -101,7 +105,7 @@ Note that CUDA is not installed inside the container so inference will be done o
 <!-- ## TensorRT
 To generate a TensorRT engine file with a ONNX model you can run the following command on the Jetson.
 ```bash
-/usr/src/tensorrt/bin/trtexec --onnx=model.onnx --saveEngine=engine.trt
+/usr/src/tensorrt/bin/trtexec --onnx=finetuned.onnx --saveEngine=trt_engine/TensorrtExecutionProvider_TRTKernel_graph_main_graph_4954463442282913326_0_0_fp16_sm87.engine
 ```
 The `engine.trt` file has to be saved in the `ofa_weed_detection/model` folder.
 
