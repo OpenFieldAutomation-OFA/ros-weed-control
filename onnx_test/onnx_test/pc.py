@@ -141,9 +141,6 @@ session = ort.InferenceSession("/home/ofa/ros2_ws/src/ros-weed-control/onnx_test
     providers=providers)
 input_name = session.get_inputs()[0].name
 
-batch_size = 4
-batch = np.zeros((batch_size, 3, 518, 518), dtype=np.float32)
-
 start = time.time()
 for i, bbox in enumerate(bounding_boxes, start=1):
     min_col, max_col, min_row, max_row = bbox
@@ -178,16 +175,12 @@ for i, bbox in enumerate(bounding_boxes, start=1):
     plant_image = np.expand_dims(plant_image, axis=0)
     plant_image = plant_image.astype(np.float32)
 
-    batch[(i-1)%batch_size,:,:] = plant_image
-
-    if i % batch_size == 0 or i == len(bounding_boxes):
-        # pass through network
-        outputs = session.run(None, {input_name: batch})
-        print("yo")
-        # predictions = outputs[0][0]
-        # max_ind = np.argmax(predictions)
-        # prob = predictions[max_ind]
-        # print(f"Prediction: {max_ind}, {prob*100}%")
+    # pass through network
+    outputs = session.run(None, {input_name: plant_image})
+    predictions = outputs[0][0]
+    max_ind = np.argmax(predictions)
+    prob = predictions[max_ind]
+    print(f"Prediction: {max_ind}, {prob*100}%")
 
 end = time.time()
 print(f"Predictions time : {end-start}")
