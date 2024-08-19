@@ -7,6 +7,7 @@ import time
 import cv2
 import onnxruntime as ort
 import numpy as np
+
 class MinimalPublisher(Node):
 
     def __init__(self):
@@ -17,7 +18,21 @@ class MinimalPublisher(Node):
 
         image = cv2.imread('/home/ofa/ros2_ws/src/ros-weed-control/onnx_test/onnx_test/00dcd0ff0c50e304d43e519f0eafc849.jpg')
         self.get_logger().info(f"The value of the first pixel is: {image[0, 0]}")
-        image = cv2.resize(image, (518, 518))
+        # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        self.get_logger().info(f"The value of the first pixel is: {image[0, 0]}")
+        target_size = 518
+        height, width = image.shape[:2]
+        if width < height:
+            new_width = target_size
+            new_height = int(target_size * height / width)
+        else:
+            new_height = target_size
+            new_width = int(target_size * width / height)
+        image = cv2.resize(image, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
+        start_x = (new_width - target_size) // 2
+        start_y = (new_height - target_size) // 2
+        image = image[start_y:start_y + target_size, start_x:start_x + target_size]
+        self.get_logger().info(f"The value of the first pixel is: {image[0, 0]}")
         mean=[123.675, 116.28, 103.53]
         std=[58.395, 57.12, 57.375]
         image = (image - mean) / std
@@ -29,11 +44,12 @@ class MinimalPublisher(Node):
         self.get_logger().info(f"Providers: {ort.get_available_providers()}")
 
         providers = [
-            ('TensorrtExecutionProvider', {
-                'trt_fp16_enable': True,
-                'trt_engine_cache_enable': True,
-                'trt_engine_cache_path': '/home/ofa/ros2_ws/src/ros-weed-control/onnx_test/model/trt_engine',
-            }),
+            # ('TensorrtExecutionProvider', {
+            #     'trt_fp16_enable': True,
+            #     'trt_engine_cache_enable': True,
+            #     'trt_engine_cache_path': '/home/ofa/ros2_ws/src/ros-weed-control/onnx_test/model/trt_engine',
+            # }),
+            'CUDAExecutionProvider',
             'CPUExecutionProvider'
         ]
         start = time.time()
@@ -53,6 +69,8 @@ class MinimalPublisher(Node):
         output_name = session.get_outputs()[0].name
         predictions = outputs[0][0]
         max_indices = np.argmax(predictions)
+        test = predictions[max_indices]
+        print('{0:.16f}'.format(test))
 
         print(predictions)
         print(predictions[max_indices])

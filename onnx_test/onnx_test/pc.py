@@ -7,6 +7,7 @@ import math
 from sklearn.cluster import KMeans, DBSCAN
 import cv2
 import matplotlib.pyplot as plt
+import onnxruntime as ort
 
 draw_image = True
 
@@ -36,21 +37,10 @@ print(pcd)
 pcd = pcd.voxel_down_sample(2.0)
 print(pcd)
 
-# start = time.time()
-# points = np.asarray(pcd.points)
-# db = DBSCAN(eps=10.0, min_samples=100).fit(points)
-# labels = db.labels_
-# end = time.time()
-# print(f"Cluster time sklearn: {end-start}")
-
-points = np.asarray(pcd.points)
-points[:, 2] /= 2.0
-pcd.points = o3d.utility.Vector3dVector(points)
-
 start = time.time()
 labels = np.array(pcd.cluster_dbscan(eps=10.0, min_points=40))
 end = time.time()
-print(f"Cluster time open3d: {end-start}")
+print(f"Cluster time : {end-start}")
 
 points = np.asarray(pcd.points)
 points[:, 2] *= 2.0
@@ -111,10 +101,7 @@ for i in range(max_label + 1):
             cv2.circle(cluster_drawn, (centroid_2d[0, 0], centroid_2d[0, 1]), radius=10, color=cluster_color, thickness=-1)
             cv2.circle(color_drawn, (centroid_2d[0, 0], centroid_2d[0, 1]), radius=10, color=(0, 0, 255), thickness=-1)
     else:
-        # Perform K-Means clustering
-        kmeans = KMeans(n_clusters=k, n_init=1).fit(points)
-        
-        # Get centroids of the subclouds
+        kmeans = KMeans(n_clusters=k, init='k-means++', n_init=1).fit(points)
         centroids = kmeans.cluster_centers_
 
         positions.append(centroids)
@@ -141,14 +128,31 @@ print(f"KMeans Time: {end-start}")
 #     plt.show()
 
 color_image = cv2.imread("/home/ofa/ros2_ws/src/ros-weed-control/ofa_weed_detection/images/mock_images/back/color.png")
+providers = [
+    # ('TensorrtExecutionProvider', {
+    #     'trt_fp16_enable': True,
+    #     'trt_engine_cache_enable': True,
+    #     'trt_engine_cache_path': '/home/ofa/ros2_ws/src/ros-weed-control/onnx_test/model/trt_engine',
+    # }),
+    'CUDAExecutionProvider',
+    'CPUExecutionProvider'
+]
+session = ort.InferenceSession("/home/ofa/ros2_ws/src/ros-weed-control/onnx_test/model/end2end_dynamic.onnx", 
+    providers=providers)
+input_name = session.get_inputs()[0].name
 
-for i, bbox in enumerate(bounding_boxes):
+batch_size = 4
+batch = np.zeros((batch_size, 3, 518, 518), dtype=np.float32)
+
+start = time.time()
+for i, bbox in enumerate(bounding_boxes, start=1):
     min_col, max_col, min_row, max_row = bbox
     plant_image = color_image[min_row:max_row, min_col:max_col]
-    cv2.imshow("cropped image", plant_image)
-    cv2.waitKey(0)
+    plant_image = cv2.cvtColor(plant_image, cv2.COLOR_BGR2RGB)
+    # plt.imshow(plant_image)
+    # plt.show()
 
-    # crop and resize
+    # resize and crop
     target_size = 518
     height, width = plant_image.shape[:2]
     if width < height:
@@ -161,11 +165,35 @@ for i, bbox in enumerate(bounding_boxes):
     start_x = (new_width - target_size) // 2
     start_y = (new_height - target_size) // 2
     plant_image = plant_image[start_y:start_y + target_size, start_x:start_x + target_size]
-    cv2.imshow("resized image", plant_image)
-    cv2.waitKey(0)
+    # plt.imshow(plant_image)
+    # plt.show()
+
+    # normalize
+    mean=[123.675, 116.28, 103.53]
+    std=[58.395, 57.12, 57.375]
+    plant_image = (plant_image - mean) / std
+
+    # convert dimensions
+    plant_image = np.transpose(plant_image, (2, 0, 1))
+    plant_image = np.expand_dims(plant_image, axis=0)
+    plant_image = plant_image.astype(np.float32)
+
+    batch[(i-1)%batch_size,:,:] = plant_image
+
+    if i % batch_size == 0 or i == len(bounding_boxes):
+        # pass through network
+        outputs = session.run(None, {input_name: batch})
+        print("yo")
+        # predictions = outputs[0][0]
+        # max_ind = np.argmax(predictions)
+        # prob = predictions[max_ind]
+        # print(f"Prediction: {max_ind}, {prob*100}%")
+
+end = time.time()
+print(f"Predictions time : {end-start}")
 
 # Assign black color to noise points
 colors[labels == -1] = [0, 0, 0]
 # Apply colors to the point cloud
 pcd.colors = o3d.utility.Vector3dVector(colors)
-o3d.visualization.draw_geometries([pcd])
+# o3d.visualization.draw_geometries([pcd])
