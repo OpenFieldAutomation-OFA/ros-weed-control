@@ -16,7 +16,7 @@ class MinimalPublisher(Node):
         timer_period = 1  # seconds
         self.i = 0
 
-        image = cv2.imread('/home/ofa/ros2_ws/src/ros-weed-control/onnx_test/onnx_test/00dcd0ff0c50e304d43e519f0eafc849.jpg')
+        image = cv2.imread('/home/ofa/ros2_ws/src/ros-weed-control/ofa_detection/ofa_detection/00dcd0ff0c50e304d43e519f0eafc849.jpg')
         self.get_logger().info(f"The value of the first pixel is: {image[0, 0]}")
         # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         self.get_logger().info(f"The value of the first pixel is: {image[0, 0]}")
@@ -47,13 +47,13 @@ class MinimalPublisher(Node):
             # ('TensorrtExecutionProvider', {
             #     # 'trt_fp16_enable': True,
             #     'trt_engine_cache_enable': True,
-            #     'trt_engine_cache_path': '/home/ofa/ros2_ws/src/ros-weed-control/onnx_test/model/trt_engine',
+            #     'trt_engine_cache_path': '/home/ofa/ros2_ws/src/ros-weed-control/ofa_detection/model/trt_engine',
             # }),
             'CUDAExecutionProvider',
             'CPUExecutionProvider'
         ]
         start = time.time()
-        session = ort.InferenceSession("/home/ofa/ros2_ws/src/ros-weed-control/onnx_test/model/finetuned.onnx", 
+        session = ort.InferenceSession("/home/ofa/ros2_ws/src/ros-weed-control/ofa_detection/model/finetuned.onnx", 
             providers=providers)
         end = time.time()
         self.get_logger().info(f"Time load: {end-start}")

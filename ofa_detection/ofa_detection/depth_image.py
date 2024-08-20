@@ -74,4 +74,4 @@ downpcd = pcd.voxel_down_sample(voxel_size=0.01)
 o3d.visualization.draw_geometries([downpcd])
 
 
-# o3d.io.write_point_cloud("/home/ofa/ros2_ws/src/ros-weed-control/onnx_test/pc_o3d.pcd", pcd, write_ascii=True)
+# o3d.io.write_point_cloud("/home/ofa/ros2_ws/src/ros-weed-control/ofa_detection/pc_o3d.pcd", pcd, write_ascii=True)

@@ -9,7 +9,7 @@ from sklearn.cluster import KMeans
 
 import cv2
 
-pcd = o3d.io.read_point_cloud("/home/ofa/ros2_ws/src/ros-weed-control/onnx_test/pcl.pcd")
+pcd = o3d.io.read_point_cloud("/home/ofa/ros2_ws/src/ros-weed-control/ofa_detection/pcl.pcd")
 print(pcd)
 
 fx = 2240.591797

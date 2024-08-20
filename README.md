@@ -54,7 +54,7 @@ The following steps describe the setup on a reComputer Industrial J40 flashed wi
     ```
 8. Install onnxruntime and model.
     ```bash
-    cd ~/ros2_ws/src/ros-weed-control/onnx_test
+    cd ~/ros2_ws/src/ros-weed-control/ofa_detection
     pip install numpy==1.26.4
     pip install onnxruntime_gpu-1.20.0-cp310-cp310-linux_aarch64.whl
     wget https://github.com/OpenFieldAutomation-OFA/plant-training/releases/download/v0.0.0/finetuned.onnx -P model/

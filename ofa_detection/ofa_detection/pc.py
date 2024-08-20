@@ -20,7 +20,7 @@ main_crop = 'Zea mays L.'
 if do_classification:
     # load mappings
     from ament_index_python.packages import get_package_share_directory
-    package_share_directory = get_package_share_directory('onnx_test')
+    package_share_directory = get_package_share_directory('ofa_detection')
     print(package_share_directory)
     class_mapping_file = os.path.join(package_share_directory, 'class_mapping.txt')
     species_mapping_file = os.path.join(package_share_directory, 'species_id_to_name.txt')
@@ -49,7 +49,7 @@ rvec = np.zeros((3, 1), dtype=np.float32)
 tvec = np.zeros((3, 1), dtype=np.float32)
 
 # Load point cloud from PCD file
-pcd = o3d.io.read_point_cloud("/home/ofa/ros2_ws/src/ros-weed-control/onnx_test/pcl.pcd")
+pcd = o3d.io.read_point_cloud("/home/ofa/ros2_ws/src/ros-weed-control/ofa_detection/pcl.pcd")
 print(pcd)
 # pcd.transform([[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]])
 # o3d.visualization.draw_geometries([pcd])
@@ -77,12 +77,12 @@ color_image = cv2.imread("/home/ofa/ros2_ws/src/ros-weed-control/ofa_weed_detect
 providers = [
     ('TensorrtExecutionProvider', {
         'trt_engine_cache_enable': True,
-        'trt_engine_cache_path': '/home/ofa/ros2_ws/src/ros-weed-control/onnx_test/model/trt_engine',
+        'trt_engine_cache_path': '/home/ofa/ros2_ws/src/ros-weed-control/ofa_detection/model/trt_engine',
     }),
     # 'CUDAExecutionProvider',
     'CPUExecutionProvider'
 ]
-session = ort.InferenceSession("/home/ofa/ros2_ws/src/ros-weed-control/onnx_test/model/finetuned.onnx", 
+session = ort.InferenceSession("/home/ofa/ros2_ws/src/ros-weed-control/ofa_detection/model/finetuned.onnx", 
     providers=providers)
 input_name = session.get_inputs()[0].name
 

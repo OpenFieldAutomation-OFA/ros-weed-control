@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'onnx_test'
+package_name = 'ofa_detection'
 
 setup(
     name=package_name,
@@ -22,7 +22,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'classify = onnx_test.classify:main'
+            'cluster_and_classify = ofa_detection.cluster_and_classify:main'
         ],
     },
 )

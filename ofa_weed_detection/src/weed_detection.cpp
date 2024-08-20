@@ -856,7 +856,7 @@ private:
     ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
     log_text += "Filter 3d points: " + std::to_string(ms_int.count()) + " ms\n";
 
-    pcl::io::savePCDFileASCII("/home/ofa/ros2_ws/src/ros-weed-control/onnx_test/pcl.pcd", *cloud_filtered);
+    pcl::io::savePCDFileASCII("/home/ofa/ros2_ws/src/ros-weed-control/ofa_detection/pcl.pcd", *cloud_filtered);
 
     // cluster cloud
     t1 = std::chrono::high_resolution_clock::now();
