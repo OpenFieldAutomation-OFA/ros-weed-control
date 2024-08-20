@@ -10,6 +10,8 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
+        ('share/' + package_name, ['mappings/class_mapping.txt']),
+        ('share/' + package_name, ['mappings/species_id_to_name.txt']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,

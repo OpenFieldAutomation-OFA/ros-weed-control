@@ -1,5 +1,5 @@
 # ros-weed-control
-This repo contains all ROS 2 packages that were developed for the OFA Weed Control Unit.
+This repository contains all ROS 2 packages that were developed for the OFA Weed Control Unit.
 
 <!-- TODO: detailed explanation, some images -->
 
@@ -55,7 +55,7 @@ The following steps describe the setup on a reComputer Industrial J40 flashed wi
 8. Install onnxruntime and model.
     ```bash
     cd ~/ros2_ws/src/ros-weed-control/onnx_test
-    pip install --upgrade numpy==1.26.4
+    pip install numpy==1.26.4
     pip install onnxruntime_gpu-1.20.0-cp310-cp310-linux_aarch64.whl
     wget https://github.com/OpenFieldAutomation-OFA/plant-training/releases/download/v0.0.0/finetuned.onnx -P model/
     # We generate the engine file manually because the builder in onnxruntime does not work for some reason

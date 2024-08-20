@@ -45,7 +45,7 @@ class MinimalPublisher(Node):
 
         providers = [
             # ('TensorrtExecutionProvider', {
-            #     'trt_fp16_enable': True,
+            #     # 'trt_fp16_enable': True,
             #     'trt_engine_cache_enable': True,
             #     'trt_engine_cache_path': '/home/ofa/ros2_ws/src/ros-weed-control/onnx_test/model/trt_engine',
             # }),
@@ -53,7 +53,7 @@ class MinimalPublisher(Node):
             'CPUExecutionProvider'
         ]
         start = time.time()
-        session = ort.InferenceSession("/home/ofa/ros2_ws/src/ros-weed-control/onnx_test/model/end2end.onnx", 
+        session = ort.InferenceSession("/home/ofa/ros2_ws/src/ros-weed-control/onnx_test/model/finetuned.onnx", 
             providers=providers)
         end = time.time()
         self.get_logger().info(f"Time load: {end-start}")
