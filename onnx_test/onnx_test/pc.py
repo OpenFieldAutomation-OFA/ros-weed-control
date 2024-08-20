@@ -11,7 +11,8 @@ import cv2
 import matplotlib.pyplot as plt
 import onnxruntime as ort
 
-draw_image = True
+save_runs = True
+file_path = '/home/ofa/ros2_ws/src/ros-weed-control/runs/predictions.txt'
 do_classification = True
 main_crop = 'Zea mays L.'
 # main_crop = 'Beta vulgaris L.'
@@ -25,7 +26,6 @@ if do_classification:
     species_mapping_file = os.path.join(package_share_directory, 'species_id_to_name.txt')
     with open(class_mapping_file) as f:
         class_mapping = {i: int(line.strip()) for i, line in enumerate(f)}
-    # print(class_mapping)
     species_mapping = {}
     with open(species_mapping_file, mode='r', encoding='utf-8') as file:
         reader = csv.reader(file, delimiter=';')
@@ -34,6 +34,7 @@ if do_classification:
             species_id = int(row[0].strip('"'))
             species_name = row[1].strip('"')
             species_mapping[species_id] = species_name
+    
 
 # Projection parameters
 fx = 2240.591797
@@ -85,12 +86,15 @@ session = ort.InferenceSession("/home/ofa/ros2_ws/src/ros-weed-control/onnx_test
     providers=providers)
 input_name = session.get_inputs()[0].name
 
-if draw_image:
+if save_runs:
     cluster_drawn = np.ones((2160, 3840, 3), dtype=np.uint8) * 255
     color_drawn = cv2.imread("/home/ofa/ros2_ws/src/ros-weed-control/ofa_weed_detection/images/mock_images/back/color.png")
     font = cv2.FONT_HERSHEY_SIMPLEX
     font_scale = 1.0
-    thickness = 2
+    font_thickness = 2
+    box_thickness = 5
+    if do_classification:
+        save_data = []
 
 start = time.time()
 for i in range(max_label + 1):
@@ -109,11 +113,11 @@ for i in range(max_label + 1):
 
     cluster_color = np.random.rand(3)
     colors[labels == i] = cluster_color
-    if draw_image:
+    if save_runs:
         cluster_color *= 255
         for point in points_2d:
             cluster_drawn[point[1], point[0]] = cluster_color
-        cv2.rectangle(cluster_drawn, (x1, y1), (x2, y2), cluster_color, 10)
+        cv2.rectangle(cluster_drawn, (x1, y1), (x2, y2), cluster_color, box_thickness)
 
     if do_classification:
         plant_image = color_image[y1:y2, x1:x2]
@@ -154,13 +158,14 @@ for i in range(max_label + 1):
         prob = predictions[max_ind]
         print(f"Prediction: {max_ind}, {prob*100}%")
         species_name = species_mapping[class_mapping[max_ind]]
-        if draw_image:
+        text = str(i) + ", " + species_name  # add box id
+        if save_runs:
             if species_name == main_crop:
                 color = (0, 0, 0)
             else:
                 color = (255, 0, 0)
-            cv2.rectangle(color_drawn, (x1, y1), (x2, y2), color, 10)
-            text_size = cv2.getTextSize(species_name, font, font_scale, thickness)[0]
+            cv2.rectangle(color_drawn, (x1, y1), (x2, y2), color, box_thickness)
+            text_size = cv2.getTextSize(text, font, font_scale, font_thickness)[0]
             if y1 - text_size[1] - 5 > 0:
                 # Draw the label above the bounding box
                 text_x = x1
@@ -171,18 +176,21 @@ for i in range(max_label + 1):
                 text_x = x1
                 text_y = y1 + text_size[1] + 5
                 cv2.rectangle(color_drawn, (x1, y1), (x1 + text_size[0], y1 + text_size[1] + 5), color, -1)
-            cv2.putText(color_drawn, species_name, (text_x, text_y), font, font_scale, (255, 255, 255), thickness)
+            cv2.putText(color_drawn, text, (text_x, text_y), font, font_scale, (255, 255, 255), font_thickness)
             
         if species_name == main_crop:
             # main crop detected, don't compute positions
             continue
+    else:
+        if save_runs:
+            cv2.rectangle(color_drawn, (x1, y1), (x2, y2), (255, 0, 0), box_thickness)
 
     # compute positions
     k = math.ceil(len(cluster_points.points) / 5000)
     if k == 1:
         centroid = points.mean(axis=0)
         positions.append([centroid[0], centroid[1], centroid[2]])
-        if draw_image:
+        if save_runs:
             centroid_2d = cv2.projectPoints(centroid, rvec, tvec, camera_matrix, dist_coeffs)[0]
             centroid_2d = np.round(centroid_2d).astype(int).reshape(-1, 2)
             cv2.circle(cluster_drawn, (centroid_2d[0, 0], centroid_2d[0, 1]), radius=10, color=cluster_color, thickness=-1)
@@ -192,13 +200,20 @@ for i in range(max_label + 1):
         centroids = kmeans.cluster_centers_
         for centroid in centroids:
             positions.append([centroid[0], centroid[1], centroid[2]])
-        if draw_image:
+        if save_runs:
             centroids_2d = cv2.projectPoints(centroids, rvec, tvec, camera_matrix, dist_coeffs)[0]
             centroids_2d = np.round(centroids_2d).astype(int).reshape(-1, 2)
             for centroid in centroids_2d:
                 cv2.circle(cluster_drawn, (centroid[0], centroid[1]), radius=10, color=cluster_color, thickness=-1)
                 cv2.circle(color_drawn, (centroid[0], centroid[1]), radius=10, color=(0, 0, 255), thickness=-1)
-
+    
+    if do_classification:
+        save_data.append(
+            {"id": i,
+             "species": species_name,
+             "probability": prob * 100,
+             "num_points": k},
+        )
 
 end = time.time()
 print(f"Classification & KMeans Time: {end-start}")
@@ -208,9 +223,18 @@ print(f"Classification & KMeans Time: {end-start}")
 # print("Positions:")
 # print(positions)
 
+if save_runs:
+    if do_classification:
+        with open(file_path, mode='w', newline='', encoding='utf-8') as file:
+            writer = csv.writer(file)
+            writer.writerow(["ID", "Predicted Species", "Probability", "Number of Points"])
+            for entry in save_data:
+                writer.writerow([entry["id"], entry["species"],
+                                 entry['probability'], entry["num_points"]])
+
 
 # Show visualizations (useful for debugging)
-if draw_image:
+if save_runs:
     plt.imshow(cv2.cvtColor(cluster_drawn, cv2.COLOR_BGR2RGB))
     plt.show()
     plt.imshow(cv2.cvtColor(color_drawn, cv2.COLOR_BGR2RGB))
