@@ -22,8 +22,8 @@ if do_classification:
     from ament_index_python.packages import get_package_share_directory
     package_share_directory = get_package_share_directory('ofa_detection')
     print(package_share_directory)
-    class_mapping_file = os.path.join(package_share_directory, 'class_mapping.txt')
-    species_mapping_file = os.path.join(package_share_directory, 'species_id_to_name.txt')
+    class_mapping_file = os.path.join(package_share_directory, 'mappings', 'class_mapping.txt')
+    species_mapping_file = os.path.join(package_share_directory, 'mappings', 'species_id_to_name.txt')
     with open(class_mapping_file) as f:
         class_mapping = {i: int(line.strip()) for i, line in enumerate(f)}
     species_mapping = {}

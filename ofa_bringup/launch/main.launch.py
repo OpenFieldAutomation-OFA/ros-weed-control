@@ -110,13 +110,13 @@ def generate_launch_description():
     # Main node
     parameters = PathJoinSubstitution(
         [
-            FindPackageShare("ofa_weed_detection"),
+            FindPackageShare("ofa_bringup"),
             "config",
             "parameters.yaml"
          ]
     )
-    weed_detection_node = Node(
-        name="weed_detection",
+    weed_main_node = Node(
+        name="weed_main",
         package="ofa_weed_detection",
         executable="weed_detection",
         output="log",
@@ -128,11 +128,19 @@ def generate_launch_description():
             {"use_mock_hardware": use_mock_hardware}
         ],
     )
+
+    # Detection node
+    weed_detection_node = Node(
+        name="weed_detection",
+        package="ofa_detection",
+        executable="cluster_classify",
+        output="log",
+    )
     
-    delay_weed_detection_node = RegisterEventHandler(
+    delay_weed_main_node = RegisterEventHandler(
         event_handler=OnProcessExit(
             target_action=arm_controller_spawner,
-            on_exit=[weed_detection_node],
+            on_exit=[weed_main_node],
         )
     )
 
@@ -145,6 +153,7 @@ def generate_launch_description():
             ros2_control_node,
             joint_state_broadcaster_spawner,
             arm_controller_spawner,
-            delay_weed_detection_node,
+            delay_weed_main_node,
+            weed_detection_node,
         ]
     )

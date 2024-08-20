@@ -10,8 +10,8 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        ('share/' + package_name, ['mappings/class_mapping.txt']),
-        ('share/' + package_name, ['mappings/species_id_to_name.txt']),
+        ('share/' + package_name + '/mappings', ['mappings/class_mapping.txt']),
+        ('share/' + package_name + '/mappings', ['mappings/species_id_to_name.txt']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -22,7 +22,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'cluster_and_classify = ofa_detection.cluster_and_classify:main'
+            'cluster_classify = ofa_detection.cluster_classify:main'
         ],
     },
 )

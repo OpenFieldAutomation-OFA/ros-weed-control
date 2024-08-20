@@ -32,6 +32,7 @@
 #include <tf2_ros/buffer.h>
 
 #include <ofa_interfaces/action/weed_control.hpp>
+#include <ofa_interfaces/action/cluster_classify.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
@@ -89,6 +90,9 @@ class WeedControlActionServer : public rclcpp::Node
 public:
   using WeedControl = ofa_interfaces::action::WeedControl;
   using GoalHandleWeedControl = rclcpp_action::ServerGoalHandle<WeedControl>;
+
+  using ClusterClassify = ofa_interfaces::action::ClusterClassify;
+  using GoalHandleClusterClassify = rclcpp_action::ClientGoalHandle<ClusterClassify>;
   
   WeedControlActionServer()
   : Node("weed_control_action_server",
@@ -142,6 +146,11 @@ public:
       }
       this->init_camera();    
     }
+
+    this->client_ptr_ = rclcpp_action::create_client<ClusterClassify>(
+      this,
+      "cluster_classify");
+
     RCLCPP_INFO(this->get_logger(), "Node initialized");
   }
 
@@ -159,6 +168,8 @@ private:
   std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
 
   rclcpp_action::Server<WeedControl>::SharedPtr action_server_;
+
+  rclcpp_action::Client<ClusterClassify>::SharedPtr client_ptr_;
 
   // capture thread
   std::atomic<bool> running_;
@@ -207,10 +218,8 @@ private:
     auto handle_accepted = [this](
       const std::shared_ptr<GoalHandleWeedControl> goal_handle)
     {
-      // this needs to return quickly to avoid blocking the executor,
-      // so we declare a lambda function to be called inside a new thread
-      auto execute_in_thread = [this, goal_handle](){return this->execute(goal_handle);};
-      std::thread{execute_in_thread}.detach();
+      // we want this to be blocking
+      this->execute(goal_handle);
     };
 
     this->action_server_ = rclcpp_action::create_server<WeedControl>(
@@ -843,164 +852,31 @@ private:
     ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
     log_text += "Project to 3D: " + std::to_string(ms_int.count()) + " ms\n";
 
-    // downsample cloud
-    t1 = std::chrono::high_resolution_clock::now();
-    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered(new pcl::PointCloud<pcl::PointXYZ>);
-    pcl::VoxelGrid<pcl::PointXYZ> sor;
-    sor.setInputCloud(cloud);
-    sor.setLeafSize(1.0, 1.0, 1.0);
-    sor.filter(*cloud_filtered);
-    log_text += "Point cloud size: " + std::to_string(cloud->width) + "\n";
-    log_text += "Filtered point cloud size: " + std::to_string(cloud_filtered->width) + "\n"; 
-    t2 = std::chrono::high_resolution_clock::now();
-    ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
-    log_text += "Filter 3d points: " + std::to_string(ms_int.count()) + " ms\n";
-
-    pcl::io::savePCDFileASCII("/home/ofa/ros2_ws/src/ros-weed-control/ofa_detection/pcl.pcd", *cloud_filtered);
-
-    // cluster cloud
-    t1 = std::chrono::high_resolution_clock::now();
-    pcl::search::KdTree<pcl::PointXYZ>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZ>);
-    tree->setInputCloud(cloud_filtered);
-    pcl::EuclideanClusterExtraction<pcl::PointXYZ> ec;
-    ec.setClusterTolerance(cluster_distance); // Set the distance tolerance
-    ec.setMinClusterSize(100);    // Set the minimum number of points in a cluster
-    ec.setMaxClusterSize(1000000);  // Set the maximum number of points in a cluster
-    ec.setSearchMethod(tree);
-    ec.setInputCloud(cloud_filtered);
-    std::vector<pcl::PointIndices> cluster_indices;
-    ec.extract(cluster_indices);
-    t2 = std::chrono::high_resolution_clock::now();
-    ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
-    log_text += "3D Clustering: " + std::to_string(ms_int.count()) + " ms\n";
-    log_text += "Clusters: " + std::to_string(cluster_indices.size()) + "\n";
-
-    // project clusters back
-    t1 = std::chrono::high_resolution_clock::now();
-    cv::Mat components3d = cv::Mat::zeros(combined_binary.size(), CV_8UC3);
-    cv::Mat components3dcolor = color_mat.clone();
-    std::vector<std::vector<float>> positions;  // 3d coordinate(s) that should be treated
-
-    for (const auto& indices : cluster_indices) {
-      pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_cluster (new pcl::PointCloud<pcl::PointXYZ>);
-      pcl::Kmeans kmeans(indices.indices.size(), 3);
-      // int k = std::min(indices.indices.size() / split_size + 1, static_cast<unsigned long>(20));
-      int k = indices.indices.size() / split_size + 1;
-      RCLCPP_INFO(this->get_logger(), "Cluster size: %ld\n", indices.indices.size());
-      kmeans.setClusterSize(k);
-
-      std::uint8_t r = 255 * (rand() / (1.0 + RAND_MAX));
-      std::uint8_t g = 255 * (rand() / (1.0 + RAND_MAX));
-      std::uint8_t b = 255 * (rand() / (1.0 + RAND_MAX));
-
-      int min_row = combined_binary.rows;
-      int min_col = combined_binary.cols;
-      int max_row = 0;
-      int max_col = 0;
-
-      for (const auto& idx : indices.indices) {
-        cloud_filtered->points[idx].z /= scale_z;
-
-        cloud_cluster->push_back((*cloud_filtered)[idx]);
-        
-        std::vector<float> data(3);
-        data[0] = cloud_filtered->points[idx].x;
-        data[1] = cloud_filtered->points[idx].y;
-        data[2] = cloud_filtered->points[idx].z;
-        kmeans.addDataPoint(data);
-
-        k4a_float3_t point3d;
-        k4a_float2_t point2d;
-        point3d.xyz.x = cloud_filtered->points[idx].x;
-        point3d.xyz.y = cloud_filtered->points[idx].y;
-        point3d.xyz.z = cloud_filtered->points[idx].z;
-        int valid = 0;
-        k4a_calibration_3d_to_2d(
-          &calibration_,
-          &point3d,
-          K4A_CALIBRATION_TYPE_COLOR,
-          K4A_CALIBRATION_TYPE_COLOR,
-          &point2d,
-          &valid
-        );
-        int row = std::round(point2d.xy.y);
-        int col = std::round(point2d.xy.x);
-        if (row > max_row) max_row = row;
-        if (row < min_row) min_row = row;
-        if (col > max_col) max_col = col;
-        if (col < min_col) min_col = col;
-
-        // cv::Point projected(col, row);
-        // cv::circle(components3d, projected, 2, cv::Scalar(r, g, b), 2);
-
-        components3d.at<cv::Vec3b>(row, col)[0] = r; 
-        components3d.at<cv::Vec3b>(row, col)[1] = g; 
-        components3d.at<cv::Vec3b>(row, col)[2] = b;
-        // RCLCPP_INFO(this->get_logger(), "x: %f, y: %f\n", image_point.xy.x, image_point.xy.y);
-      }
-      cv::Rect bounding_box = cv::Rect(min_col, min_row, max_col - min_col, max_row - min_row);
-      cv::rectangle(components3d, bounding_box, cv::Scalar(0, 255, 0), 2);
-      cv::rectangle(components3dcolor, bounding_box, cv::Scalar(0, 255, 0), 2);
-
-      // TODO: check if plant crop or not (classification)
-      
-      // positions
-      std::vector<std::vector<float>> centroids;
-      if (k == 1)
-      {
-        Eigen::Vector4f centroid;
-        pcl::compute3DCentroid(*cloud_cluster, centroid);
-        positions.push_back({centroid[0], centroid[1], centroid[2]});
-      }
-      else
-      {
-        kmeans.kMeans();
-        int ccount = 0;
-        std::vector<std::vector<float>> centroids = kmeans.get_centroids();
-        for (const std::vector<float> & centroid : centroids)
-        {          
-          if (!isnan(centroid[0]) && !isnan(centroid[1]) && !isnan(centroid[2]))
-          {
-            positions.push_back(centroid);
-            ccount++;
-          }
-        }
-        RCLCPP_INFO(this->get_logger(), "Centroid count: %d\n", ccount);
-      }
-    }
-    t2 = std::chrono::high_resolution_clock::now();
-    ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
-    log_text += "KMeans: " + std::to_string(ms_int.count()) + " ms\n";
-
     auto t2_total = std::chrono::high_resolution_clock::now();
     ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2_total - t1_total);
     log_text += "Total time to process image: " + std::to_string(ms_int.count()) + " ms\n";
 
-    // draw 3d components
-    for (const std::vector<float> & centroid : positions)
-    {
-      RCLCPP_INFO(this->get_logger(), "centroid %f: %f, %f\n",
-        centroid[0], centroid[1], centroid[2]);
-      k4a_float3_t point3d;
-      k4a_float2_t point2d;
-      point3d.xyz.x = centroid[0];
-      point3d.xyz.y = centroid[1];
-      point3d.xyz.z = centroid[2];
-      int valid = 0;
-      k4a_calibration_3d_to_2d(
-        &calibration_,
-        &point3d,
-        K4A_CALIBRATION_TYPE_COLOR,
-        K4A_CALIBRATION_TYPE_COLOR,
-        &point2d,
-        &valid
-      );
-      int row = std::round(point2d.xy.y);
-      int col = std::round(point2d.xy.x);
-      cv::Point projected_centroid(col, row);
-      cv::circle(components3d, projected_centroid, 10, cv::Scalar(0, 0, 255), -1);
-      cv::circle(components3dcolor, projected_centroid, 10, cv::Scalar(0, 0, 255), -1);
+    // send goal to python node
+    if (!this->client_ptr_->wait_for_action_server()) {
+      RCLCPP_ERROR(this->get_logger(), "Action server not available after waiting");
+      rclcpp::shutdown();
     }
+    auto goal_msg = ClusterClassify::Goal();
+    RCLCPP_INFO(this->get_logger(), "Sending goal");
+    auto send_goal_options = rclcpp_action::Client<ClusterClassify>::SendGoalOptions();
+    send_goal_options.goal_response_callback = [this](const GoalHandleClusterClassify::SharedPtr & goal_handle)
+    {
+      if (!goal_handle) {
+        RCLCPP_ERROR(this->get_logger(), "Goal was rejected by server");
+      } else {
+        RCLCPP_INFO(this->get_logger(), "Goal accepted by server, waiting for result");
+      }
+    };
+    this->client_ptr_->async_send_goal(goal_msg, send_goal_options);
+    this->client_ptr_->async_send_goal(goal_msg, send_goal_options);
+
+
+    std::vector<std::vector<float>> positions;  
 
     cv::Mat components2d = cv::Mat::zeros(combined_binary.size(), CV_8UC3);
     if (old_version)  // connecting components in 2d
@@ -1076,8 +952,6 @@ private:
       cv::imwrite(folder_name + "exg.png", exg_normalized);
       cv::imwrite(folder_name + "exg_binary.png", exg_binary);
       cv::imwrite(folder_name + "combined_binary.png", combined_binary);
-      cv::imwrite(folder_name + "components3d.png", components3d);
-      cv::imwrite(folder_name + "components3dcolor.png", components3dcolor);
       if (old_version)
       {
         cv::imwrite(folder_name + "components2d.png", components2d);

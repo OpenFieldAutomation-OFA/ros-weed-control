@@ -1,0 +1,9 @@
+# Request
+sensor_msgs/Image color_image
+sensor_msgs/PointCloud2 pc
+string folder
+---
+# Result
+geometry_msgs/Vector3[] positions
+---
+# Feedback
