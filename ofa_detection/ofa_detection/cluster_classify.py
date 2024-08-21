@@ -98,19 +98,25 @@ class ClusterClassifyActionServer(Node):
         do_classification = self.get_parameter('do_classification').get_parameter_value().bool_value
         main_crop = self.get_parameter('main_crop').get_parameter_value().string_value
 
+        log_text = ""
+
         # downsample cloud
         self.get_logger().info(f"Point cloud loaded with {len(pc.points)} points")
+        start = time.time()
         pc = pc.voxel_down_sample(2.0)
+        end = time.time()
+        log_text += f"Downsample time: {round((end-start)*1000)} ms\n"
         self.get_logger().info(f"Point cloud downsampled to {len(pc.points)} points")
 
         # cluster cloud
         start = time.time()
         labels = np.array(pc.cluster_dbscan(eps=10.0, min_points=40))
         end = time.time()
-        self.get_logger().info(f"Cluster time : {end-start}")
-        colors = np.zeros((len(labels), 3))
+        log_text += f"DBSCAN time: {round((end-start)*1000)} ms\n"
         max_label = labels.max()
         self.get_logger().info(f"Point cloud has {max_label + 1} clusters")
+
+        colors = np.zeros((len(labels), 3))
 
         if save_runs:
             cluster_drawn = np.ones((2160, 3840, 3), dtype=np.uint8) * 255
@@ -179,7 +185,7 @@ class ClusterClassifyActionServer(Node):
                 predictions = outputs[0][0]
                 max_ind = np.argmax(predictions)
                 prob = predictions[max_ind]
-                self.get_logger().info(f"Prediction: {max_ind}, {prob*100}%")
+                # self.get_logger().info(f"Prediction: {max_ind}, {prob*100}%")
                 species_name = self.species_mapping[self.class_mapping[max_ind]]
                 text = str(i) + ", " + species_name  # add box id
                 if save_runs:
@@ -238,7 +244,34 @@ class ClusterClassifyActionServer(Node):
                     "num_points": k},
                 )
         end = time.time()
-        self.get_logger().info(f"Classification & KMeans Time: {end-start}")
+        log_text += f"Classification & KMeans time: {round((end-start)*1000)} ms\n"
+        self.get_logger().info(f'folder: {folder}')
+
+        if save_runs:
+            if do_classification:
+                file_path = os.path.join(folder, "predictions.txt")
+                with open(file_path, mode='w', newline='', encoding='utf-8') as file:
+                    writer = csv.writer(file)
+                    writer.writerow(["ID", "Predicted Species", "Probability", "Number of Points"])
+                    for entry in save_data:
+                        writer.writerow([entry["id"], entry["species"],
+                                        entry['probability'], entry["num_points"]])
+            cv2.imwrite(os.path.join(folder, 'images', 'components3d.png'), cluster_drawn)
+            cv2.imwrite(os.path.join(folder, 'images', 'classified.png'), color_drawn)
+            with open(os.path.join(folder, 'log_file.txt'), "a") as file:
+                file.write(log_text)
+
+        # Show visualizations (useful for debugging)
+        # if save_runs:
+        #     plt.imshow(cv2.cvtColor(cluster_drawn, cv2.COLOR_BGR2RGB))
+        #     plt.show()
+        #     plt.imshow(cv2.cvtColor(color_drawn, cv2.COLOR_BGR2RGB))
+        #     plt.show()
+        # colors[labels == -1] = [0, 0, 0]
+        # pcd.colors = o3d.utility.Vector3dVector(colors)
+        # o3d.visualization.draw_geometries([pcd])
+
+        
         self.get_logger().info('Finished clustering and classification')
 
         goal_handle.succeed()

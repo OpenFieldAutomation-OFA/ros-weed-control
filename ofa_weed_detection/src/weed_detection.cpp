@@ -718,16 +718,12 @@ private:
     std::shared_future<GoalHandleClusterClassify::WrappedResult> & result_future)
   {
     // get parameters
-    const double cluster_distance = this->get_parameter("cluster_distance").as_double();  // tolerance in mm for point cloud clustering
-    const double scale_z = this->get_parameter("scale_z").as_double();;  // scales depth value in point cloud
-    const int split_size = this->get_parameter("split_size").as_int();  // big plant point cloud split
     const double exg_threshold = this->get_parameter("exg_threshold").as_double();;  // excess green threshold
     const double nir_threshold = this->get_parameter("nir_threshold").as_double();  // nir threshold
     
     const bool old_version = this->get_parameter("old_version").as_bool();
     const int dilation_size = this->get_parameter("dilation_size").as_int();;  // dilation kernel size
 
-    std::chrono::_V2::system_clock::time_point t1_total = std::chrono::high_resolution_clock::now();
     std::chrono::_V2::system_clock::time_point t1;
     std::chrono::_V2::system_clock::time_point t2;
     std::chrono::milliseconds ms_int;
@@ -894,68 +890,6 @@ private:
     ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
     log_text += "Project to 3D: " + std::to_string(ms_int.count()) + " ms\n";
 
-    auto t2_total = std::chrono::high_resolution_clock::now();
-    ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2_total - t1_total);
-    log_text += "Total time to process image: " + std::to_string(ms_int.count()) + " ms\n";
-
-    // create sub folder
-    std::string folder_name;
-    if (save_runs_)
-    {
-      folder_name = run_folder_ + pos + "_" + std::to_string(process_count_++) + "/";
-      std::filesystem::create_directory(folder_name);
-    }
-    else
-    {
-      folder_name = "";
-    }
-
-    // create pc message
-    sensor_msgs::msg::PointCloud2 ros_pc;
-    sensor_msgs::PointCloud2Modifier mod(ros_pc);
-    mod.setPointCloud2FieldsByString(1, "xyz");
-    size_t num_points = cloud_data.size() / 3;
-    ros_pc.width = num_points;
-    ros_pc.height = 1;
-    ros_pc.point_step = 12;
-    ros_pc.row_step = ros_pc.point_step * ros_pc.width;
-    mod.resize(num_points);
-    sensor_msgs::PointCloud2Iterator<float> iter_x(ros_pc, "x");
-    sensor_msgs::PointCloud2Iterator<float> iter_y(ros_pc, "y");
-    sensor_msgs::PointCloud2Iterator<float> iter_z(ros_pc, "z");
-    for (size_t i = 0; i < num_points; ++i, ++iter_x, ++iter_y, ++iter_z)
-    {
-      *iter_x = cloud_data[3 * i];
-      *iter_y = cloud_data[3 * i + 1];
-      *iter_z = cloud_data[3 * i + 2];
-    }
-
-    // create color_image message
-    auto goal = ClusterClassify::Goal();
-    sensor_msgs::msg::Image ros_image;
-    ros_image.height = color_mat.rows;
-    ros_image.width = color_mat.cols;
-    ros_image.data.assign(color_mat.datastart, color_mat.dataend);
-
-    // create goal
-    goal.pc = ros_pc;
-    goal.color_image = ros_image;
-    goal.folder = folder_name;
-
-    // send goal to python node
-    if (!this->client_ptr_->wait_for_action_server(std::chrono::seconds(10))) {
-      RCLCPP_ERROR(this->get_logger(), "Action server not available after waiting");
-      return false;
-    }
-    RCLCPP_INFO(this->get_logger(), "Sending goal");
-    auto send_goal_future = this->client_ptr_->async_send_goal(goal);
-    auto goal_handle = send_goal_future.get();
-    if (!goal_handle) {
-      RCLCPP_ERROR(this->get_logger(), "Goal was rejected by server");
-      return false;
-    }
-    result_future = this->client_ptr_->async_get_result(goal_handle);
-
     cv::Mat components2d = cv::Mat::zeros(combined_binary.size(), CV_8UC3);
     if (old_version)  // connecting components in 2d
     {
@@ -998,43 +932,96 @@ private:
       }
     }
 
+    std::string folder_name;
     if (save_runs_)
     {
+      // create sub folder
+      folder_name = run_folder_ + pos + "_" + std::to_string(process_count_++);
+      std::filesystem::create_directory(folder_name);
+
       // save log text
-      std::string file_name = folder_name + "log_file.txt";  
+      std::string file_name = folder_name + "/log_file.txt";  
       std::ofstream outfile;
       outfile.open(file_name);
       outfile << log_text;
       outfile.close();
 
       // save images
-      folder_name += "images/";
-      std::filesystem::create_directory(folder_name);
+      std::string image_folder = folder_name + "/images/";
+      std::filesystem::create_directory(image_folder);
 
       cv::Mat depth_normalized;
       cv::normalize(depth_mat, depth_normalized, 0, 255, cv::NORM_MINMAX, CV_8UC1);
       cv::Mat exg_normalized;
       cv::normalize(exg, exg_normalized, 0, 255, cv::NORM_MINMAX, CV_8UC1);
 
-      cv::imwrite(folder_name + "color.png", color_mat);
-      cv::imwrite(folder_name + "depth.png", depth_normalized);
-      cv::imwrite(folder_name + "depth16.png", depth_mat);
-      cv::imwrite(folder_name + "ir16.png", ir_mat);
-      cv::imwrite(folder_name + "ir_binary.png", nir_binary);
-      cv::imwrite(folder_name + "ir.png", ir_corrected);
-      cv::imwrite(folder_name + "red.png", bgr_channels[1]);
-      cv::imwrite(folder_name + "green.png", bgr_channels[2]);
-      cv::imwrite(folder_name + "blue.png", bgr_channels[0]);
-      cv::imwrite(folder_name + "exg.png", exg_normalized);
-      cv::imwrite(folder_name + "exg_binary.png", exg_binary);
-      cv::imwrite(folder_name + "combined_binary.png", combined_binary);
+      cv::imwrite(image_folder + "color.png", color_mat);
+      cv::imwrite(image_folder + "depth.png", depth_normalized);
+      cv::imwrite(image_folder + "depth16.png", depth_mat);
+      cv::imwrite(image_folder + "ir16.png", ir_mat);
+      cv::imwrite(image_folder + "ir_binary.png", nir_binary);
+      cv::imwrite(image_folder + "ir.png", ir_corrected);
+      cv::imwrite(image_folder + "red.png", bgr_channels[1]);
+      cv::imwrite(image_folder + "green.png", bgr_channels[2]);
+      cv::imwrite(image_folder + "blue.png", bgr_channels[0]);
+      cv::imwrite(image_folder + "exg.png", exg_normalized);
+      cv::imwrite(image_folder + "exg_binary.png", exg_binary);
+      cv::imwrite(image_folder + "combined_binary.png", combined_binary);
       if (old_version)
       {
-        cv::imwrite(folder_name + "components2d.png", components2d);
+        cv::imwrite(image_folder + "components2d.png", components2d);
       }
 
-      RCLCPP_INFO(this->get_logger(), "Saved images to %s", folder_name.c_str());
+      RCLCPP_INFO(this->get_logger(), "Saved images to %s", image_folder.c_str());
     }
+
+    // create pc message
+    sensor_msgs::msg::PointCloud2 ros_pc;
+    sensor_msgs::PointCloud2Modifier mod(ros_pc);
+    mod.setPointCloud2FieldsByString(1, "xyz");
+    size_t num_points = cloud_data.size() / 3;
+    ros_pc.width = num_points;
+    ros_pc.height = 1;
+    ros_pc.point_step = 12;
+    ros_pc.row_step = ros_pc.point_step * ros_pc.width;
+    mod.resize(num_points);
+    sensor_msgs::PointCloud2Iterator<float> iter_x(ros_pc, "x");
+    sensor_msgs::PointCloud2Iterator<float> iter_y(ros_pc, "y");
+    sensor_msgs::PointCloud2Iterator<float> iter_z(ros_pc, "z");
+    for (size_t i = 0; i < num_points; ++i, ++iter_x, ++iter_y, ++iter_z)
+    {
+      *iter_x = cloud_data[3 * i];
+      *iter_y = cloud_data[3 * i + 1];
+      *iter_z = cloud_data[3 * i + 2];
+    }
+
+    // create color_image message
+    auto goal = ClusterClassify::Goal();
+    sensor_msgs::msg::Image ros_image;
+    ros_image.height = color_mat.rows;
+    ros_image.width = color_mat.cols;
+    ros_image.data.assign(color_mat.datastart, color_mat.dataend);
+
+    // create goal
+    goal.pc = ros_pc;
+    goal.color_image = ros_image;
+    goal.folder = folder_name;
+    goal.save_runs = save_runs_;
+
+    // send goal to python node
+    if (!this->client_ptr_->wait_for_action_server(std::chrono::seconds(10))) {
+      RCLCPP_ERROR(this->get_logger(), "Action server not available after waiting");
+      return false;
+    }
+    RCLCPP_INFO(this->get_logger(), "Sending goal");
+    auto send_goal_future = this->client_ptr_->async_send_goal(goal);
+    auto goal_handle = send_goal_future.get();
+    if (!goal_handle) {
+      RCLCPP_ERROR(this->get_logger(), "Goal was rejected by server");
+      return false;
+    }
+    result_future = this->client_ptr_->async_get_result(goal_handle);
+
     return true;
   }
 };

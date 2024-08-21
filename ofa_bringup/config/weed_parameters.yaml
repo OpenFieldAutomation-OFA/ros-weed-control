@@ -5,11 +5,9 @@
 
 /weed_main:
   ros__parameters:
-    publish_color: true
+    save_runs: true
+    publish_color: false
     color_resolution: 5
-    cluster_distance: 10.0
-    scale_z: 1.0
-    split_size: 5000
     exg_threshold: -30.0
     nir_threshold: 70.0
     x_lower: -0.55
@@ -27,5 +25,4 @@
     auto_exposure: false
     illumination_correction: true
     wait_shock: 200
-    save_runs: true
     runs_folder: /home/ofa/ros2_ws/src/ros-weed-control/runs
