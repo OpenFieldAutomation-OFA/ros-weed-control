@@ -108,11 +108,11 @@ def generate_launch_description():
     )
 
     # Main node
-    parameters = PathJoinSubstitution(
+    weed_parameters = PathJoinSubstitution(
         [
             FindPackageShare("ofa_bringup"),
             "config",
-            "parameters.yaml"
+            "weed_parameters.yaml"
          ]
     )
     weed_main_node = Node(
@@ -124,7 +124,7 @@ def generate_launch_description():
             moveit_config.robot_description,
             moveit_config.robot_description_semantic,
             moveit_config.robot_description_kinematics,
-            parameters,
+            weed_parameters,
             {"use_mock_hardware": use_mock_hardware}
         ],
     )
@@ -135,6 +135,7 @@ def generate_launch_description():
         package="ofa_detection",
         executable="cluster_classify",
         output="log",
+        parameters=[weed_parameters],
     )
     
     delay_weed_main_node = RegisterEventHandler(

@@ -2,6 +2,7 @@
 sensor_msgs/Image color_image
 sensor_msgs/PointCloud2 pc
 string folder
+bool save_runs
 ---
 # Result
 geometry_msgs/Vector3[] positions

@@ -207,7 +207,7 @@ for i in range(max_label + 1):
                 cv2.circle(cluster_drawn, (centroid[0], centroid[1]), radius=10, color=cluster_color, thickness=-1)
                 cv2.circle(color_drawn, (centroid[0], centroid[1]), radius=10, color=(0, 0, 255), thickness=-1)
     
-    if do_classification:
+    if do_classification and save_runs:
         save_data.append(
             {"id": i,
              "species": species_name,
