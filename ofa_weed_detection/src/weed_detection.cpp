@@ -42,45 +42,6 @@ void send_command(int arduino_port_, const std::string& command)
   write(arduino_port_, "\n", 1); // Send newline character
 }
 
-cv::Mat plotHistogram(const cv::Mat& image, int histSize = 256, int histWidth = 512, int histHeight = 400) {
-    // Check if the input image is a single-channel 8-bit image
-    if (image.channels() != 1 || image.type() != CV_8UC1) {
-        throw std::invalid_argument("Input image must be an 8-bit single-channel image.");
-    }
-
-    // Parameters for histogram calculation
-    float range[] = {0, 256}; // Range of pixel values
-    const float* histRange = {range};
-    bool uniform = true;
-    bool accumulate = false;
-
-    // Compute the histogram
-    cv::Mat hist;
-    cv::calcHist(&image, 1, 0, cv::Mat(), hist, 1, &histSize, &histRange, uniform, accumulate);
-    // hist.convertTo(hist, CV_32F);
-
-    // Normalize the histogram
-    cv::Mat histNorm;
-    // cv::divide(100, hist, histNorm);
-    // histNorm.convertTo(histNorm, CV_8UC1);
-    cv::normalize(hist, histNorm, 0, histHeight, cv::NORM_MINMAX);
-
-    // Create an image to display the histogram
-    int binWidth = cvRound((double) histWidth / histSize);
-    cv::Mat histImage(histHeight, histWidth, CV_8UC1, cv::Scalar(255));
-
-    // Draw the histogram
-    for (int i = 1; i < histSize; i++) {
-        cv::line(histImage,
-                 cv::Point(binWidth * (i - 1), histHeight - cvRound(histNorm.at<float>(i - 1))),
-                 cv::Point(binWidth * i, histHeight - cvRound(histNorm.at<float>(i))),
-                 cv::Scalar(0), 2, 8, 0);
-    }
-
-    return histImage;
-}
-
-
 class WeedControlActionServer : public rclcpp::Node
 {
 public:
@@ -488,42 +449,44 @@ private:
     }
 
     // start weed detection of position 2
-    // std::shared_future<GoalHandleClusterClassify::WrappedResult> result_future_2;
-    // if (!process_image("front", result_future_2))
-    // {
-    //   goal_handle->abort(result);
-    //   return;
-    // }
+    std::shared_future<GoalHandleClusterClassify::WrappedResult> result_future_2;
+    if (!process_image("front", result_future_2))
+    {
+      goal_handle->abort(result);
+      return;
+    }
 
-    // // move to home
-    // move_group.setNamedTarget("home");
-    // move_group.move();
+    // move to home
+    move_group.setNamedTarget("home");
+    move_group.move();
 
-    // // wait for weed detection to finish
-    // RCLCPP_INFO(this->get_logger(), "Waiting for weed detection");
-    // auto result_1 = result_future_1.get();
-    // if (result_1.code != rclcpp_action::ResultCode::SUCCEEDED) {
-    //   RCLCPP_ERROR(this->get_logger(), "Weed detection back failed");
-    //   goal_handle->abort(result);
-    //   return;
-    // }
-    // auto result_2 = result_future_2.get();
-    // if (result_2.code != rclcpp_action::ResultCode::SUCCEEDED) {
-    //   RCLCPP_ERROR(this->get_logger(), "Weed detection front failed");
-    //   goal_handle->abort(result);
-    //   return;
-    // }
-    // RCLCPP_INFO(this->get_logger(), "Weed detection done");
+    // wait for weed detection to finish
+    RCLCPP_INFO(this->get_logger(), "Waiting for weed detection");
+    auto result_1 = result_future_1.get();
+    if (result_1.code != rclcpp_action::ResultCode::SUCCEEDED) {
+      RCLCPP_ERROR(this->get_logger(), "Weed detection back failed");
+      goal_handle->abort(result);
+      return;
+    }
+    auto result_2 = result_future_2.get();
+    if (result_2.code != rclcpp_action::ResultCode::SUCCEEDED) {
+      RCLCPP_ERROR(this->get_logger(), "Weed detection front failed");
+      goal_handle->abort(result);
+      return;
+    }
+    RCLCPP_INFO(this->get_logger(), "Weed detection done");
 
-    // // limit workspace to reachable positions
-    // double x_lower = this->get_parameter("x_lower").as_double();
-    // double x_upper = this->get_parameter("x_upper").as_double();
-    // double y_lower = this->get_parameter("y_lower").as_double();
-    // double y_upper = this->get_parameter("y_upper").as_double();
-    // double z_lower = this->get_parameter("z_lower").as_double();
-    // double z_upper = this->get_parameter("z_upper").as_double();
+    // limit workspace to reachable positions
+    double x_lower = this->get_parameter("x_lower").as_double();
+    double x_upper = this->get_parameter("x_upper").as_double();
+    double y_lower = this->get_parameter("y_lower").as_double();
+    double y_upper = this->get_parameter("y_upper").as_double();
+    double z_lower = this->get_parameter("z_lower").as_double();
+    double z_upper = this->get_parameter("z_upper").as_double();
 
-    // TODO sort and move
+    // transform positions
+    auto position_1 = result_1.result->positions;
+    auto position_2 = result_2.result->positions;
 
     // move to home
     move_group.setNamedTarget("home");

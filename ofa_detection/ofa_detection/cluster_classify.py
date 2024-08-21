@@ -245,7 +245,6 @@ class ClusterClassifyActionServer(Node):
                 )
         end = time.time()
         log_text += f"Classification & KMeans time: {round((end-start)*1000)} ms\n"
-        self.get_logger().info(f'folder: {folder}')
 
         if save_runs:
             if do_classification:
