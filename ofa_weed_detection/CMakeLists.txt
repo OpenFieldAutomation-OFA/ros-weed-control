@@ -11,10 +11,10 @@ set(THIS_PACKAGE_INCLUDE_DEPENDS
   rclcpp
   moveit_ros_planning_interface
   geometry_msgs
+  sensor_msgs
   tf2
   tf2_ros
   OpenCV
-  PCL
 )
 find_package(ament_cmake REQUIRED)
 foreach(Dependency IN ITEMS ${THIS_PACKAGE_INCLUDE_DEPENDS})

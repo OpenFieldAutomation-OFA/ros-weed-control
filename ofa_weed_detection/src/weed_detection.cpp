@@ -1,6 +1,5 @@
 #include <cstdio>
 #include <cstdint>
-#include <k4a/k4a.hpp>
 #include <chrono>
 #include <string>
 #include <fcntl.h>
@@ -12,13 +11,6 @@
 #include <fstream>
 
 #include <opencv2/opencv.hpp>
-#include <pcl/io/pcd_io.h>
-#include <pcl/point_types.h>
-#include <pcl/segmentation/extract_clusters.h>
-#include <pcl/search/kdtree.h>
-#include <pcl/filters/voxel_grid.h>
-#include <pcl/common/centroid.h>
-#include <pcl/ml/kmeans.h>
 
 #include <moveit/move_group_interface/move_group_interface.h>
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
@@ -35,9 +27,13 @@
 #include <ofa_interfaces/action/cluster_classify.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/image.hpp>
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <sensor_msgs/point_cloud2_iterator.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
 
 #include <ament_index_cpp/get_package_share_directory.hpp>
+
+#include "k4a/k4a.hpp"
 
 // Function to send command to the Arduino
 void send_command(int arduino_port_, const std::string& command)
@@ -492,40 +488,40 @@ private:
     }
 
     // start weed detection of position 2
-    std::shared_future<GoalHandleClusterClassify::WrappedResult> result_future_2;
-    if (!process_image("front", result_future_2))
-    {
-      goal_handle->abort(result);
-      return;
-    }
+    // std::shared_future<GoalHandleClusterClassify::WrappedResult> result_future_2;
+    // if (!process_image("front", result_future_2))
+    // {
+    //   goal_handle->abort(result);
+    //   return;
+    // }
 
-    // move to home
-    move_group.setNamedTarget("home");
-    move_group.move();
+    // // move to home
+    // move_group.setNamedTarget("home");
+    // move_group.move();
 
-    // wait for weed detection to finish
-    RCLCPP_INFO(this->get_logger(), "Waiting for weed detection");
-    auto result_1 = result_future_1.get();
-    if (result_1.code != rclcpp_action::ResultCode::SUCCEEDED) {
-      RCLCPP_ERROR(this->get_logger(), "Weed detection back failed");
-      goal_handle->abort(result);
-      return;
-    }
-    auto result_2 = result_future_2.get();
-    if (result_2.code != rclcpp_action::ResultCode::SUCCEEDED) {
-      RCLCPP_ERROR(this->get_logger(), "Weed detection front failed");
-      goal_handle->abort(result);
-      return;
-    }
-    RCLCPP_INFO(this->get_logger(), "Weed detection done");
+    // // wait for weed detection to finish
+    // RCLCPP_INFO(this->get_logger(), "Waiting for weed detection");
+    // auto result_1 = result_future_1.get();
+    // if (result_1.code != rclcpp_action::ResultCode::SUCCEEDED) {
+    //   RCLCPP_ERROR(this->get_logger(), "Weed detection back failed");
+    //   goal_handle->abort(result);
+    //   return;
+    // }
+    // auto result_2 = result_future_2.get();
+    // if (result_2.code != rclcpp_action::ResultCode::SUCCEEDED) {
+    //   RCLCPP_ERROR(this->get_logger(), "Weed detection front failed");
+    //   goal_handle->abort(result);
+    //   return;
+    // }
+    // RCLCPP_INFO(this->get_logger(), "Weed detection done");
 
-    // limit workspace to reachable positions
-    double x_lower = this->get_parameter("x_lower").as_double();
-    double x_upper = this->get_parameter("x_upper").as_double();
-    double y_lower = this->get_parameter("y_lower").as_double();
-    double y_upper = this->get_parameter("y_upper").as_double();
-    double z_lower = this->get_parameter("z_lower").as_double();
-    double z_upper = this->get_parameter("z_upper").as_double();
+    // // limit workspace to reachable positions
+    // double x_lower = this->get_parameter("x_lower").as_double();
+    // double x_upper = this->get_parameter("x_upper").as_double();
+    // double y_lower = this->get_parameter("y_lower").as_double();
+    // double y_upper = this->get_parameter("y_upper").as_double();
+    // double z_lower = this->get_parameter("z_lower").as_double();
+    // double z_upper = this->get_parameter("z_upper").as_double();
 
     // TODO sort and move
 
@@ -865,10 +861,10 @@ private:
     log_text += "Segmentation: " + std::to_string(ms_int.count()) + " ms\n";
 
     t1 = std::chrono::high_resolution_clock::now();
-    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
     int rows = combined_binary.rows;
     int cols = combined_binary.cols;
-    cloud->points.reserve(rows * cols);  // speeds up computation
+    std::vector<float> cloud_data;
+    cloud_data.reserve(rows * cols);  // speeds up computation
     for (int row = 0; row < combined_binary.rows; row++)
     {
       for (int col = 0; col < combined_binary.cols; col++)
@@ -889,17 +885,11 @@ private:
           &point3d,
           &valid
         );
-        pcl::PointXYZ point;
-        point.x = point3d.xyz.x;
-        point.y = point3d.xyz.y;
-        // we scale the z dimension such that only points with adjacent depth values are connected
-        point.z = point3d.xyz.z * scale_z;
-        cloud->points.push_back(point);
+        cloud_data.push_back(point3d.xyz.x);
+        cloud_data.push_back(point3d.xyz.y);
+        cloud_data.push_back(point3d.xyz.z);
       }
     }
-    cloud->width = cloud->points.size();
-    cloud->height = 1; // Unorganized point cloud
-    cloud->is_dense = true;
     t2 = std::chrono::high_resolution_clock::now();
     ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
     log_text += "Project to 3D: " + std::to_string(ms_int.count()) + " ms\n";
@@ -908,12 +898,55 @@ private:
     ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2_total - t1_total);
     log_text += "Total time to process image: " + std::to_string(ms_int.count()) + " ms\n";
 
+    // create sub folder
+    std::string folder_name;
+    if (save_runs_)
+    {
+      folder_name = run_folder_ + pos + "_" + std::to_string(process_count_++) + "/";
+      std::filesystem::create_directory(folder_name);
+    }
+    else
+    {
+      folder_name = "";
+    }
+
+    // create pc message
+    sensor_msgs::msg::PointCloud2 ros_pc;
+    sensor_msgs::PointCloud2Modifier mod(ros_pc);
+    mod.setPointCloud2FieldsByString(1, "xyz");
+    size_t num_points = cloud_data.size() / 3;
+    ros_pc.width = num_points;
+    ros_pc.height = 1;
+    ros_pc.point_step = 12;
+    ros_pc.row_step = ros_pc.point_step * ros_pc.width;
+    mod.resize(num_points);
+    sensor_msgs::PointCloud2Iterator<float> iter_x(ros_pc, "x");
+    sensor_msgs::PointCloud2Iterator<float> iter_y(ros_pc, "y");
+    sensor_msgs::PointCloud2Iterator<float> iter_z(ros_pc, "z");
+    for (size_t i = 0; i < num_points; ++i, ++iter_x, ++iter_y, ++iter_z)
+    {
+      *iter_x = cloud_data[3 * i];
+      *iter_y = cloud_data[3 * i + 1];
+      *iter_z = cloud_data[3 * i + 2];
+    }
+
+    // create color_image message
+    auto goal = ClusterClassify::Goal();
+    sensor_msgs::msg::Image ros_image;
+    ros_image.height = color_mat.rows;
+    ros_image.width = color_mat.cols;
+    ros_image.data.assign(color_mat.datastart, color_mat.dataend);
+
+    // create goal
+    goal.pc = ros_pc;
+    goal.color_image = ros_image;
+    goal.folder = folder_name;
+
     // send goal to python node
     if (!this->client_ptr_->wait_for_action_server(std::chrono::seconds(10))) {
       RCLCPP_ERROR(this->get_logger(), "Action server not available after waiting");
       return false;
     }
-    auto goal = ClusterClassify::Goal();
     RCLCPP_INFO(this->get_logger(), "Sending goal");
     auto send_goal_future = this->client_ptr_->async_send_goal(goal);
     auto goal_handle = send_goal_future.get();
@@ -968,8 +1001,6 @@ private:
     if (save_runs_)
     {
       // save log text
-      std::string folder_name = run_folder_ + pos + "_" + std::to_string(process_count_++) + "/";
-      std::filesystem::create_directory(folder_name);
       std::string file_name = folder_name + "log_file.txt";  
       std::ofstream outfile;
       outfile.open(file_name);

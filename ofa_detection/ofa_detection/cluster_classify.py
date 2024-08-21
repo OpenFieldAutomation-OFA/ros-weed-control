@@ -13,6 +13,8 @@ import cv2
 import onnxruntime as ort
 import numpy as np
 import os
+import open3d as o3d
+import matplotlib.pyplot as plt
 
 class ClusterClassifyActionServer(Node):
 
@@ -41,19 +43,29 @@ class ClusterClassifyActionServer(Node):
 
     def execute_callback(self, goal_handle):
         self.get_logger().info('Executing goal...')
-        time.sleep(10)
 
         # get goal request
         # pc = goal_handle.request.pc
-        # ros_image = goal_handle.request.color_image
-        # height = ros_image.height
-        # width = ros_image.width
-        # color_image = np.array(ros_image.data, dtype=np.uint8).reshape((height, width, -1))
+        ros_image = goal_handle.request.color_image
+        height = ros_image.height
+        width = ros_image.width
+        color_image = np.array(ros_image.data, dtype=np.uint8).reshape((height, width, -1))
+
+        ros_pc = goal_handle.request.pc
+        # point_cloud = list(pc2.read_points(ros_pc, field_names=("x", "y", "z")))
+        # point_cloud_np = np.array(point_cloud)
+
+        point_cloud_np = np.frombuffer(ros_pc.data, dtype=np.float32).reshape((ros_pc.width, 3))
+        self.get_logger().info(f"Read PointCloud2 with {point_cloud_np.shape[0]} points")
+
+        pc = o3d.geometry.PointCloud()
+        pc.points = o3d.utility.Vector3dVector(point_cloud_np)
+        # o3d.visualization.draw_geometries([pc])
 
         # input_name = self._session.get_inputs()[0].name
 
-        # cv2.imshow('Color Image', color_image)
-        # cv2.waitKey(1)
+        plt.imshow(color_image)
+        plt.show()
 
         goal_handle.succeed()
         result = ClusterClassify.Result()
