@@ -168,6 +168,7 @@ private:
   std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
 
   rclcpp_action::Server<WeedControl>::SharedPtr action_server_;
+  bool is_busy_ = false;
 
   rclcpp_action::Client<ClusterClassify>::SharedPtr client_ptr_;
 
@@ -204,7 +205,17 @@ private:
     {
       RCLCPP_INFO(this->get_logger(), "Received goal request");
       (void)uuid;
-      return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
+      if (is_busy_)
+      {
+        RCLCPP_INFO(this->get_logger(), "Rejecting goal, server is busy");
+        return rclcpp_action::GoalResponse::REJECT;
+      }
+      else
+      {
+        RCLCPP_INFO(this->get_logger(), "Accepting goal");
+        is_busy_ = true;
+        return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
+      }
     };
 
     auto handle_cancel = [this](
@@ -218,8 +229,10 @@ private:
     auto handle_accepted = [this](
       const std::shared_ptr<GoalHandleWeedControl> goal_handle)
     {
-      // we want this to be blocking
-      this->execute(goal_handle);
+      // this needs to return quickly to avoid blocking the executor,
+      // so we declare a lambda function to be called inside a new thread
+      auto execute_in_thread = [this, goal_handle](){return this->execute(goal_handle);};
+      std::thread{execute_in_thread}.detach();
     };
 
     this->action_server_ = rclcpp_action::create_server<WeedControl>(
@@ -411,13 +424,11 @@ private:
     move_group.setMaxVelocityScalingFactor(1.0);
     move_group.setMaxAccelerationScalingFactor(1.0);
     // move_group.setPlanningTime(0.2);
-
-    // move to first position
-    move_group.setJointValueTarget({-0.25, 1.3, 0.0});
-
     moveit::core::MoveItErrorCode error_code;
     moveit::planning_interface::MoveGroupInterface::Plan plan;
 
+    // move to first position
+    move_group.setJointValueTarget({-0.25, 1.3, 0.0});
     error_code = move_group.move();
     if (error_code)
     {
@@ -431,14 +442,29 @@ private:
       return;
     }
 
-    if (!weed_control(move_group, goal_handle, feedback, result, "back"))
+    // get transform of position 1
+    geometry_msgs::msg::TransformStamped t1;
+    try {
+      t1 = tf_buffer_->lookupTransform(
+        "world", "camera_color_frame",
+        tf2::TimePointZero);
+    } catch (const tf2::TransformException & ex) {
+      RCLCPP_ERROR(
+        this->get_logger(), "Could not transform %s", ex.what());
+      goal_handle->abort(result);
+      return;
+    }
+
+    // start weed detection of position 1
+    std::shared_future<GoalHandleClusterClassify::WrappedResult> result_future_1;
+    if (!process_image("back", result_future_1))
     {
+      goal_handle->abort(result);
       return;
     }
 
     // move to second position
     move_group.setJointValueTarget({-0.75, 1.3, 0.0});
-
     error_code = move_group.move();
     if (error_code)
     {
@@ -452,10 +478,56 @@ private:
       return;
     }
 
-    if (!weed_control(move_group, goal_handle, feedback, result, "front"))
-    {
+    // get transform of position 2
+    geometry_msgs::msg::TransformStamped t2;
+    try {
+      t2 = tf_buffer_->lookupTransform(
+        "world", "camera_color_frame",
+        tf2::TimePointZero);
+    } catch (const tf2::TransformException & ex) {
+      RCLCPP_ERROR(
+        this->get_logger(), "Could not transform %s", ex.what());
+      goal_handle->abort(result);
       return;
     }
+
+    // start weed detection of position 2
+    std::shared_future<GoalHandleClusterClassify::WrappedResult> result_future_2;
+    if (!process_image("front", result_future_2))
+    {
+      goal_handle->abort(result);
+      return;
+    }
+
+    // move to home
+    move_group.setNamedTarget("home");
+    move_group.move();
+
+    // wait for weed detection to finish
+    RCLCPP_INFO(this->get_logger(), "Waiting for weed detection");
+    auto result_1 = result_future_1.get();
+    if (result_1.code != rclcpp_action::ResultCode::SUCCEEDED) {
+      RCLCPP_ERROR(this->get_logger(), "Weed detection back failed");
+      goal_handle->abort(result);
+      return;
+    }
+    auto result_2 = result_future_2.get();
+    if (result_2.code != rclcpp_action::ResultCode::SUCCEEDED) {
+      RCLCPP_ERROR(this->get_logger(), "Weed detection front failed");
+      goal_handle->abort(result);
+      return;
+    }
+    RCLCPP_INFO(this->get_logger(), "Weed detection done");
+
+    // limit workspace to reachable positions
+    double x_lower = this->get_parameter("x_lower").as_double();
+    double x_upper = this->get_parameter("x_upper").as_double();
+    double y_lower = this->get_parameter("y_lower").as_double();
+    double y_upper = this->get_parameter("y_upper").as_double();
+    double z_lower = this->get_parameter("z_lower").as_double();
+    double z_upper = this->get_parameter("z_upper").as_double();
+
+    // TODO sort and move
 
     // move to home
     move_group.setNamedTarget("home");
@@ -466,6 +538,7 @@ private:
       goal_handle->succeed(result);
       RCLCPP_INFO(this->get_logger(), "Goal succeeded");
     }
+    is_busy_ = false;
   }
 
   bool weed_control(moveit::planning_interface::MoveGroupInterface & move_group,
@@ -474,200 +547,179 @@ private:
     const std::shared_ptr<WeedControl::Result> & result,
     std::string pos)
   {
-    moveit::core::MoveItErrorCode error_code;
-    moveit::planning_interface::MoveGroupInterface::Plan plan;
+    // std::vector<std::vector<float>> camera_positions = process_image(pos);  
 
-    // get transform
-    geometry_msgs::msg::TransformStamped t;
-    try {
-      t = tf_buffer_->lookupTransform(
-        "world", "camera_color_frame",
-        tf2::TimePointZero);
-    } catch (const tf2::TransformException & ex) {
-      RCLCPP_ERROR(
-        this->get_logger(), "Could not transform %s", ex.what());
-      goal_handle->abort(result);
-      return false;
-    }
+    
 
-    std::vector<std::vector<float>> camera_positions = process_image(pos);  
+    // /*
+    // Offsets in x, y, and z-direction
+    // Ideally the URDF would describe our setup perfectly, but practically it's easier to tune the offsets as parameters
+    // */ 
+    // double x_off = this->get_parameter("x_off").as_double();
+    // double y_off = this->get_parameter("y_off").as_double();
+    // double z_off = this->get_parameter("z_off").as_double();
+    // double collision_off = this->get_parameter("collision_off").as_double();
+    // int wait_shock = this->get_parameter("wait_shock").as_int();
 
-    // limit workspace to reachable positions
-    double x_lower = this->get_parameter("x_lower").as_double();
-    double x_upper = this->get_parameter("x_upper").as_double();
-    double y_lower = this->get_parameter("y_lower").as_double();
-    double y_upper = this->get_parameter("y_upper").as_double();
-    double z_lower = this->get_parameter("z_lower").as_double();
-    double z_upper = this->get_parameter("z_upper").as_double();
-
-    /*
-    Offsets in x, y, and z-direction
-    Ideally the URDF would describe our setup perfectly, but practically it's easier to tune the offsets as parameters
-    */ 
-    double x_off = this->get_parameter("x_off").as_double();
-    double y_off = this->get_parameter("y_off").as_double();
-    double z_off = this->get_parameter("z_off").as_double();
-    double collision_off = this->get_parameter("collision_off").as_double();
-    int wait_shock = this->get_parameter("wait_shock").as_int();
-
-    // transform positions
-    geometry_msgs::msg::PointStamped point_in_camera;
-    point_in_camera.header.frame_id = "camera_color_frame";
-    geometry_msgs::msg::PointStamped point_in_world;
-    std::vector<std::vector<double>> world_positions;
-    for (const std::vector<float> & centroid : camera_positions)
-    {
-      point_in_camera.point.x = centroid[0] / 1000;
-      point_in_camera.point.y = centroid[1] / 1000;
-      point_in_camera.point.z = centroid[2] / 1000;
-      RCLCPP_INFO(this->get_logger(), "Centroid in camera frame: [%f, %f, %f]",
-        point_in_camera.point.x,
-        point_in_camera.point.y,
-        point_in_camera.point.z);
-      tf2::doTransform(point_in_camera, point_in_world, t);
-      RCLCPP_INFO(this->get_logger(), "Centroid in world frame: [%f, %f, %f]",
-        point_in_world.point.x,
-        point_in_world.point.y,
-        point_in_world.point.z);
+    // // transform positions
+    // geometry_msgs::msg::PointStamped point_in_camera;
+    // point_in_camera.header.frame_id = "camera_color_frame";
+    // geometry_msgs::msg::PointStamped point_in_world;
+    // std::vector<std::vector<double>> world_positions;
+    // for (const std::vector<float> & centroid : camera_positions)
+    // {
+    //   point_in_camera.point.x = centroid[0] / 1000;
+    //   point_in_camera.point.y = centroid[1] / 1000;
+    //   point_in_camera.point.z = centroid[2] / 1000;
+    //   RCLCPP_INFO(this->get_logger(), "Centroid in camera frame: [%f, %f, %f]",
+    //     point_in_camera.point.x,
+    //     point_in_camera.point.y,
+    //     point_in_camera.point.z);
+    //   tf2::doTransform(point_in_camera, point_in_world, t);
+    //   RCLCPP_INFO(this->get_logger(), "Centroid in world frame: [%f, %f, %f]",
+    //     point_in_world.point.x,
+    //     point_in_world.point.y,
+    //     point_in_world.point.z);
       
-      if (point_in_world.point.x + x_off < x_lower || point_in_world.point.x + x_off > x_upper) continue;
-      if (point_in_world.point.y + y_off < y_lower || point_in_world.point.y + y_off > y_upper) continue;
-      if (point_in_world.point.z + z_off < z_lower || point_in_world.point.z + z_off > z_upper) continue;
-      world_positions.push_back(
-        {
-          point_in_world.point.x + x_off,
-          point_in_world.point.y + y_off,
-          point_in_world.point.z + z_off
-        }
-      );
-    }
+    //   if (point_in_world.point.x + x_off < x_lower || point_in_world.point.x + x_off > x_upper) continue;
+    //   if (point_in_world.point.y + y_off < y_lower || point_in_world.point.y + y_off > y_upper) continue;
+    //   if (point_in_world.point.z + z_off < z_lower || point_in_world.point.z + z_off > z_upper) continue;
+    //   world_positions.push_back(
+    //     {
+    //       point_in_world.point.x + x_off,
+    //       point_in_world.point.y + y_off,
+    //       point_in_world.point.z + z_off
+    //     }
+    //   );
+    // }
 
-    // sort world positions
-    std::vector<std::vector<double>> positive_y;
-    std::vector<std::vector<double>> negative_y;
-    for (const std::vector<double> & position : world_positions) {
-      if (position[1] > 0.0) {
-        positive_y.push_back(position);
-      } else {
-        negative_y.push_back(position);
-      }
-    }
-    std::sort(positive_y.begin(), positive_y.end(), 
-      [](const std::vector<double>& a, const std::vector<double>& b) {
-          return a[0] > b[0]; // Sort by x-coordinate in increasing order
-      });
-    std::sort(negative_y.begin(), negative_y.end(), 
-      [](const std::vector<double>& a, const std::vector<double>& b) {
-          return a[0] < b[0]; // Sort by x-coordinate in decreasing order
-      });
-    std::vector<std::vector<double>> sorted_positions = negative_y;
-    sorted_positions.insert(sorted_positions.end(), positive_y.begin(), positive_y.end());
+    // // sort world positions
+    // std::vector<std::vector<double>> positive_y;
+    // std::vector<std::vector<double>> negative_y;
+    // for (const std::vector<double> & position : world_positions) {
+    //   if (position[1] > 0.0) {
+    //     positive_y.push_back(position);
+    //   } else {
+    //     negative_y.push_back(position);
+    //   }
+    // }
+    // std::sort(positive_y.begin(), positive_y.end(), 
+    //   [](const std::vector<double>& a, const std::vector<double>& b) {
+    //       return a[0] > b[0]; // Sort by x-coordinate in increasing order
+    //   });
+    // std::sort(negative_y.begin(), negative_y.end(), 
+    //   [](const std::vector<double>& a, const std::vector<double>& b) {
+    //       return a[0] < b[0]; // Sort by x-coordinate in decreasing order
+    //   });
+    // std::vector<std::vector<double>> sorted_positions = negative_y;
+    // sorted_positions.insert(sorted_positions.end(), positive_y.begin(), positive_y.end());
 
-    // move to targets
-    bool first = true;
-    geometry_msgs::msg::Pose target_pose;
-    move_group.setGoalOrientationTolerance(90 * M_PI / 180);
-    float percent_increase = 50.0 / sorted_positions.size();
-    for (const std::vector<double> & position : sorted_positions)
-    {
-      if (goal_handle->is_canceling()) {
-        move_group.setNamedTarget("home");
-        move_group.move();
-        goal_handle->canceled(result);
-        RCLCPP_INFO(this->get_logger(), "Goal canceled");
-        return false;
-      }
-      geometry_msgs::msg::Pose old_target_pose = target_pose;
+    // // move to targets
+    // bool first = true;
+    // geometry_msgs::msg::Pose target_pose;
+    // move_group.setGoalOrientationTolerance(90 * M_PI / 180);
+    // float percent_increase = 50.0 / sorted_positions.size();
+    // for (const std::vector<double> & position : sorted_positions)
+    // {
+    //   if (goal_handle->is_canceling()) {
+    //     move_group.setNamedTarget("home");
+    //     move_group.move();
+    //     goal_handle->canceled(result);
+    //     RCLCPP_INFO(this->get_logger(), "Goal canceled");
+    //     return false;
+    //   }
+    //   geometry_msgs::msg::Pose old_target_pose = target_pose;
       
-      target_pose.position.x = position[0];
-      target_pose.position.y = position[1];
-      target_pose.position.z = position[2];
+    //   target_pose.position.x = position[0];
+    //   target_pose.position.y = position[1];
+    //   target_pose.position.z = position[2];
 
-      RCLCPP_INFO(this->get_logger(), "Target position: [%f, %f, %f]",
-        target_pose.position.x,
-        target_pose.position.y,
-        target_pose.position.z);
+    //   RCLCPP_INFO(this->get_logger(), "Target position: [%f, %f, %f]",
+    //     target_pose.position.x,
+    //     target_pose.position.y,
+    //     target_pose.position.z);
       
-      if (first || (old_target_pose.position.y <= 0 && target_pose.position.y > 0))
-      {
-        RCLCPP_INFO(this->get_logger(), "Moving to first plant");
-        move_group.setMaxVelocityScalingFactor(0.5);
-        move_group.setMaxAccelerationScalingFactor(0.5);
-        tf2::Quaternion q;
-        // make sure arm is correctly positioned
-        if (position[1] < 0)
-        {
-          q.setRPY(-90 * M_PI / 180, 0, 0);
-        }
-        else
-        {
-          q.setRPY(90 * M_PI / 180, 0, 0);
-        }
-        // RCLCPP_INFO(LOGGER, "quaternion: %f %f %f %f", q.x(), q.y(), q.z(), q.w());
-        target_pose.orientation.w = q.w();
-        target_pose.orientation.x = q.x();
-        target_pose.orientation.y = q.y();
-        target_pose.orientation.z = q.z();
-        move_group.setPoseTarget(target_pose);
-        error_code = move_group.plan(plan);
+    //   if (first || (old_target_pose.position.y <= 0 && target_pose.position.y > 0))
+    //   {
+    //     RCLCPP_INFO(this->get_logger(), "Moving to first plant");
+    //     move_group.setMaxVelocityScalingFactor(0.5);
+    //     move_group.setMaxAccelerationScalingFactor(0.5);
+    //     tf2::Quaternion q;
+    //     // make sure arm is correctly positioned
+    //     if (position[1] < 0)
+    //     {
+    //       q.setRPY(-90 * M_PI / 180, 0, 0);
+    //     }
+    //     else
+    //     {
+    //       q.setRPY(90 * M_PI / 180, 0, 0);
+    //     }
+    //     // RCLCPP_INFO(LOGGER, "quaternion: %f %f %f %f", q.x(), q.y(), q.z(), q.w());
+    //     target_pose.orientation.w = q.w();
+    //     target_pose.orientation.x = q.x();
+    //     target_pose.orientation.y = q.y();
+    //     target_pose.orientation.z = q.z();
+    //     move_group.setPoseTarget(target_pose);
+    //     error_code = move_group.plan(plan);
 
-        if(error_code)
-        {
-          error_code = move_group.execute(plan);
-          if (!error_code)
-          {
-            RCLCPP_ERROR(this->get_logger(), "Execution failed: %s",
-              moveit::core::error_code_to_string(error_code).c_str());
-            goal_handle->abort(result);
-            return false;
-          }
-          first = false;
-        }
-        else
-        {
-          RCLCPP_ERROR(this->get_logger(), "Planning failed: %s",
-            moveit::core::error_code_to_string(error_code).c_str());
-        }
-        move_group.setMaxVelocityScalingFactor(1.0);
-        move_group.setMaxAccelerationScalingFactor(1.0);
-      }
-      else
-      {
-        std::vector<geometry_msgs::msg::Pose> waypoints;
-        old_target_pose.position.z += collision_off;
-        waypoints.push_back(old_target_pose);
-        waypoints.push_back(target_pose);
-        moveit_msgs::msg::RobotTrajectory trajectory;
-        const double jump_threshold = 0.0;
-        const double eef_step = 0.01;
-        double fraction = move_group.computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory);
-        RCLCPP_INFO(this->get_logger(), "Fraction achieved: %f", fraction * 100.0);
-        if (fraction > 0.99)
-        {
-          error_code = move_group.execute(trajectory);
-          if (!error_code)
-          {
-            RCLCPP_ERROR(this->get_logger(), "Execution failed: %s",
-              moveit::core::error_code_to_string(error_code).c_str());
-            goal_handle->abort(result);
-            return false;
-          }
-        }
-        else
-        {
-          RCLCPP_ERROR(this->get_logger(), "Planning failed: Fraction achieved %f", fraction * 100.0);
-        }
-      }
+    //     if(error_code)
+    //     {
+    //       error_code = move_group.execute(plan);
+    //       if (!error_code)
+    //       {
+    //         RCLCPP_ERROR(this->get_logger(), "Execution failed: %s",
+    //           moveit::core::error_code_to_string(error_code).c_str());
+    //         goal_handle->abort(result);
+    //         return false;
+    //       }
+    //       first = false;
+    //     }
+    //     else
+    //     {
+    //       RCLCPP_ERROR(this->get_logger(), "Planning failed: %s",
+    //         moveit::core::error_code_to_string(error_code).c_str());
+    //     }
+    //     move_group.setMaxVelocityScalingFactor(1.0);
+    //     move_group.setMaxAccelerationScalingFactor(1.0);
+    //   }
+    //   else
+    //   {
+    //     std::vector<geometry_msgs::msg::Pose> waypoints;
+    //     old_target_pose.position.z += collision_off;
+    //     waypoints.push_back(old_target_pose);
+    //     waypoints.push_back(target_pose);
+    //     moveit_msgs::msg::RobotTrajectory trajectory;
+    //     const double jump_threshold = 0.0;
+    //     const double eef_step = 0.01;
+    //     double fraction = move_group.computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory);
+    //     RCLCPP_INFO(this->get_logger(), "Fraction achieved: %f", fraction * 100.0);
+    //     if (fraction > 0.99)
+    //     {
+    //       error_code = move_group.execute(trajectory);
+    //       if (!error_code)
+    //       {
+    //         RCLCPP_ERROR(this->get_logger(), "Execution failed: %s",
+    //           moveit::core::error_code_to_string(error_code).c_str());
+    //         goal_handle->abort(result);
+    //         return false;
+    //       }
+    //     }
+    //     else
+    //     {
+    //       RCLCPP_ERROR(this->get_logger(), "Planning failed: Fraction achieved %f", fraction * 100.0);
+    //     }
+    //   }
 
-      // shock
-      rclcpp::sleep_for(std::chrono::milliseconds(wait_shock));
-      feedback->percent_complete += percent_increase;
-      goal_handle->publish_feedback(feedback);
-    }
+    //   // shock
+    //   rclcpp::sleep_for(std::chrono::milliseconds(wait_shock));
+    //   feedback->percent_complete += percent_increase;
+    //   goal_handle->publish_feedback(feedback);
+    // }
     return true;
   }
 
-  std::vector<std::vector<float>> process_image(std::string pos)
+  bool process_image(std::string pos,
+    std::shared_future<GoalHandleClusterClassify::WrappedResult> & result_future)
   {
     // get parameters
     const double cluster_distance = this->get_parameter("cluster_distance").as_double();  // tolerance in mm for point cloud clustering
@@ -857,26 +909,19 @@ private:
     log_text += "Total time to process image: " + std::to_string(ms_int.count()) + " ms\n";
 
     // send goal to python node
-    if (!this->client_ptr_->wait_for_action_server()) {
+    if (!this->client_ptr_->wait_for_action_server(std::chrono::seconds(10))) {
       RCLCPP_ERROR(this->get_logger(), "Action server not available after waiting");
-      rclcpp::shutdown();
+      return false;
     }
-    auto goal_msg = ClusterClassify::Goal();
+    auto goal = ClusterClassify::Goal();
     RCLCPP_INFO(this->get_logger(), "Sending goal");
-    auto send_goal_options = rclcpp_action::Client<ClusterClassify>::SendGoalOptions();
-    send_goal_options.goal_response_callback = [this](const GoalHandleClusterClassify::SharedPtr & goal_handle)
-    {
-      if (!goal_handle) {
-        RCLCPP_ERROR(this->get_logger(), "Goal was rejected by server");
-      } else {
-        RCLCPP_INFO(this->get_logger(), "Goal accepted by server, waiting for result");
-      }
-    };
-    this->client_ptr_->async_send_goal(goal_msg, send_goal_options);
-    this->client_ptr_->async_send_goal(goal_msg, send_goal_options);
-
-
-    std::vector<std::vector<float>> positions;  
+    auto send_goal_future = this->client_ptr_->async_send_goal(goal);
+    auto goal_handle = send_goal_future.get();
+    if (!goal_handle) {
+      RCLCPP_ERROR(this->get_logger(), "Goal was rejected by server");
+      return false;
+    }
+    result_future = this->client_ptr_->async_get_result(goal_handle);
 
     cv::Mat components2d = cv::Mat::zeros(combined_binary.size(), CV_8UC3);
     if (old_version)  // connecting components in 2d
@@ -959,10 +1004,8 @@ private:
 
       RCLCPP_INFO(this->get_logger(), "Saved images to %s", folder_name.c_str());
     }
-
-    return positions;
+    return true;
   }
-
 };
 
 int main(int argc, char * argv[])
