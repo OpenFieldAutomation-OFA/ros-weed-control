@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(ofa_weed_detection)
+project(ofa_main)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -31,24 +31,24 @@ else ()
 endif ()
 
 ## COMPILE
-add_executable(weed_detection src/weed_detection.cpp)
-target_include_directories(weed_detection PUBLIC
+add_executable(weed_control src/weed_control.cpp)
+target_include_directories(weed_control PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
-target_compile_features(weed_detection PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+target_compile_features(weed_control PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 ament_target_dependencies(
-  weed_detection
+  weed_control
   ${THIS_PACKAGE_INCLUDE_DEPENDS}
 )
 target_link_libraries(
-  weed_detection
+  weed_control
   ${CMAKE_CURRENT_SOURCE_DIR}/lib/${HOST_PLATFORM}/libk4a.so
   ${CMAKE_CURRENT_SOURCE_DIR}/lib/${HOST_PLATFORM}/libOrbbecSDK.so
 )
 
 ## INSTALL
 install(
-  TARGETS weed_detection
+  TARGETS weed_control
   DESTINATION lib/${PROJECT_NAME}
 )
 install(
@@ -56,7 +56,7 @@ install(
   DESTINATION lib
 )
 install(
-  DIRECTORY config images
+  DIRECTORY images
   DESTINATION share/${PROJECT_NAME}
 )
 

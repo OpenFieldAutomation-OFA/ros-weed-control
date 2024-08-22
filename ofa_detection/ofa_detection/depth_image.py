@@ -10,8 +10,8 @@ from sklearn.cluster import KMeans
 import cv2
 
 # Load point cloud from PCD file
-# color_raw = o3d.io.read_image("/home/ofa/ros2_ws/src/ros-weed-control/ofa_weed_detection/images/mock_images/back/color.png")
-depth_raw = o3d.io.read_image("/home/ofa/ros2_ws/src/ros-weed-control/ofa_weed_detection/images/mock_images/back/depth16.png")
+# color_raw = o3d.io.read_image("/home/ofa/ros2_ws/src/ros-weed-control/ofa_main/images/mock_images/back/color.png")
+depth_raw = o3d.io.read_image("/home/ofa/ros2_ws/src/ros-weed-control/ofa_main/images/mock_images/back/depth16.png")
 # rgbd_image = o3d.geometry.RGBDImage.create_from_color_and_depth(
 #     color_raw, depth_raw)
 
@@ -36,7 +36,7 @@ dist_coeffs = np.array([0.079749, -0.110377, -0.000354, 0.000473, 0.046372], dty
 
 map1, map2 = cv2.initUndistortRectifyMap(camera_matrix, dist_coeffs, None, camera_matrix, (3840, 2160), cv2.CV_16SC2)
 
-depth_image = cv2.imread('/home/ofa/ros2_ws/src/ros-weed-control/ofa_weed_detection/images/mock_images/back/depth16.png', cv2.IMREAD_UNCHANGED)
+depth_image = cv2.imread('/home/ofa/ros2_ws/src/ros-weed-control/ofa_main/images/mock_images/back/depth16.png', cv2.IMREAD_UNCHANGED)
 undistorted_depth_image = cv2.remap(depth_image, map1, map2, interpolation=cv2.INTER_NEAREST)
 depth_o3d = o3d.geometry.Image(undistorted_depth_image)
 

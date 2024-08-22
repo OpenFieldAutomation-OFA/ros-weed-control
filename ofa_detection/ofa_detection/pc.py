@@ -73,7 +73,7 @@ bounding_boxes = []
 positions = []
 
 # load network
-color_image = cv2.imread("/home/ofa/ros2_ws/src/ros-weed-control/ofa_weed_detection/images/mock_images/back/color.png")
+color_image = cv2.imread("/home/ofa/ros2_ws/src/ros-weed-control/ofa_main/images/mock_images/back/color.png")
 providers = [
     ('TensorrtExecutionProvider', {
         'trt_engine_cache_enable': True,
@@ -88,7 +88,7 @@ input_name = session.get_inputs()[0].name
 
 if save_runs:
     cluster_drawn = np.ones((2160, 3840, 3), dtype=np.uint8) * 255
-    color_drawn = cv2.imread("/home/ofa/ros2_ws/src/ros-weed-control/ofa_weed_detection/images/mock_images/back/color.png")
+    color_drawn = cv2.imread("/home/ofa/ros2_ws/src/ros-weed-control/ofa_main/images/mock_images/back/color.png")
     font = cv2.FONT_HERSHEY_SIMPLEX
     font_scale = 1.0
     font_thickness = 2

@@ -532,12 +532,12 @@ int main(int argc, char ** argv)
 
     if (save_images)
     {
-      cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/color.png", bgr_mat);
-      cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/depth.png", depth_normalized);
-      cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/ir.png", nir_normalized);
-      cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/components.png", components);
-      cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/components3d.png", components3d);
-      cv::imwrite("/home/ros/overlay/src/ofa_weed_detection/images/combined_binary.png", combined_binary);
+      cv::imwrite("/home/ros/overlay/src/ofa_main/images/color.png", bgr_mat);
+      cv::imwrite("/home/ros/overlay/src/ofa_main/images/depth.png", depth_normalized);
+      cv::imwrite("/home/ros/overlay/src/ofa_main/images/ir.png", nir_normalized);
+      cv::imwrite("/home/ros/overlay/src/ofa_main/images/components.png", components);
+      cv::imwrite("/home/ros/overlay/src/ofa_main/images/components3d.png", components3d);
+      cv::imwrite("/home/ros/overlay/src/ofa_main/images/combined_binary.png", combined_binary);
     }
 
     // publish images

@@ -117,8 +117,8 @@ def generate_launch_description():
     )
     weed_main_node = Node(
         name="weed_main",
-        package="ofa_weed_detection",
-        executable="weed_detection",
+        package="ofa_main",
+        executable="weed_control",
         output="log",
         parameters=[
             moveit_config.robot_description,

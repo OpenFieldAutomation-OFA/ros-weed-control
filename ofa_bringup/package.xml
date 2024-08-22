@@ -12,7 +12,7 @@
   <exec_depend>urdf_launch</exec_depend>
   <exec_depend>ofa_moveit_config</exec_depend>
   <exec_depend>ofa_interfaces</exec_depend>
-  <exec_depend>ofa_weed_detection</exec_depend>
+  <exec_depend>ofa_main</exec_depend>
   <exec_depend>cubemars_hardware</exec_depend>
   <exec_depend>teknic_hardware</exec_depend>
 

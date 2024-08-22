@@ -120,7 +120,7 @@ class ClusterClassifyActionServer(Node):
 
         if save_runs:
             cluster_drawn = np.ones((2160, 3840, 3), dtype=np.uint8) * 255
-            color_drawn = cv2.imread("/home/ofa/ros2_ws/src/ros-weed-control/ofa_weed_detection/images/mock_images/back/color.png")
+            color_drawn = color_image.copy()
             font = cv2.FONT_HERSHEY_SIMPLEX
             font_scale = 1.0
             font_thickness = 2

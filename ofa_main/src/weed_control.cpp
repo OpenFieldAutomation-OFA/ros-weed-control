@@ -718,7 +718,7 @@ private:
     cv::Mat ir_mat;
     cv::Mat color_mat;
 
-    std::string package_share_directory = ament_index_cpp::get_package_share_directory("ofa_weed_detection");
+    std::string package_share_directory = ament_index_cpp::get_package_share_directory("ofa_main");
 
     if (!use_mock_hardware_)
     {
