@@ -1,6 +1,6 @@
 /weed_detection:
   ros__parameters:
-    do_classification: true
+    do_classification: false
     main_crop: Zea mays L.
 
 /weed_main:
@@ -9,7 +9,8 @@
     publish_color: false
     color_resolution: 5
     exg_threshold: -30.0
-    nir_threshold: 80.0
+    nir_threshold: 100.0
+    ndvi_threshold: 0.0
     x_lower: -0.55
     x_upper: 0.38
     y_lower: -0.4
@@ -26,3 +27,4 @@
     illumination_correction: true
     wait_shock: 200
     runs_folder: /home/ofa/ros2_ws/src/ros-weed-control/runs
+    mock_images: mock_images_2

@@ -715,6 +715,7 @@ private:
     // get parameters
     const double exg_threshold = this->get_parameter("exg_threshold").as_double();;  // excess green threshold
     const double nir_threshold = this->get_parameter("nir_threshold").as_double();  // nir threshold
+    const double ndvi_threshold = this->get_parameter("ndvi_threshold").as_double();  // nir threshold
     
     const bool old_version = this->get_parameter("old_version").as_bool();
     const int dilation_size = this->get_parameter("dilation_size").as_int();;  // dilation kernel size
@@ -807,9 +808,10 @@ private:
     }
     else
     {
-      depth_mat = cv::imread(package_share_directory + "/images/mock_images/" + pos + "/depth16.png", cv::IMREAD_UNCHANGED);
-      ir_mat = cv::imread(package_share_directory + "/images/mock_images/" + pos + "/ir16.png", cv::IMREAD_UNCHANGED);
-      color_mat = cv::imread(package_share_directory + "/images/mock_images/" + pos + "/color.png", cv::IMREAD_COLOR);
+      std::string mock_images = this->get_parameter("mock_images").as_string();
+      depth_mat = cv::imread(package_share_directory + "/images/" + mock_images + "/" + pos + "/depth16.png", cv::IMREAD_UNCHANGED);
+      ir_mat = cv::imread(package_share_directory + "/images/" + mock_images + "/" + pos + "/ir16.png", cv::IMREAD_UNCHANGED);
+      color_mat = cv::imread(package_share_directory + "/images/" + mock_images + "/" + pos + "/color.png", cv::IMREAD_COLOR);
     }
 
     cv::Mat ir_corrected;
@@ -838,6 +840,14 @@ private:
     // remove some noise
     cv::GaussianBlur(ir_corrected, ir_corrected, cv::Size(15, 15), 0);
     cv::GaussianBlur(exg, exg, cv::Size(15, 15), 0);
+
+    // NIR
+    cv::Mat ir_float;
+    ir_corrected.convertTo(ir_float, CV_32F);
+    cv::Mat ndvi = (ir_float - red_channel) / (ir_float + red_channel);
+    cv::Mat ndvi_binary;
+    cv::threshold(ndvi, ndvi_binary, ndvi_threshold, 255, cv::THRESH_BINARY);
+    ndvi_binary.convertTo(ndvi_binary, CV_8UC1);
 
     // threshold
     cv::Mat exg_binary;
@@ -949,6 +959,8 @@ private:
       cv::normalize(depth_mat, depth_normalized, 0, 255, cv::NORM_MINMAX, CV_8UC1);
       cv::Mat exg_normalized;
       cv::normalize(exg, exg_normalized, 0, 255, cv::NORM_MINMAX, CV_8UC1);
+      cv::Mat ndvi_normalized;
+      cv::normalize(ndvi, ndvi_normalized, 0, 255, cv::NORM_MINMAX, CV_8UC1);
 
       cv::imwrite(image_folder + "color.png", color_mat);
       cv::imwrite(image_folder + "depth.png", depth_normalized);
@@ -961,6 +973,8 @@ private:
       cv::imwrite(image_folder + "blue.png", bgr_channels[0]);
       cv::imwrite(image_folder + "exg.png", exg_normalized);
       cv::imwrite(image_folder + "exg_binary.png", exg_binary);
+      cv::imwrite(image_folder + "ndvi.png", ndvi_normalized);
+      cv::imwrite(image_folder + "ndvi_binary.png", ndvi_binary);
       cv::imwrite(image_folder + "combined_binary.png", combined_binary);
       if (old_version)
       {
