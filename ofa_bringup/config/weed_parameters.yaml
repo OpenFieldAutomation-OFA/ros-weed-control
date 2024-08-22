@@ -9,7 +9,7 @@
     publish_color: false
     color_resolution: 5
     exg_threshold: -30.0
-    nir_threshold: 70.0
+    nir_threshold: 80.0
     x_lower: -0.55
     x_upper: 0.38
     y_lower: -0.4

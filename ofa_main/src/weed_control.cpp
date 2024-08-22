@@ -386,7 +386,7 @@ private:
     moveit::planning_interface::MoveGroupInterface::Plan plan;
 
     // move to first position
-    move_group.setJointValueTarget({-0.25, 1.3, 0.0});
+    move_group.setJointValueTarget({-0.3, 1.3, 0.0});
     error_code = move_group.move();
     if (error_code)
     {
@@ -397,6 +397,7 @@ private:
       RCLCPP_ERROR(this->get_logger(), "Could not reach first photo position: %s",
         moveit::core::error_code_to_string(error_code).c_str());
       goal_handle->abort(result);
+      is_busy_ = false;
       return;
     }
 
@@ -410,6 +411,7 @@ private:
       RCLCPP_ERROR(
         this->get_logger(), "Could not transform %s", ex.what());
       goal_handle->abort(result);
+      is_busy_ = false;
       return;
     }
 
@@ -418,6 +420,7 @@ private:
     if (!process_image("back", result_future_1))
     {
       goal_handle->abort(result);
+      is_busy_ = false;
       return;
     }
 
@@ -433,6 +436,7 @@ private:
       RCLCPP_ERROR(this->get_logger(), "Could not reach second photo position: %s",
         moveit::core::error_code_to_string(error_code).c_str());
       goal_handle->abort(result);
+      is_busy_ = false;
       return;
     }
 
@@ -446,6 +450,7 @@ private:
       RCLCPP_ERROR(
         this->get_logger(), "Could not transform %s", ex.what());
       goal_handle->abort(result);
+      is_busy_ = false;
       return;
     }
 
@@ -454,6 +459,7 @@ private:
     if (!process_image("front", result_future_2))
     {
       goal_handle->abort(result);
+      is_busy_ = false;
       return;
     }
 
@@ -467,12 +473,14 @@ private:
     if (result_1.code != rclcpp_action::ResultCode::SUCCEEDED) {
       RCLCPP_ERROR(this->get_logger(), "Weed detection back failed");
       goal_handle->abort(result);
+      is_busy_ = false;
       return;
     }
     auto result_2 = result_future_2.get();
     if (result_2.code != rclcpp_action::ResultCode::SUCCEEDED) {
       RCLCPP_ERROR(this->get_logger(), "Weed detection front failed");
       goal_handle->abort(result);
+      is_busy_ = false;
       return;
     }
     RCLCPP_INFO(this->get_logger(), "Weed detection done");
@@ -595,6 +603,7 @@ private:
         move_group.move();
         goal_handle->canceled(result);
         RCLCPP_INFO(this->get_logger(), "Goal canceled");
+        is_busy_ = false;
         return;
       }
       geometry_msgs::msg::Pose old_target_pose = target_pose;
@@ -639,6 +648,7 @@ private:
             RCLCPP_ERROR(this->get_logger(), "Execution failed: %s",
               moveit::core::error_code_to_string(error_code).c_str());
             goal_handle->abort(result);
+            is_busy_ = false;
             return;
           }
           first = false;
@@ -670,6 +680,7 @@ private:
             RCLCPP_ERROR(this->get_logger(), "Execution failed: %s",
               moveit::core::error_code_to_string(error_code).c_str());
             goal_handle->abort(result);
+            is_busy_ = false;
             return;
           }
         }
