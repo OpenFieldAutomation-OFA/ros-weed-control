@@ -587,7 +587,7 @@ private:
     bool first = true;
     geometry_msgs::msg::Pose target_pose;
     move_group.setGoalOrientationTolerance(90 * M_PI / 180);
-    float percent_increase = 50.0 / sorted_positions.size();
+    float percent_increase = 100.0 / sorted_positions.size();
     for (const std::vector<double> & position : sorted_positions)
     {
       if (goal_handle->is_canceling()) {

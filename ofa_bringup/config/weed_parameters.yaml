@@ -1,6 +1,6 @@
 /weed_detection:
   ros__parameters:
-    do_classification: false
+    do_classification: true
     main_crop: Zea mays L.
 
 /weed_main:

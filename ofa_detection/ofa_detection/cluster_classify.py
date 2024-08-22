@@ -185,7 +185,7 @@ class ClusterClassifyActionServer(Node):
                 predictions = outputs[0][0]
                 max_ind = np.argmax(predictions)
                 prob = predictions[max_ind]
-                # self.get_logger().info(f"Prediction: {max_ind}, {prob*100}%")
+                self.get_logger().info(f"Prediction: {max_ind}, {prob*100}%")
                 species_name = self.species_mapping[self.class_mapping[max_ind]]
                 text = str(i) + ", " + species_name  # add box id
                 if save_runs:
