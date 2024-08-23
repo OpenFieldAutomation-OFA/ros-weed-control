@@ -35,6 +35,7 @@ class ClusterClassifyActionServer(Node):
             execute_callback=self.execute_callback)
 
         # load network
+        self.model = self.get_parameter('model').get_parameter_value().string_value
         model_directory = '/home/ofa/ros2_ws/src/ros-weed-control/ofa_detection/model'
         providers = [
             ('TensorrtExecutionProvider', {
@@ -44,10 +45,52 @@ class ClusterClassifyActionServer(Node):
             # 'CUDAExecutionProvider',
             'CPUExecutionProvider'
         ]
-        self.session = ort.InferenceSession(os.path.join(model_directory, 'finetuned.onnx'),
+        if self.model == 'base':
+            file = 'finetuned.onnx'
+        elif self.model == 'small':
+            file = 'finetuned_small.onnx'
+        self.session = ort.InferenceSession(os.path.join(model_directory, file),
             providers=providers)
         self.get_logger().info('Loaded network.')
         self.input_name = self.session.get_inputs()[0].name
+
+        # image = cv2.imread('/home/ofa/ros2_ws/src/ros-weed-control/ofa_detection/ofa_detection/00dcd0ff0c50e304d43e519f0eafc849.jpg')
+        # self.get_logger().info(f"The value of the first pixel is: {image[0, 0]}")
+        # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        # self.get_logger().info(f"The value of the first pixel is: {image[0, 0]}")
+        # target_size = 518
+        # height, width = image.shape[:2]
+        # if width < height:
+        #     new_width = target_size
+        #     new_height = int(target_size * height / width)
+        # else:
+        #     new_height = target_size
+        #     new_width = int(target_size * width / height)
+        # image = cv2.resize(image, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
+        # start_x = (new_width - target_size) // 2
+        # start_y = (new_height - target_size) // 2
+        # image = image[start_y:start_y + target_size, start_x:start_x + target_size]
+        # self.get_logger().info(f"The value of the first pixel is: {image[0, 0]}")
+        # mean=[123.675, 116.28, 103.53]
+        # std=[58.395, 57.12, 57.375]
+        # image = (image - mean) / std
+        # print(image[0, 0])
+        # image = np.transpose(image, (2, 0, 1))
+        # input_tensor = np.expand_dims(image, axis=0)
+        # input_tensor = input_tensor.astype(np.float32)
+        # input_name = self.session.get_inputs()[0].name
+        # input_shape = self.session.get_inputs()[0].shape
+        # self.get_logger().info(f"Input name: {input_name}, input shape: {input_shape}")
+        # start = time.time()
+        # outputs = self.session.run(None, {input_name: input_tensor})
+        # end = time.time()
+        # self.get_logger().info(f"Time: {end-start}")
+        # output_name = self.session.get_outputs()[0].name
+        # predictions = outputs[0][0]
+        # max_indices = np.argmax(predictions)
+        # print(predictions)
+        # print(predictions[max_indices])
+        # print(max_indices)
 
         # load mappings
         self.class_mapping = {}
@@ -96,7 +139,11 @@ class ClusterClassifyActionServer(Node):
 
         # get parameters
         do_classification = self.get_parameter('do_classification').get_parameter_value().bool_value
-        main_crop = self.get_parameter('main_crop').get_parameter_value().string_value
+        main_crop = self.get_parameter('main_crop').get_parameter_value().integer_value
+        if self.model == 'base':
+            increase_output = 0
+        elif self.model == 'small':
+            increase_output = 0.1
 
         log_text = ""
 
@@ -183,13 +230,14 @@ class ClusterClassifyActionServer(Node):
                 # pass through network
                 outputs = self.session.run(None, {self.input_name: plant_image})
                 predictions = outputs[0][0]
+                predictions[main_crop] += increase_output
                 max_ind = np.argmax(predictions)
                 prob = predictions[max_ind]
                 self.get_logger().info(f"Prediction: {max_ind}, {prob*100}%")
                 species_name = self.species_mapping[self.class_mapping[max_ind]]
                 text = str(i) + ", " + species_name  # add box id
                 if save_runs:
-                    if species_name == main_crop:
+                    if max_ind == main_crop:
                         color = (0, 0, 0)
                     else:
                         color = (255, 0, 0)
@@ -207,8 +255,15 @@ class ClusterClassifyActionServer(Node):
                         cv2.rectangle(color_drawn, (x1, y1), (x1 + text_size[0], y1 + text_size[1] + 5), color, -1)
                     cv2.putText(color_drawn, text, (text_x, text_y), font, font_scale, (255, 255, 255), font_thickness)
                     
-                if species_name == main_crop:
+                if max_ind == main_crop:
                     # main crop detected, don't compute positions
+                    if save_runs:
+                        save_data.append(
+                            {"id": i,
+                            "species": species_name,
+                            "probability": prob * 100,
+                            "num_points": 0}
+                        )
                     continue
             else:
                 if save_runs:
@@ -241,7 +296,7 @@ class ClusterClassifyActionServer(Node):
                     {"id": i,
                     "species": species_name,
                     "probability": prob * 100,
-                    "num_points": k},
+                    "num_points": k}
                 )
         end = time.time()
         log_text += f"Classification & KMeans time: {round((end-start)*1000)} ms\n"

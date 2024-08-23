@@ -1,7 +1,8 @@
 /weed_detection:
   ros__parameters:
-    do_classification: false
-    main_crop: Zea mays L.
+    do_classification: true
+    main_crop: 2473  # 2473: maize, 2354: sugar beet
+    model: base
 
 /weed_main:
   ros__parameters:
@@ -27,4 +28,4 @@
     illumination_correction: true
     wait_shock: 200
     runs_folder: /home/ofa/ros2_ws/src/ros-weed-control/runs
-    mock_images: mock_images_1
+    mock_images: mock_images_5
