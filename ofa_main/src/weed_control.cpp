@@ -856,7 +856,11 @@ private:
     cv::Mat nir_binary;
     cv::threshold(ir_corrected, nir_binary, nir_threshold, 255, cv::THRESH_BINARY);
     cv::Mat combined_binary;
-    cv::bitwise_and(exg_binary, nir_binary, combined_binary);
+    // cv::bitwise_and(exg_binary, nir_binary, combined_binary);  // doesn't really work sadly
+    combined_binary = exg_binary.clone();
+    cv::Mat kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(10, 10));
+    cv::morphologyEx(combined_binary, combined_binary, cv::MORPH_OPEN, kernel);
+
     t2 = std::chrono::high_resolution_clock::now();
     ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
     log_text += "Segmentation: " + std::to_string(ms_int.count()) + " ms\n";
@@ -902,7 +906,7 @@ private:
 
       // morphological transforms
       cv::Mat clean_binary;
-      cv::Mat kernel = cv::getStructuringElement(cv::MORPH_RECT, cv::Size(dilation_size, dilation_size));
+      cv::Mat kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(dilation_size, dilation_size));
       cv::morphologyEx(combined_binary, clean_binary, cv::MORPH_DILATE, kernel);
 
       // seperate components
@@ -914,7 +918,7 @@ private:
       log_text += "2D Clustering: " + std::to_string(ms_int.count()) + " ms\n";
 
       // display results
-      int min_area = 1000;
+      int min_area = 2000;
       for (int i = 1; i < num_components; i++) {
         cv::Rect bounding_box = cv::Rect(stats.at<int>(i, cv::CC_STAT_LEFT),
                                         stats.at<int>(i, cv::CC_STAT_TOP),

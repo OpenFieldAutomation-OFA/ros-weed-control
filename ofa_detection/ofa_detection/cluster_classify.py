@@ -110,7 +110,7 @@ class ClusterClassifyActionServer(Node):
 
         # cluster cloud
         start = time.time()
-        labels = np.array(pc.cluster_dbscan(eps=10.0, min_points=40))
+        labels = np.array(pc.cluster_dbscan(eps=8.0, min_points=30))
         end = time.time()
         log_text += f"DBSCAN time: {round((end-start)*1000)} ms\n"
         max_label = labels.max()
