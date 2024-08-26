@@ -79,7 +79,7 @@ The following steps describe the setup on a reComputer Industrial J40 flashed wi
     sudo reboot
     ```
 
-## Use Workspace
+## Run Program
 After the setup you can build your workspace.
 ```bash
 cd ~/ros2_ws

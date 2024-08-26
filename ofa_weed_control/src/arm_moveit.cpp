@@ -109,25 +109,30 @@ int main(int argc, char* argv[])
 
   // set position goal (left position)
   // move_group.setPoseReferenceFrame("camera_color_frame");
+
   geometry_msgs::msg::Pose target_pose;
-  tf2::Quaternion q;
-  q.setRPY(-45 * M_PI / 180, 0, 0);
-  // RCLCPP_INFO(LOGGER, "quaternion: %f %f %f %f", q.x(), q.y(), q.z(), q.w());
-  target_pose.orientation.w = q.w();
-  target_pose.orientation.x = q.x();
-  target_pose.orientation.y = q.y();
-  target_pose.orientation.z = q.z();
-  target_pose.position.x = -0.6;
-  target_pose.position.y = 0.1;
-  target_pose.position.z = 0.3;
-  move_group.setPositionTarget(0.224756, 0.4, 0.5);
+  target_pose.position.x = 0.22;
+  target_pose.position.y = -0.05;
+  target_pose.position.z = 0.05;
+  move_group.setGoalOrientationTolerance(360 * M_PI / 180);
+  move_group.setPoseTarget(target_pose);
+  move_group.move();
+
+  // move_group.setPositionTarget(0.224756, -0.3, 0.05);
+  // move_group.move();
+
+  // move_group.setPositionTarget(0.224756, 0.3, 0.05);
+  // move_group.move();
+
+  move_group.setNamedTarget("home");
+  move_group.move();
+
   // move_group.setPositionTarget(-0.384220, 0.095513, 0.118338);
   
   // move_group.setPoseTarget(target_pose);
   // move_group.setGoalOrientationTolerance(45 * M_PI / 180);
 
   // plan and execute
-  move_group.move();
 
   // set position goal (right position)
   // q.setRPY(-90 * M_PI / 180, 0, 0);

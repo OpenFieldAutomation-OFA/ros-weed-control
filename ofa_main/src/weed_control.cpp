@@ -14,7 +14,6 @@
 
 #include <moveit/move_group_interface/move_group_interface.h>
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
-#include <tf2/LinearMath/Quaternion.h>
 
 #include <geometry_msgs/msg/point_stamped.hpp>
 #include <geometry_msgs/msg/transform_stamped.hpp>
@@ -594,7 +593,6 @@ private:
     // move to targets
     bool first = true;
     geometry_msgs::msg::Pose target_pose;
-    move_group.setGoalOrientationTolerance(90 * M_PI / 180);
     float percent_increase = 100.0 / sorted_positions.size();
     for (const std::vector<double> & position : sorted_positions)
     {
@@ -622,22 +620,8 @@ private:
         RCLCPP_INFO(this->get_logger(), "Moving to first plant");
         move_group.setMaxVelocityScalingFactor(0.5);
         move_group.setMaxAccelerationScalingFactor(0.5);
-        tf2::Quaternion q;
-        // make sure arm is correctly positioned
-        if (position[1] < 0)
-        {
-          q.setRPY(-90 * M_PI / 180, 0, 0);
-        }
-        else
-        {
-          q.setRPY(90 * M_PI / 180, 0, 0);
-        }
-        // RCLCPP_INFO(LOGGER, "quaternion: %f %f %f %f", q.x(), q.y(), q.z(), q.w());
-        target_pose.orientation.w = q.w();
-        target_pose.orientation.x = q.x();
-        target_pose.orientation.y = q.y();
-        target_pose.orientation.z = q.z();
-        move_group.setPoseTarget(target_pose);
+
+        move_group.setPositionTarget(target_pose.position.x, target_pose.position.y, target_pose.position.z);
         error_code = move_group.plan(plan);
 
         if(error_code)
