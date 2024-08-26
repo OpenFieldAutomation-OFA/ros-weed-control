@@ -4,9 +4,9 @@ This package contains the IKFast plugin for the ofa_robot arm.
 ## Update Plugin
 After every change in the URDF file this plugin has to be updated. Otherwise, the inverse kinematics are not calculated correctly.
 
-If you are developing on a `arm64` platform (Nvidia Jetson) the procedure has to be split into two steps.
+If you are developing on the Jetson (`arm64` platform) the procedure has to be split into two steps. For both steps you need to be in the `ros-weed-control` folder.
 
-1. On the computer with ROS installed, generate the URDF file.
+1. On the Jetson, generate the URDF file.
     ```bash
     xacro ofa_moveit_config/config/ofa_robot.urdf.xacro > ofa_robot.urdf
     ```
