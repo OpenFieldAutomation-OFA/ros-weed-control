@@ -879,17 +879,30 @@ bool IKFastKinematicsPlugin::searchPositionIK(const geometry_msgs::msg::Pose& ik
       return false;
     }
 
+    // OFA: Filter solutions based on workspace side
+    std::vector<std::vector<double>> solutions_filtered;
+    for (auto& solution : solutions) {
+      if (ik_pose.position.y <= 0 && solution[2] <= 0)
+      {
+        solutions_filtered.push_back(solution);
+      }
+      else if (ik_pose.position.y > 0 && solution[2] > 0)
+      {
+        solutions_filtered.push_back(solution);
+      }
+    }
+
     // sort solutions by their distance to the seed
     std::vector<LimitObeyingSol> solutions_obey_limits;
-    for (std::size_t i = 0; i < solutions.size(); ++i)
+    for (std::size_t i = 0; i < solutions_filtered.size(); ++i)
     {
       double dist_from_seed = 0.0;
       for (std::size_t j = 0; j < ik_seed_state.size(); ++j)
       {
-        dist_from_seed += fabs(ik_seed_state[j] - solutions[i][j]);
+        dist_from_seed += fabs(ik_seed_state[j] - solutions_filtered[i][j]);
       }
 
-      solutions_obey_limits.push_back({ solutions[i], dist_from_seed });
+      solutions_obey_limits.push_back({ solutions_filtered[i], dist_from_seed });
     }
     std::sort(solutions_obey_limits.begin(), solutions_obey_limits.end());
 
