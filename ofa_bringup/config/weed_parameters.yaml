@@ -10,7 +10,7 @@
     publish_color: false
     color_resolution: 5
     exg_threshold: 0.0
-    nir_threshold: 100.0
+    nir_threshold: 110.0
     ndvi_threshold: 0.0
     x_lower: -0.55
     x_upper: 0.38
@@ -23,9 +23,9 @@
     z_off: 0.02
     collision_off: 0.05
     old_version: true
-    dilation_size: 20
+    dilation_size: 40
     auto_exposure: false
     illumination_correction: true
     wait_shock: 200
     runs_folder: /home/ofa/ros2_ws/src/ros-weed-control/runs
-    mock_images: mock_images_7
+    mock_images: mock_images_1

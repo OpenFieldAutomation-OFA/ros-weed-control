@@ -892,6 +892,11 @@ private:
       cv::Mat clean_binary;
       cv::Mat kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(dilation_size, dilation_size));
       cv::morphologyEx(combined_binary, clean_binary, cv::MORPH_DILATE, kernel);
+      components2d.setTo(
+        cv::Vec3b(255, 255, 255),
+        combined_binary == 255
+      );
+      // components2d = combined_binary.clone();
 
       // seperate components
       cv::Mat labels, stats, centroids;
@@ -902,7 +907,7 @@ private:
       log_text += "2D Clustering: " + std::to_string(ms_int.count()) + " ms\n";
 
       // display results
-      int min_area = 2000;
+      int min_area = 4000;
       for (int i = 1; i < num_components; i++) {
         cv::Rect bounding_box = cv::Rect(stats.at<int>(i, cv::CC_STAT_LEFT),
                                         stats.at<int>(i, cv::CC_STAT_TOP),
@@ -911,16 +916,16 @@ private:
         // don't consider small components
         int area = stats.at<int>(i, cv::CC_STAT_AREA);
         if (area >= min_area) {
-          std::uint8_t r = 255 * (rand() / (1.0 + RAND_MAX));
-          std::uint8_t g = 255 * (rand() / (1.0 + RAND_MAX));
-          std::uint8_t b = 255 * (rand() / (1.0 + RAND_MAX));
-          components2d.setTo(
-            cv::Vec3b(r, g, b),
-            labels == i
-          );
+          // std::uint8_t r = 255 * (rand() / (1.0 + RAND_MAX));
+          // std::uint8_t g = 255 * (rand() / (1.0 + RAND_MAX));
+          // std::uint8_t b = 255 * (rand() / (1.0 + RAND_MAX));
+          // components2d.setTo(
+          //   cv::Vec3b(255, 255, 255),
+          //   labels == i
+          // );
           cv::Point centroid(cvRound(centroids.at<double>(i, 0)), cvRound(centroids.at<double>(i, 1)));
           cv::rectangle(components2d, bounding_box, cv::Scalar(0, 255, 0), 5);
-          cv::circle(components2d, centroid, 4, cv::Scalar(0, 0, 255), -1);
+          // cv::circle(components2d, centroid, 4, cv::Scalar(0, 0, 255), -1);
         }
       }
     }
@@ -944,7 +949,10 @@ private:
       std::filesystem::create_directory(image_folder);
 
       cv::Mat depth_normalized;
+      cv::threshold(depth_mat, depth_mat, 450, 450, cv::THRESH_TOZERO);
+      depth_mat.setTo(450, depth_mat == 0);
       cv::normalize(depth_mat, depth_normalized, 0, 255, cv::NORM_MINMAX, CV_8UC1);
+      cv::bitwise_not(depth_normalized, depth_normalized);
       cv::Mat exg_normalized;
       cv::normalize(exg, exg_normalized, 0, 255, cv::NORM_MINMAX, CV_8UC1);
       cv::Mat ndvi_normalized;

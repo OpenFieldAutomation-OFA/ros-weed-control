@@ -147,6 +147,15 @@ class ClusterClassifyActionServer(Node):
 
         log_text = ""
 
+        points = np.asarray(pc.points)
+        points_2d = cv2.projectPoints(points, self.rvec, self.tvec, self.camera_matrix, self.dist_coeffs)[0]
+        points_2d = np.round(points_2d).astype(int).reshape(-1, 2)
+        components = np.zeros((2160, 3840, 3), dtype=np.uint8)
+        for point in points_2d:
+            components[point[1], point[0]] = 255
+        
+        # o3d.visualization.draw_geometries([pc])
+
         # downsample cloud
         self.get_logger().info(f"Point cloud loaded with {len(pc.points)} points")
         start = time.time()
@@ -154,6 +163,14 @@ class ClusterClassifyActionServer(Node):
         end = time.time()
         log_text += f"Downsample time: {round((end-start)*1000)} ms\n"
         self.get_logger().info(f"Point cloud downsampled to {len(pc.points)} points")
+
+        # vis = o3d.visualization.Visualizer()
+        # vis.create_window()
+        # vis.add_geometry(pc)
+        # opt = vis.get_render_option()
+        # opt.background_color = np.array([0, 0, 0])
+        # vis.run()
+        # vis.destroy_window()
 
         # cluster cloud
         start = time.time()
@@ -166,7 +183,8 @@ class ClusterClassifyActionServer(Node):
         colors = np.zeros((len(labels), 3))
 
         if save_runs:
-            cluster_drawn = np.ones((2160, 3840, 3), dtype=np.uint8) * 255
+            # cluster_drawn = np.ones((2160, 3840, 3), dtype=np.uint8) * 255
+            cluster_drawn = np.zeros((2160, 3840, 3), dtype=np.uint8)
             color_drawn = color_image.copy()
             font = cv2.FONT_HERSHEY_SIMPLEX
             font_scale = 1.0
@@ -198,6 +216,7 @@ class ClusterClassifyActionServer(Node):
                 for point in points_2d:
                     cluster_drawn[point[1], point[0]] = cluster_color
                 cv2.rectangle(cluster_drawn, (x1, y1), (x2, y2), cluster_color, box_thickness)
+                cv2.rectangle(components, (x1, y1), (x2, y2), (0, 255, 0), box_thickness)
 
             if do_classification:
                 plant_image = color_image[y1:y2, x1:x2]
@@ -311,6 +330,7 @@ class ClusterClassifyActionServer(Node):
                         writer.writerow([entry["id"], entry["species"],
                                         entry['probability'], entry["num_points"]])
             cv2.imwrite(os.path.join(folder, 'images', 'components3d.png'), cluster_drawn)
+            cv2.imwrite(os.path.join(folder, 'images', 'connectedcomponents.png'), components)
             cv2.imwrite(os.path.join(folder, 'images', 'classified.png'), color_drawn)
             with open(os.path.join(folder, 'log_file.txt'), "a") as file:
                 file.write(log_text)
@@ -321,9 +341,16 @@ class ClusterClassifyActionServer(Node):
         #     plt.show()
         #     plt.imshow(cv2.cvtColor(color_drawn, cv2.COLOR_BGR2RGB))
         #     plt.show()
+        # 
         # colors[labels == -1] = [0, 0, 0]
-        # pcd.colors = o3d.utility.Vector3dVector(colors)
-        # o3d.visualization.draw_geometries([pcd])
+        # pc.colors = o3d.utility.Vector3dVector(colors)
+        # vis = o3d.visualization.Visualizer()
+        # vis.create_window()
+        # vis.add_geometry(pc)
+        # opt = vis.get_render_option()
+        # opt.background_color = np.array([0, 0, 0])
+        # vis.run()
+        # vis.destroy_window()
 
         
         self.get_logger().info('Finished clustering and classification')
