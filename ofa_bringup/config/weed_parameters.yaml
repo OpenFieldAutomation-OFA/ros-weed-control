@@ -1,27 +1,28 @@
 /weed_detection:
   ros__parameters:
-    do_classification: true
-    main_crop: 2473  # 2473: maize, 2354: sugar beet
+    do_classification: true  # classify plants
+    plant_size: 5000  # size per target point
+    main_crop: 2473  # main class (2473: maize, 2354: sugar beet)
     model: base
 
 /weed_main:
   ros__parameters:
+    x_lower: -0.55  # workspace limit
+    x_upper: 0.38  # workspace limit
+    y_lower: -0.25  # workspace limit
+    y_upper: 0.25  # workspace limit
+    z_lower: 0.0  # workspace limit
+    z_upper: 0.4  # workspace limit
+    x_off: 0.002  # offset
+    y_off: -0.002  # offset
+    z_off: 0.02  # offset
+    collision_off: 0.05  # move up after every point
     save_runs: true
     publish_color: false
     color_resolution: 5
     exg_threshold: 0.0
     nir_threshold: 110.0
     ndvi_threshold: 0.0
-    x_lower: -0.55
-    x_upper: 0.38
-    y_lower: -0.25
-    y_upper: 0.25
-    z_lower: 0.0
-    z_upper: 0.4
-    x_off: 0.002
-    y_off: -0.002
-    z_off: 0.02
-    collision_off: 0.05
     old_version: true
     dilation_size: 40
     auto_exposure: false

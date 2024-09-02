@@ -138,6 +138,7 @@ class ClusterClassifyActionServer(Node):
         save_runs = goal_handle.request.save_runs
 
         # get parameters
+        plant_size = self.get_parameter('plant_size').get_parameter_value().integer_value
         do_classification = self.get_parameter('do_classification').get_parameter_value().bool_value
         main_crop = self.get_parameter('main_crop').get_parameter_value().integer_value
         if self.model == 'base':
@@ -289,7 +290,7 @@ class ClusterClassifyActionServer(Node):
                     cv2.rectangle(color_drawn, (x1, y1), (x2, y2), (255, 0, 0), box_thickness)
 
             # compute positions
-            k = math.ceil(len(cluster_points.points) / 5000)
+            k = math.ceil(len(cluster_points.points) / plant_size)
             if k == 1:
                 centroid = points.mean(axis=0)
                 positions.append(Vector3(x=centroid[0], y=centroid[1], z=centroid[2]))
