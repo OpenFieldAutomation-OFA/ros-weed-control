@@ -137,8 +137,16 @@ class ClusterClassifyActionServer(Node):
         folder = goal_handle.request.folder
         save_runs = goal_handle.request.save_runs
 
+        if pc.is_empty():
+            self.get_logger().info('No points in point cloud')
+            goal_handle.succeed()
+            result = ClusterClassify.Result()
+            result.positions = []
+            return result
+
         # get parameters
         plant_size = self.get_parameter('plant_size').get_parameter_value().integer_value
+        min_size = self.get_parameter('min_size').get_parameter_value().integer_value
         do_classification = self.get_parameter('do_classification').get_parameter_value().bool_value
         main_crop = self.get_parameter('main_crop').get_parameter_value().integer_value
         if self.model == 'base':
@@ -175,7 +183,7 @@ class ClusterClassifyActionServer(Node):
 
         # cluster cloud
         start = time.time()
-        labels = np.array(pc.cluster_dbscan(eps=8.0, min_points=30))
+        labels = np.array(pc.cluster_dbscan(eps=8.0, min_points=min_size))
         end = time.time()
         log_text += f"DBSCAN time: {round((end-start)*1000)} ms\n"
         max_label = labels.max()

@@ -1,7 +1,8 @@
 /weed_detection:
   ros__parameters:
-    do_classification: true  # classify plants
-    plant_size: 5000  # size per target point
+    do_classification: false  # classify plants
+    plant_size: 500  # size per target point
+    min_size: 20  # plants smaller than this will get ignored
     main_crop: 2473  # main class (2473: maize, 2354: sugar beet)
     model: base
 
@@ -9,15 +10,16 @@
   ros__parameters:
     x_lower: -0.55  # workspace limit
     x_upper: 0.38  # workspace limit
-    y_lower: -0.25  # workspace limit
-    y_upper: 0.25  # workspace limit
+    y_lower: -0.4  # workspace limit
+    y_upper: 0.4  # workspace limit
     z_lower: 0.0  # workspace limit
     z_upper: 0.4  # workspace limit
     x_off: 0.002  # offset
     y_off: -0.002  # offset
     z_off: 0.02  # offset
-    collision_off: 0.05  # move up after every point
-    save_runs: true
+    collision_off: 0.1  # move up after every point
+    wait_shock: 4000  # time to wait at each point
+    save_runs: true  # if false, images are not saved
     publish_color: false
     color_resolution: 5
     exg_threshold: 0.0
@@ -27,6 +29,5 @@
     dilation_size: 40
     auto_exposure: false
     illumination_correction: true
-    wait_shock: 200
     runs_folder: /home/ofa/ros2_ws/src/ros-weed-control/runs
-    mock_images: mock_images_1
+    mock_images: mock_images_7
