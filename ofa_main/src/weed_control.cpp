@@ -594,6 +594,12 @@ private:
     bool first = true;
     geometry_msgs::msg::Pose target_pose;
     float percent_increase = 100.0 / sorted_positions.size();
+
+    // sorted_positions = {
+    //   {-0.064749, -0.059050, 0.103433},
+    //   {-0.061648, -0.222943, 0.057817},
+    //   {-0.060931, -0.222628, 0.092633}
+    // };
     for (const std::vector<double> & position : sorted_positions)
     {
       if (goal_handle->is_canceling()) {
@@ -653,7 +659,7 @@ private:
         waypoints.push_back(target_pose);
         moveit_msgs::msg::RobotTrajectory trajectory;
         const double jump_threshold = 0.0;
-        const double eef_step = 0.01;
+        const double eef_step = 1.0;
         double fraction = move_group.computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory);
         RCLCPP_INFO(this->get_logger(), "Fraction achieved: %f", fraction * 100.0);
         if (fraction > 0.99)
