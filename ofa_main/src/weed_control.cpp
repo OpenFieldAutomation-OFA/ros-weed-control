@@ -659,7 +659,7 @@ private:
         waypoints.push_back(target_pose);
         moveit_msgs::msg::RobotTrajectory trajectory;
         const double jump_threshold = 0.0;
-        const double eef_step = 1.0;
+        const double eef_step = 0.1;
         double fraction = move_group.computeCartesianPath(waypoints, eef_step, jump_threshold, trajectory);
         RCLCPP_INFO(this->get_logger(), "Fraction achieved: %f", fraction * 100.0);
         if (fraction > 0.99)
