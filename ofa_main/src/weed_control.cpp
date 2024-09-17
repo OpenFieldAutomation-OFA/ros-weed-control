@@ -970,8 +970,8 @@ private:
       cv::imwrite(image_folder + "ir16.png", ir_mat);
       cv::imwrite(image_folder + "ir_binary.png", nir_binary);
       cv::imwrite(image_folder + "ir.png", ir_corrected);
-      cv::imwrite(image_folder + "red.png", bgr_channels[1]);
-      cv::imwrite(image_folder + "green.png", bgr_channels[2]);
+      cv::imwrite(image_folder + "red.png", bgr_channels[2]);
+      cv::imwrite(image_folder + "green.png", bgr_channels[1]);
       cv::imwrite(image_folder + "blue.png", bgr_channels[0]);
       cv::imwrite(image_folder + "exg.png", exg_normalized);
       cv::imwrite(image_folder + "exg_binary.png", exg_binary);
