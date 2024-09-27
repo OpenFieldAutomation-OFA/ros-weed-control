@@ -2,10 +2,8 @@
 
 This package contains all launch files of the OFA Weed Control Unit.
 
-## Orbbec ROS 2
-```bash
-ros2 launch orbbec_camera femto_bolt.launch.py
-```
+## `display.launch.py`
+This launches RViz and displays the URDF description of the robot stored in [`ofa_robot_description.urdf.xacro`](../ofa_moveit_config/urdf/ofa_robot_description.urdf.xacro)
 This will launch the camera node of the official [Orbbec ROS 2 SDK](https://github.com/orbbec/OrbbecSDK_ROS2) package. This is useful for checking if the camera is working properly. The launch parameters are described on the GitHub.
 
 ## MoveIt 2 Setup Assistant

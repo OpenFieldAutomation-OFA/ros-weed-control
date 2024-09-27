@@ -1,13 +1,31 @@
 # ros-weed-control
-This repository contains all ROS 2 packages that were developed for the OFA Weed Control Unit.
+This repository contains all ROS 2 packages that were developed for the OFA Weed Control Unit. The unit is composed of a RGB-D camera to detect weeds on the ground and a 3-DOF robot arm equipped with an electrode at the end to electrucute the detected weeds. 
 
-<!-- TODO: detailed explanation, some images -->
+A detailed description of the system can be found in chapters 3 and 4 of the [report](Weed%20Control%20Unit%20Report%20Haldemann.pdf).
 
 ## Hardware
-<!-- TODO: describe hardware and wiring -->
+The assembled prototype is shown below.
 
-## Setup Jetson
-The following steps describe the setup on a reComputer Industrial J40 flashed with JetPack 6.0 as described [here](https://wiki.seeedstudio.com/reComputer_Industrial_Getting_Started/#flash-to-jetson). If you use different hardware or Jetpack version you will have to figure out how to reproduce the setup yourself.
+![Weed Control Unit](hardware.jpg)
+
+The main hardware components of the weed control unit are listed in the following table.
+
+| Component | Description | Quantity |
+| --- | --- | --- |
+| [reComputer Industrial J4011](https://www.seeedstudio.com/reComputer-Industrial-J4011-p-5681.html) | Computer with onboard GPU and CAN interface | 1 |
+| [Orbbec Femto Bolt](https://www.orbbec.com/products/tof-camera/femto-bolt) | RGB-D camera | 1 |
+| [CubeMars AK70-10](https://www.cubemars.com/goods-1031-AK70-10.html) | Planetary gear motor | 2 |
+| [Teknic CPM-SCSK-2321S-EQNA](https://teknic.com/model-info/CPM-SCSK-2321S-EQNA/?model_voltage=24) | Linear axis motor | 1 |
+| [Festo ELGC-TB-KF-60-1000](https://www.festo.com/ch/en/a/8062781/?identCode1=ELGC-TB-KF-60-1000) | Toothed belt linear axis | 1 |
+
+
+## Software
+Both the control of the robot arm and the weed detection are handled by the main computer. Most of the code running on the reComputer Industrial is published in this repository. Only the hardware interfaces for the motors are in seperate repositories:
+- [CubeMars](https://github.com/OpenFieldAutomation-OFA/cubemars_hardware)
+- [Teknic](https://github.com/OpenFieldAutomation-OFA/teknic_hardware)
+
+### Setup
+The following steps describe the setup of the reComputer Industrial, assuming it was flashed with JetPack 6.0 as described [here](https://wiki.seeedstudio.com/reComputer_Industrial_Getting_Started/#flash-to-jetson). If you use a different computer or Jetpack version you will have to figure out how to reproduce the setup yourself.
 
 1. Update the system.
     ```bash
@@ -39,7 +57,7 @@ The following steps describe the setup on a reComputer Industrial J40 flashed wi
     sudo apt install ros-dev-tools
     sudo apt install ros-iron-desktop
     ```
-7. Create workspace.
+7. Create the ROS workspace.
     ```bash
     source /opt/ros/iron/setup.bash
     echo "source /opt/ros/iron/setup.bash" >> ~/.bashrc
@@ -52,14 +70,15 @@ The following steps describe the setup on a reComputer Industrial J40 flashed wi
     rosdep update
     rosdep install --from-paths src -y --ignore-src
     ```
-8. Install onnxruntime and model.
+8. Install the ONNX Runtime and download the pretrained model.
     ```bash
     cd ~/ros2_ws/src/ros-weed-control/ofa_detection
     pip install numpy==1.26.4
     pip install onnxruntime_gpu-1.20.0-cp310-cp310-linux_aarch64.whl
     wget https://github.com/OpenFieldAutomation-OFA/plant-training/releases/download/v0.0.0/finetuned_small.onnx -P model/
     wget https://github.com/OpenFieldAutomation-OFA/plant-training/releases/download/v0.0.0/finetuned.onnx -P model/
-    # We generate the engine file manually because the builder in onnxruntime does not work for some reason
+
+    # We generate the tensorrt engine file manually because the builder in onnxruntime does not work correctly for some reason
     mkdir -p model/trt_engine
     /usr/src/tensorrt/bin/trtexec --onnx=model/finetuned_small.onnx --saveEngine=model/trt_engine/TensorrtExecutionProvider_TRTKernel_graph_main_graph_6398305485275041207_0_0_sm87.engine --fp16
     /usr/src/tensorrt/bin/trtexec --onnx=model/finetuned.onnx --saveEngine=model/trt_engine/TensorrtExecutionProvider_TRTKernel_graph_main_graph_12799879847838785250_0_0_sm87.engine --fp16
@@ -79,8 +98,8 @@ The following steps describe the setup on a reComputer Industrial J40 flashed wi
     sudo reboot
     ```
 
-## Run Program
-After the setup you can build your workspace.
+### Run Program
+After the setup you can build the packages.
 ```bash
 cd ~/ros2_ws
 colcon build --symlink-install
@@ -90,12 +109,12 @@ In a new terminal source the overlay.
 cd ~/ros2_ws
 source install/local_setup.bash
 ```
-Now you can use any of the commands described in the `ofa_bringup` package.
+Now you can use any of the commands described in the [`ofa_bringup`](ofa_bringup) package.
 ```bash
-ros2 launch ofa_bringup main.launch.py
+ros2 launch ofa_bringup display.launch.py
 ```
 
-## Docker
+### Docker
 If you want to develop or run the code on a different machine than the Jetson, you can use our Docker image and a [Dev Container](https://code.visualstudio.com/docs/devcontainers/containers).
 
 On your machine (Linux or WSL) clone this repo. Open the `ros-weed-control` folder in VS Code and run **Dev Containers: Rebuild and Reopen in Container**. This will automatically build and run the container. Then open two new terminals, one for running `colcon build --symlink-install` and one for sourcing the workspace with `source install/setup.bash`.
@@ -105,4 +124,4 @@ After that you can run all the same commands as on the Jetson, as long as you do
 Note that CUDA is not installed inside the container so inference will be done on the CPU and be very slow.
 
 ## URDF
-The URDF description of the robot is stored in `ofa_moveit_config/urdf/ofa_robot_description.urdf.xacro`. Everytime the URDF is changed, you need to update the IKFast plugin and regenerate the SRDF file of the MoveIt config. Details about these two steps can be found in the README of `ofa_ikfast_plugin` and `ofa_bringup`.
+The URDF description of the robot is stored in [`ofa_robot_description.urdf.xacro`](ofa_moveit_config/urdf/ofa_robot_description.urdf.xacro). Everytime the URDF is changed, you need to update the IKFast plugin and regenerate the SRDF file of the MoveIt config. Details about these two steps can be found in the readme of [`ofa_ikfast_plugin`](ofa_ikfast_plugin) and [`ofa_bringup`](ofa_bringup).
