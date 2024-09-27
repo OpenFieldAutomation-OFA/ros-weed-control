@@ -56,7 +56,7 @@ install(
   DESTINATION lib
 )
 install(
-  DIRECTORY images
+  DIRECTORY images rviz
   DESTINATION share/${PROJECT_NAME}
 )
 
