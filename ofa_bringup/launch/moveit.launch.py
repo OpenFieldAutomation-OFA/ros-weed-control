@@ -36,7 +36,7 @@ def generate_launch_description():
 
     # Launch RViz
     rviz_config_file = PathJoinSubstitution(
-        [FindPackageShare("ofa_moveit_config"), "rviz", "moveit.rviz"]
+        [FindPackageShare("ofa_bringup"), "rviz", "moveit.rviz"]
     )
     rviz_node = Node(
         package="rviz2",

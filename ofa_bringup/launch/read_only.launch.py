@@ -51,7 +51,7 @@ def generate_launch_description():
         ]
     )
     rviz_config_file = PathJoinSubstitution(
-        [FindPackageShare("ofa_moveit_config"), "rviz", "urdf.rviz"]
+        [FindPackageShare("ofa_bringup"), "rviz", "urdf.rviz"]
     )
 
     control_node = Node(

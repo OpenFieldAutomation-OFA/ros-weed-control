@@ -8,7 +8,7 @@ def generate_launch_description():
     ld = LaunchDescription()
 
     model_path = PathJoinSubstitution(['config', 'ofa_robot.urdf.xacro'])
-    rviz_config_path = PathJoinSubstitution([FindPackageShare('ofa_moveit_config'), 'rviz', 'urdf.rviz'])
+    rviz_config_path = PathJoinSubstitution([FindPackageShare('ofa_bringup'), 'rviz', 'urdf.rviz'])
     
     ld.add_action(IncludeLaunchDescription(
         PathJoinSubstitution([FindPackageShare('urdf_launch'), 'launch', 'display.launch.py']),

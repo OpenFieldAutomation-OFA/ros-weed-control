@@ -1,5 +1,5 @@
 # ofa_ikfast_plugin
-This package contains the IKFast plugin for the ofa_robot arm.
+This package contains the IKFast plugin for the `ofa_robot`.
 
 ## Update Plugin
 After every change in the URDF file this plugin has to be updated. Otherwise, the inverse kinematics are not calculated correctly.

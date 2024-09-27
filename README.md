@@ -109,19 +109,17 @@ In a new terminal source the overlay.
 cd ~/ros2_ws
 source install/local_setup.bash
 ```
-Now you can use any of the commands described in the [`ofa_bringup`](ofa_bringup) package.
+Now you can use any of the launch files described in the [`ofa_bringup`](ofa_bringup) package.
 ```bash
 ros2 launch ofa_bringup display.launch.py
 ```
 
 ### Docker
-If you want to develop or run the code on a different machine than the Jetson, you can use our Docker image and a [Dev Container](https://code.visualstudio.com/docs/devcontainers/containers).
+We have created a [Dockerfile](Dockerfile) and a [devcontainer.json file](.devcontainer/devcontainer.json) which can be used to develop and run the code on a remote machine. Inside the container the ROS workspace is already setup and all dependencies are installed. Note that CUDA is not installed inside the container so inference will be done on the CPU.
 
 On your machine (Linux or WSL) clone this repo. Open the `ros-weed-control` folder in VS Code and run **Dev Containers: Rebuild and Reopen in Container**. This will automatically build and run the container. Then open two new terminals, one for running `colcon build --symlink-install` and one for sourcing the workspace with `source install/setup.bash`.
 
-After that you can run all the same commands as on the Jetson, as long as you don't use `use_mock_hardware:=false` (because we have no access to the hardware).
-
-Note that CUDA is not installed inside the container so inference will be done on the CPU and be very slow.
+After that you can launch the same nodes as on the Jetson, as long as you use `use_mock_hardware:=true`.
 
 ## URDF
-The URDF description of the robot is stored in [`ofa_robot_description.urdf.xacro`](ofa_moveit_config/urdf/ofa_robot_description.urdf.xacro). Everytime the URDF is changed, you need to update the IKFast plugin and regenerate the SRDF file of the MoveIt config. Details about these two steps can be found in the readme of [`ofa_ikfast_plugin`](ofa_ikfast_plugin) and [`ofa_bringup`](ofa_bringup).
+The URDF description of the robot is stored in [`ofa_robot_description.urdf.xacro`](ofa_moveit_config/urdf/ofa_robot_description.urdf.xacro). Everytime the URDF is changed, you need to update the IKFast plugin and regenerate the SRDF file of the MoveIt config. Details about these two steps can be found in the readme of [`ofa_ikfast_plugin`](ofa_ikfast_plugin) and [`ofa_moveit_config`](ofa_moveit_config).

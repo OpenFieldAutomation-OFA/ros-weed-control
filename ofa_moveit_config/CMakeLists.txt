@@ -6,7 +6,7 @@ find_package(ament_cmake REQUIRED)
 ament_package()
 
 install(
-  DIRECTORY config rviz urdf ros2_control
+  DIRECTORY config urdf ros2_control
   DESTINATION share/${PROJECT_NAME}
 )
 install(FILES .setup_assistant DESTINATION share/${PROJECT_NAME})

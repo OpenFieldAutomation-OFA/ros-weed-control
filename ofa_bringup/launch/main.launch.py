@@ -27,7 +27,8 @@ def generate_launch_description():
             description="Start robot with mock hardware mirroring command to its states.",
         )
     )
-
+    # Initialize Arguments
+    gui = LaunchConfiguration("gui")
     use_mock_hardware = LaunchConfiguration("use_mock_hardware")
     # Load the robot configuration
     mappings = {
@@ -50,7 +51,7 @@ def generate_launch_description():
 
     # Launch RViz
     rviz_config_file = PathJoinSubstitution(
-        [FindPackageShare("ofa_main"), "rviz", "main.rviz"]
+        [FindPackageShare("ofa_bringup"), "rviz", "main.rviz"]
     )
     rviz_node = Node(
         package="rviz2",
@@ -65,7 +66,7 @@ def generate_launch_description():
             moveit_config.planning_pipelines,
             moveit_config.joint_limits,
         ],
-        condition=IfCondition(LaunchConfiguration("gui")),
+        condition=IfCondition(gui),
     )
 
     # Publish TF
