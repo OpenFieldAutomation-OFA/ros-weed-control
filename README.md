@@ -114,7 +114,7 @@ ros2 launch ofa_bringup display.launch.py
 ```
 
 ### Docker
-We have created a [Dockerfile](Dockerfile) and a [devcontainer.json file](.devcontainer/devcontainer.json) which can be used to run and develop the code on a remote machine. Inside the container the ROS workspace is already setup and all dependencies are installed. Note that CUDA is not installed inside the container so inference will be done on the CPU.
+We have created a [Dockerfile](Dockerfile) and a [devcontainer.json file](.devcontainer/devcontainer.json) which can be used to run and develop the code on a remote machine. Inside the container, the ROS workspace is already setup and all dependencies are installed. Note that CUDA is not installed inside the container so inference will be done on the CPU.
 
 On your machine (Linux or WSL) clone this repo. Open the `ros-weed-control` folder in VS Code and use the **Dev Containers: Rebuild and Reopen in Container** command from the Command Palette (`F1`). This will automatically build and run the container. You also have to download the pretrained models because they are not stored on Git.
 
