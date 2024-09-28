@@ -1,5 +1,5 @@
 # ros-weed-control
-This repository contains all ROS 2 packages that were developed for the OFA Weed Control Unit. The unit is composed of a RGB-D camera to detect weeds on the ground and a 3-DOF robot arm equipped with an electrode at the end to electrucute the detected weeds. 
+This repository contains the ROS 2 packages that were developed for the OFA weed control unit. The unit is composed of a RGB-D camera to detect weeds on the ground and a 3-DOF robot arm equipped with an electrode at the end to electrocute the detected weeds. 
 
 A detailed description of the system can be found in chapters 3 and 4 of the [report](Weed%20Control%20Unit%20Report%20Haldemann.pdf).
 
@@ -8,7 +8,7 @@ The assembled prototype is shown below.
 
 ![Weed Control Unit](hardware.jpg)
 
-The main hardware components of the weed control unit are listed in the following table.
+The main hardware components of the weed control unit are listed in the table.
 
 | Component | Description | Quantity |
 | --- | --- | --- |
@@ -20,12 +20,12 @@ The main hardware components of the weed control unit are listed in the followin
 
 
 ## Software
-Both the control of the robot arm and the weed detection are handled by the main computer. Most of the code running on the reComputer Industrial is published in this repository. Only the hardware interfaces for the motors are in seperate repositories:
+Both the control of the robot arm and the weed detection are handled by the reComputer Industrial. The code running on the computer is published in this repository, except for the motor hardware interfaces which are in seperate repositories:
 - [CubeMars](https://github.com/OpenFieldAutomation-OFA/cubemars_hardware)
 - [Teknic](https://github.com/OpenFieldAutomation-OFA/teknic_hardware)
 
 ### Setup
-The following steps describe the setup of the reComputer Industrial, assuming it was flashed with JetPack 6.0 as described [here](https://wiki.seeedstudio.com/reComputer_Industrial_Getting_Started/#flash-to-jetson). If you use a different computer or Jetpack version you will have to figure out how to reproduce the setup yourself.
+The following steps describe the setup of the reComputer Industrial, assuming it was flashed with JetPack 6.0 as described [here](https://wiki.seeedstudio.com/reComputer_Industrial_Getting_Started/#flash-to-jetson). If you use a different computer you will have to figure out how to reproduce the setup yourself.
 
 1. Update the system.
     ```bash
@@ -77,7 +77,6 @@ The following steps describe the setup of the reComputer Industrial, assuming it
     pip install onnxruntime_gpu-1.20.0-cp310-cp310-linux_aarch64.whl
     wget https://github.com/OpenFieldAutomation-OFA/plant-training/releases/download/v0.0.0/finetuned_small.onnx -P model/
     wget https://github.com/OpenFieldAutomation-OFA/plant-training/releases/download/v0.0.0/finetuned.onnx -P model/
-
     # We generate the tensorrt engine file manually because the builder in onnxruntime does not work correctly for some reason
     mkdir -p model/trt_engine
     /usr/src/tensorrt/bin/trtexec --onnx=model/finetuned_small.onnx --saveEngine=model/trt_engine/TensorrtExecutionProvider_TRTKernel_graph_main_graph_6398305485275041207_0_0_sm87.engine --fp16
@@ -107,7 +106,7 @@ colcon build --symlink-install
 In a new terminal source the overlay.
 ```bash
 cd ~/ros2_ws
-source install/local_setup.bash
+source install/setup.bash
 ```
 Now you can use any of the launch files described in the [`ofa_bringup`](ofa_bringup) package.
 ```bash
@@ -115,11 +114,17 @@ ros2 launch ofa_bringup display.launch.py
 ```
 
 ### Docker
-We have created a [Dockerfile](Dockerfile) and a [devcontainer.json file](.devcontainer/devcontainer.json) which can be used to develop and run the code on a remote machine. Inside the container the ROS workspace is already setup and all dependencies are installed. Note that CUDA is not installed inside the container so inference will be done on the CPU.
+We have created a [Dockerfile](Dockerfile) and a [devcontainer.json file](.devcontainer/devcontainer.json) which can be used to run and develop the code on a remote machine. Inside the container the ROS workspace is already setup and all dependencies are installed. Note that CUDA is not installed inside the container so inference will be done on the CPU.
 
-On your machine (Linux or WSL) clone this repo. Open the `ros-weed-control` folder in VS Code and run **Dev Containers: Rebuild and Reopen in Container**. This will automatically build and run the container. Then open two new terminals, one for running `colcon build --symlink-install` and one for sourcing the workspace with `source install/setup.bash`.
+On your machine (Linux or WSL) clone this repo. Open the `ros-weed-control` folder in VS Code and use the **Dev Containers: Rebuild and Reopen in Container** command from the Command Palette (`F1`). This will automatically build and run the container. You also have to download the pretrained models because they are not stored on Git.
 
-After that you can launch the same nodes as on the Jetson, as long as you use `use_mock_hardware:=true`.
+```bash
+cd ~/ros2_ws/src/ros-weed-control/ofa_detection
+wget https://github.com/OpenFieldAutomation-OFA/plant-training/releases/download/v0.0.0/finetuned_small.onnx -P model/
+wget https://github.com/OpenFieldAutomation-OFA/plant-training/releases/download/v0.0.0/finetuned.onnx -P model/
+```
+
+After that you can build and [run the program](#run-program) the same way as with the native install. However, you have to set `use_mock_hardware:=true` because the hardware is not connected.
 
 ## URDF
 The URDF description of the robot is stored in [`ofa_robot_description.urdf.xacro`](ofa_moveit_config/urdf/ofa_robot_description.urdf.xacro). Everytime the URDF is changed, you need to update the IKFast plugin and regenerate the SRDF file of the MoveIt config. Details about these two steps can be found in the readme of [`ofa_ikfast_plugin`](ofa_ikfast_plugin) and [`ofa_moveit_config`](ofa_moveit_config).

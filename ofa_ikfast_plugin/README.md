@@ -17,4 +17,4 @@ If you are developing on the Jetson (`arm64` platform) the procedure has to be s
     ```
     Commit and push the changes.
 
-For the second step you only need to have Docker and Python installed, ROS is not needed.
+For the second step you only need to have Docker and Python installed. ROS is not needed.

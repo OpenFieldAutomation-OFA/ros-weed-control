@@ -30,13 +30,12 @@ RUN sudo apt-get update \
     && sudo apt-get install -y --no-install-recommends \
     neovim \
     less \
+    wget \
     python3-pip \
     ros-$ROS_DISTRO-urdf-launch \
     ros-$ROS_DISTRO-ros2-control \
     ros-$ROS_DISTRO-ros2-controllers \
-    ros-$ROS_DISTRO-moveit
-
-RUN sudo apt-get install -y --no-install-recommends \
+    ros-$ROS_DISTRO-moveit \
     python3-open3d \
     python3-sklearn
 

@@ -54,48 +54,9 @@ class ClusterClassifyActionServer(Node):
         self.get_logger().info('Loaded network.')
         self.input_name = self.session.get_inputs()[0].name
 
-        # image = cv2.imread('/home/ofa/ros2_ws/src/ros-weed-control/ofa_detection/ofa_detection/00dcd0ff0c50e304d43e519f0eafc849.jpg')
-        # self.get_logger().info(f"The value of the first pixel is: {image[0, 0]}")
-        # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        # self.get_logger().info(f"The value of the first pixel is: {image[0, 0]}")
-        # target_size = 518
-        # height, width = image.shape[:2]
-        # if width < height:
-        #     new_width = target_size
-        #     new_height = int(target_size * height / width)
-        # else:
-        #     new_height = target_size
-        #     new_width = int(target_size * width / height)
-        # image = cv2.resize(image, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
-        # start_x = (new_width - target_size) // 2
-        # start_y = (new_height - target_size) // 2
-        # image = image[start_y:start_y + target_size, start_x:start_x + target_size]
-        # self.get_logger().info(f"The value of the first pixel is: {image[0, 0]}")
-        # mean=[123.675, 116.28, 103.53]
-        # std=[58.395, 57.12, 57.375]
-        # image = (image - mean) / std
-        # print(image[0, 0])
-        # image = np.transpose(image, (2, 0, 1))
-        # input_tensor = np.expand_dims(image, axis=0)
-        # input_tensor = input_tensor.astype(np.float32)
-        # input_name = self.session.get_inputs()[0].name
-        # input_shape = self.session.get_inputs()[0].shape
-        # self.get_logger().info(f"Input name: {input_name}, input shape: {input_shape}")
-        # start = time.time()
-        # outputs = self.session.run(None, {input_name: input_tensor})
-        # end = time.time()
-        # self.get_logger().info(f"Time: {end-start}")
-        # output_name = self.session.get_outputs()[0].name
-        # predictions = outputs[0][0]
-        # max_indices = np.argmax(predictions)
-        # print(predictions)
-        # print(predictions[max_indices])
-        # print(max_indices)
-
         # load mappings
         self.class_mapping = {}
         self.species_mapping = {}
-        from ament_index_python.packages import get_package_share_directory
         package_share_directory = get_package_share_directory('ofa_detection')
         class_mapping_file = os.path.join(package_share_directory, 'mappings', 'class_mapping.txt')
         species_mapping_file = os.path.join(package_share_directory, 'mappings', 'species_id_to_name.txt')
@@ -162,8 +123,6 @@ class ClusterClassifyActionServer(Node):
         components = np.zeros((2160, 3840, 3), dtype=np.uint8)
         for point in points_2d:
             components[point[1], point[0]] = 255
-        
-        # o3d.visualization.draw_geometries([pc])
 
         # downsample cloud
         self.get_logger().info(f"Point cloud loaded with {len(pc.points)} points")
@@ -192,7 +151,6 @@ class ClusterClassifyActionServer(Node):
         colors = np.zeros((len(labels), 3))
 
         if save_runs:
-            # cluster_drawn = np.ones((2160, 3840, 3), dtype=np.uint8) * 255
             cluster_drawn = np.zeros((2160, 3840, 3), dtype=np.uint8)
             color_drawn = color_image.copy()
             font = cv2.FONT_HERSHEY_SIMPLEX
@@ -261,8 +219,8 @@ class ClusterClassifyActionServer(Node):
                 predictions[main_crop] += increase_output
                 max_ind = np.argmax(predictions)
                 prob = predictions[max_ind]
-                self.get_logger().info(f"Prediction: {max_ind}, {prob*100}%")
                 species_name = self.species_mapping[self.class_mapping[max_ind]]
+                self.get_logger().info(f"Prediction: {species_name}, {prob*100} %")
                 text = str(i) + ", " + species_name  # add box id
                 if save_runs:
                     if max_ind == main_crop:

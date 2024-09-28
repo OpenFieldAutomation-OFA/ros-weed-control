@@ -286,41 +286,15 @@ private:
     device_.set_color_control(K4A_COLOR_CONTROL_POWERLINE_FREQUENCY,
       K4A_COLOR_CONTROL_MODE_MANUAL, 1);
 
-    k4a_color_resolution_t color_resolution = static_cast<k4a_color_resolution_t>(
-      this->get_parameter("color_resolution").as_int());
-
     // define config
     k4a_device_configuration_t config = K4A_DEVICE_CONFIG_INIT_DISABLE_ALL;
     config.camera_fps = K4A_FRAMES_PER_SECOND_15;
     config.color_format = K4A_IMAGE_FORMAT_COLOR_MJPG;  // BGRA32 leads to problems
-    config.color_resolution = color_resolution;
+    config.color_resolution = K4A_COLOR_RESOLUTION_2160P;
     config.depth_mode = K4A_DEPTH_MODE_WFOV_UNBINNED;
     config.synchronized_images_only = true;
 
     calibration_ = device_.get_calibration(config.depth_mode, config.color_resolution);
-    // int resolution = calibration_.color_resolution;
-    // int height = calibration_.color_camera_calibration.resolution_height;
-    // int width = calibration_.color_camera_calibration.resolution_width;
-    // float metric_radius = calibration_.color_camera_calibration.metric_radius;
-
-    // float cx = calibration_.color_camera_calibration.extrinsics.rotation[0];
-    // float cy = calibration_.color_camera_calibration.extrinsics.rotation[1];
-    // float fx = calibration_.color_camera_calibration.extrinsics.rotation[2];
-    // float fy = calibration_.color_camera_calibration.extrinsics.rotation[3];
-    // float k1 = calibration_.color_camera_calibration.extrinsics.rotation[4];
-    // float k2 = calibration_.color_camera_calibration.extrinsics.rotation[5];
-    // float k3 = calibration_.color_camera_calibration.extrinsics.rotation[6];
-    // float k4 = calibration_.color_camera_calibration.extrinsics.rotation[7];
-    // float k5 = calibration_.color_camera_calibration.extrinsics.rotation[8];
-    // float k6 = calibration_.color_camera_calibration.extrinsics.rotation[9];
-    // float codx = calibration_.color_camera_calibration.extrinsics.translation[0];
-    // float cody = calibration_.color_camera_calibration.extrinsics.translation[1];
-    // float p2 = calibration_.color_camera_calibration.extrinsics.translation[2];
-    // RCLCPP_INFO(this->get_logger(),
-    //   "camera calibration: %d, %d, %d, %f. extrincis: %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f, %f",
-    //   resolution, height, width, metric_radius,
-    //   cx, cy, fx, fy, k1, k2, k3, k4, k5, k6, codx, cody, p2
-    // );
     transformation_ = k4a::transformation(calibration_);
 
     device_.start_cameras(&config);
@@ -595,11 +569,6 @@ private:
     geometry_msgs::msg::Pose target_pose;
     float percent_increase = 100.0 / sorted_positions.size();
 
-    // sorted_positions = {
-    //   {-0.064749, -0.059050, 0.103433},
-    //   {-0.061648, -0.222943, 0.057817},
-    //   {-0.060931, -0.222628, 0.092633}
-    // };
     for (const std::vector<double> & position : sorted_positions)
     {
       if (goal_handle->is_canceling()) {
@@ -704,11 +673,6 @@ private:
   {
     // get parameters
     const double exg_threshold = this->get_parameter("exg_threshold").as_double();;  // excess green threshold
-    const double nir_threshold = this->get_parameter("nir_threshold").as_double();  // nir threshold
-    const double ndvi_threshold = this->get_parameter("ndvi_threshold").as_double();  // nir threshold
-    
-    const bool old_version = this->get_parameter("old_version").as_bool();
-    const int dilation_size = this->get_parameter("dilation_size").as_int();;  // dilation kernel size
 
     std::chrono::_V2::system_clock::time_point t1;
     std::chrono::_V2::system_clock::time_point t2;
@@ -804,19 +768,6 @@ private:
       color_mat = cv::imread(package_share_directory + "/images/" + mock_images + "/" + pos + "/color.png", cv::IMREAD_COLOR);
     }
 
-    cv::Mat ir_corrected;
-    ir_mat.convertTo(ir_corrected, CV_32F);
-    bool illumination_correction = this->get_parameter("illumination_correction").as_bool();
-    if(illumination_correction)
-    {
-      cv::Mat ill_corr = cv::imread(package_share_directory + "/images/illumination.png", cv::IMREAD_GRAYSCALE);
-      ill_corr.convertTo(ill_corr, CV_32F);
-      ir_corrected = ir_corrected / ill_corr * 150;
-    }
-
-    cv::threshold(ir_corrected, ir_corrected, 2000, 2000, cv::THRESH_TRUNC); // remove outliers (reflections, saturated pixels)
-    ir_corrected.convertTo(ir_corrected, CV_8UC1, 255.0 / 2000.0);
-
     // calculate ExG
     t1 = std::chrono::high_resolution_clock::now();
     std::vector<cv::Mat> bgr_channels;
@@ -828,43 +779,30 @@ private:
     cv::Mat exg = 2.0 * green_channel - red_channel - blue_channel;
 
     // remove some noise
-    cv::GaussianBlur(ir_corrected, ir_corrected, cv::Size(15, 15), 0);
     cv::GaussianBlur(exg, exg, cv::Size(15, 15), 0);
-
-    // NIR
-    cv::Mat ir_float;
-    ir_corrected.convertTo(ir_float, CV_32F);
-    cv::Mat ndvi = (ir_float - red_channel) / (ir_float + red_channel);
-    cv::Mat ndvi_binary;
-    cv::threshold(ndvi, ndvi_binary, ndvi_threshold, 255, cv::THRESH_BINARY);
-    ndvi_binary.convertTo(ndvi_binary, CV_8UC1);
 
     // threshold
     cv::Mat exg_binary;
     cv::threshold(exg, exg_binary, exg_threshold, 255, cv::THRESH_BINARY);
     exg_binary.convertTo(exg_binary, CV_8UC1);
-    cv::Mat nir_binary;
-    cv::threshold(ir_corrected, nir_binary, nir_threshold, 255, cv::THRESH_BINARY);
-    cv::Mat combined_binary;
-    // cv::bitwise_and(exg_binary, nir_binary, combined_binary);  // doesn't really work sadly
-    combined_binary = exg_binary.clone();
+    cv::Mat clean_binary = exg_binary.clone();
     cv::Mat kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(10, 10));
-    cv::morphologyEx(combined_binary, combined_binary, cv::MORPH_OPEN, kernel);
+    cv::morphologyEx(clean_binary, clean_binary, cv::MORPH_OPEN, kernel);
 
     t2 = std::chrono::high_resolution_clock::now();
     ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
     log_text += "Segmentation: " + std::to_string(ms_int.count()) + " ms\n";
 
     t1 = std::chrono::high_resolution_clock::now();
-    int rows = combined_binary.rows;
-    int cols = combined_binary.cols;
+    int rows = clean_binary.rows;
+    int cols = clean_binary.cols;
     std::vector<float> cloud_data;
     cloud_data.reserve(rows * cols);  // speeds up computation
-    for (int row = 0; row < combined_binary.rows; row++)
+    for (int row = 0; row < clean_binary.rows; row++)
     {
-      for (int col = 0; col < combined_binary.cols; col++)
+      for (int col = 0; col < clean_binary.cols; col++)
       {
-        if ((int)combined_binary.at<std::uint8_t>(row, col) == 0) continue;
+        if ((int)clean_binary.at<std::uint8_t>(row, col) == 0) continue;
         if ((int)depth_mat.at<std::uint16_t>(row, col) == 0) continue;
         k4a_float3_t point3d;
         k4a_float2_t point2d;
@@ -888,53 +826,6 @@ private:
     t2 = std::chrono::high_resolution_clock::now();
     ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
     log_text += "Project to 3D: " + std::to_string(ms_int.count()) + " ms\n";
-
-    cv::Mat components2d = cv::Mat::zeros(combined_binary.size(), CV_8UC3);
-    if (old_version)  // connecting components in 2d
-    {
-      t1 = std::chrono::high_resolution_clock::now();
-
-      // morphological transforms
-      cv::Mat clean_binary;
-      cv::Mat kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(dilation_size, dilation_size));
-      cv::morphologyEx(combined_binary, clean_binary, cv::MORPH_DILATE, kernel);
-      components2d.setTo(
-        cv::Vec3b(255, 255, 255),
-        combined_binary == 255
-      );
-      // components2d = combined_binary.clone();
-
-      // seperate components
-      cv::Mat labels, stats, centroids;
-      int connectivity = 8;
-      int num_components = cv::connectedComponentsWithStats(clean_binary, labels, stats, centroids, connectivity);
-      t2 = std::chrono::high_resolution_clock::now();
-      ms_int = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
-      log_text += "2D Clustering: " + std::to_string(ms_int.count()) + " ms\n";
-
-      // display results
-      int min_area = 4000;
-      for (int i = 1; i < num_components; i++) {
-        cv::Rect bounding_box = cv::Rect(stats.at<int>(i, cv::CC_STAT_LEFT),
-                                        stats.at<int>(i, cv::CC_STAT_TOP),
-                                        stats.at<int>(i, cv::CC_STAT_WIDTH),
-                                        stats.at<int>(i, cv::CC_STAT_HEIGHT));
-        // don't consider small components
-        int area = stats.at<int>(i, cv::CC_STAT_AREA);
-        if (area >= min_area) {
-          // std::uint8_t r = 255 * (rand() / (1.0 + RAND_MAX));
-          // std::uint8_t g = 255 * (rand() / (1.0 + RAND_MAX));
-          // std::uint8_t b = 255 * (rand() / (1.0 + RAND_MAX));
-          // components2d.setTo(
-          //   cv::Vec3b(255, 255, 255),
-          //   labels == i
-          // );
-          cv::Point centroid(cvRound(centroids.at<double>(i, 0)), cvRound(centroids.at<double>(i, 1)));
-          cv::rectangle(components2d, bounding_box, cv::Scalar(0, 255, 0), 5);
-          // cv::circle(components2d, centroid, 4, cv::Scalar(0, 0, 255), -1);
-        }
-      }
-    }
 
     std::string folder_name;
     if (save_runs_)
@@ -961,27 +852,14 @@ private:
       cv::bitwise_not(depth_normalized, depth_normalized);
       cv::Mat exg_normalized;
       cv::normalize(exg, exg_normalized, 0, 255, cv::NORM_MINMAX, CV_8UC1);
-      cv::Mat ndvi_normalized;
-      cv::normalize(ndvi, ndvi_normalized, 0, 255, cv::NORM_MINMAX, CV_8UC1);
 
       cv::imwrite(image_folder + "color.png", color_mat);
       cv::imwrite(image_folder + "depth.png", depth_normalized);
       cv::imwrite(image_folder + "depth16.png", depth_mat);
       cv::imwrite(image_folder + "ir16.png", ir_mat);
-      cv::imwrite(image_folder + "ir_binary.png", nir_binary);
-      cv::imwrite(image_folder + "ir.png", ir_corrected);
-      cv::imwrite(image_folder + "red.png", bgr_channels[2]);
-      cv::imwrite(image_folder + "green.png", bgr_channels[1]);
-      cv::imwrite(image_folder + "blue.png", bgr_channels[0]);
       cv::imwrite(image_folder + "exg.png", exg_normalized);
       cv::imwrite(image_folder + "exg_binary.png", exg_binary);
-      cv::imwrite(image_folder + "ndvi.png", ndvi_normalized);
-      cv::imwrite(image_folder + "ndvi_binary.png", ndvi_binary);
-      cv::imwrite(image_folder + "combined_binary.png", combined_binary);
-      if (old_version)
-      {
-        cv::imwrite(image_folder + "components2d.png", components2d);
-      }
+      cv::imwrite(image_folder + "clean_binary.png", clean_binary);
 
       RCLCPP_INFO(this->get_logger(), "Saved images to %s", image_folder.c_str());
     }
@@ -1006,7 +884,7 @@ private:
       *iter_z = cloud_data[3 * i + 2];
     }
 
-    // create color_image message
+    // create color image message
     auto goal = ClusterClassify::Goal();
     sensor_msgs::msg::Image ros_image;
     ros_image.height = color_mat.rows;
